@@ -1,0 +1,21 @@
+COGNICORE PROJECT - START HERE
+
+1. Extract this ZIP anywhere (Desktop is recommended).
+2. Open the extracted CogniCore_Project folder in VS Code.
+3. Terminal 1:
+   cd backend
+   npm install
+   npm run dev
+
+4. Terminal 2:
+   cd frontend
+   npm install
+   npm run dev
+
+Then open the local address shown by Vite.
+
+IMPORTANT:
+After extracting, the folder you open should directly contain:
+backend
+frontend
+README.md
