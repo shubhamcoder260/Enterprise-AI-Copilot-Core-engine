@@ -4,10 +4,16 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import {
-  uploadDatabase
+  uploadDatabase,
+  getActiveDatabase,
+  switchActiveDatabase
 } from "../controllers/database.controller.js";
 
 const router = express.Router();
+
+router.get("/active", getActiveDatabase);
+router.post("/switch", switchActiveDatabase);
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

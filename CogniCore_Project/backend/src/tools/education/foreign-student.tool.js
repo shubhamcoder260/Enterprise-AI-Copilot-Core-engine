@@ -1,25 +1,77 @@
 import { connectDatabase } from "../../config/database.js";
 
+function parseForeignStudentQuery(query = "", defaultHomeCountry = process.env.DEFAULT_HOME_COUNTRY || "India") {
+  const q = String(query).toLowerCase();
+
+  // Extract 4-digit year (e.g. 2024, 2025, 2026)
+  const yearMatch = q.match(/\b(19\d\d|20\d\d)\b/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : null;
+
+  // Check if query specifies a custom domestic/home country
+  let homeCountry = defaultHomeCountry;
+  const homeMatch = q.match(
+    /(?:home\s*country|domestic\s*country|local\s*to|outside\s*(?:of)?)\s*(?:is\s+|as\s+)?([a-zA-Z\s]+?)(?=\s*(?:\b(?:students?|enrolled|enrollment|admissions?|who|with|in|during|for|having|count|total|records?|list)\b|[?,.;!]|$))/i
+  );
+  if (homeMatch && homeMatch[1] && homeMatch[1].trim()) {
+    homeCountry = homeMatch[1].trim();
+  }
+
+  return { year, homeCountry };
+}
+
 export const foreignStudentTool = {
   name: "Foreign Student Analytics Tool",
 
-  async execute() {
+  async execute({ query = "" } = {}) {
+    const { year, homeCountry } = parseForeignStudentQuery(query);
     const db = await connectDatabase();
 
-    const records = await db.all(`
-      SELECT *
-      FROM students
-      WHERE country != 'India'
-      AND enrollment_year = 2026
-    `);
+    try {
+      const MAX_RECORDS = 50;
+      let countSql = `SELECT COUNT(*) AS count FROM students WHERE LOWER(country) != LOWER(?)`;
+      let recordSql = `SELECT * FROM students WHERE LOWER(country) != LOWER(?)`;
+      const params = [homeCountry];
 
-    return {
-      answer: `${records.length} foreign students enrolled in 2026.`,
-      data: {
-        metric: "foreign_students_enrolled_2026",
-        value: records.length,
-        records
+      if (year !== null) {
+        countSql += ` AND enrollment_year = ?`;
+        recordSql += ` AND enrollment_year = ?`;
+        params.push(year);
       }
-    };
+
+      recordSql += ` ORDER BY name ASC LIMIT ?`;
+      const recordParams = [...params, MAX_RECORDS];
+
+      const result = await db.get(countSql, params);
+      const records = await db.all(recordSql, recordParams);
+      const count = result?.count ?? 0;
+
+      const yearLabel = year !== null ? ` enrolled in ${year}` : " enrolled";
+      const limitNote = count > MAX_RECORDS ? ` (showing first ${MAX_RECORDS} records)` : "";
+      const answer = `${count} foreign student(s) (outside ${homeCountry})${yearLabel}${limitNote}.`;
+
+      return {
+        answer,
+        data: {
+          metric: `foreign_students${year ? `_${year}` : ""}`,
+          homeCountry,
+          year,
+          value: count,
+          recordsCapped: count > MAX_RECORDS,
+          limit: MAX_RECORDS,
+          records
+        }
+      };
+    } catch (err) {
+      if (err.message && err.message.includes("no such table: students")) {
+        return {
+          answer: "The currently active database does not contain a 'students' table. Please upload or select an education database.",
+          data: {
+            error: "table_not_found",
+            table: "students"
+          }
+        };
+      }
+      throw err;
+    }
   }
 };

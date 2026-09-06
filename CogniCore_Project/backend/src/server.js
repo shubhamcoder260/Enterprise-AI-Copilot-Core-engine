@@ -26,8 +26,10 @@ app.get("/health", (req, res) =>
   })
 );
 
-// AI Query Routes
+// AI Query & LLM Routes
 app.use("/api/ai", aiRoutes);
+app.use("/api/llm", aiRoutes);
+app.use("/api", aiRoutes);
 
 // Database Upload Routes
 app.use("/api/database", databaseRoutes);

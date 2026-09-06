@@ -1,0 +1,5 @@
+{
+  "artists": "Contains artists. Column Name is artist name. Links to albums via ArtistId.",
+  "albums": "Contains albums. Links to artists via ArtistId, and to tracks via AlbumId.",
+  "tracks": "Contains individual tracks (TrackId). Links to albums via AlbumId."
+}

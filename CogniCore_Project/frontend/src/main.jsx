@@ -1,10 +1,50 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
 
+const SESSION_STORAGE_KEY = "cognicore_session_id";
+const MODEL_STORAGE_KEY = "cognicore_selected_model";
+
+function generateSessionId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "session_" + Date.now().toString(36) + "_" + Math.random().toString(36).substring(2, 9);
+}
+
+function getInitialSessionId() {
+  try {
+    const saved = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (saved && saved.trim()) {
+      return saved.trim();
+    }
+    const created = generateSessionId();
+    localStorage.setItem(SESSION_STORAGE_KEY, created);
+    return created;
+  } catch (e) {
+    return generateSessionId();
+  }
+}
+
+function getInitialModel() {
+  try {
+    const saved = localStorage.getItem(MODEL_STORAGE_KEY);
+    if (saved && saved.trim()) {
+      return saved.trim();
+    }
+  } catch (e) {}
+  return "gemma3:4b";
+}
+
 function App() {
+
+  const [sessionId, setSessionId] = useState(getInitialSessionId);
   const [organization, setOrganization] = useState("college");
   const [query, setQuery] = useState("");
+
+  const [selectedModel, setSelectedModel] = useState(getInitialModel);
+  const [availableModels, setAvailableModels] = useState(["gemma3:4b"]);
+  const [llmOnline, setLlmOnline] = useState(true);
 
   const [messages, setMessages] = useState([
     {
@@ -20,6 +60,86 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
 
+  useEffect(() => {
+    async function fetchModels() {
+      try {
+        const res = await fetch("http://localhost:5000/api/llm/models");
+        if (!res.ok) throw new Error("Failed to fetch models");
+        const data = await res.json();
+        if (Array.isArray(data.models) && data.models.length > 0) {
+          setAvailableModels(data.models);
+          setLlmOnline(data.available !== false);
+          if (!data.models.includes(selectedModel)) {
+            const fallback = data.current || data.models[0];
+            setSelectedModel(fallback);
+            try {
+              localStorage.setItem(MODEL_STORAGE_KEY, fallback);
+            } catch (e) {}
+          }
+        }
+      } catch (err) {
+        console.warn("Could not reach LLM models endpoint:", err);
+        setLlmOnline(false);
+      }
+    }
+    fetchModels();
+  }, []);
+
+  // Hydrate conversation history on mount
+  useEffect(() => {
+    async function hydrateHistory() {
+      const activeSession = getInitialSessionId();
+      if (!activeSession) return;
+      try {
+        const res = await fetch(`http://localhost:5000/api/history/${activeSession}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const exchangeList = data.exchanges || data.history;
+        if (Array.isArray(exchangeList) && exchangeList.length > 0) {
+          const hydrated = [];
+          for (const ex of exchangeList) {
+            if (ex.question) {
+              hydrated.push({
+                type: "user",
+                text: ex.question
+              });
+            }
+            if (ex.answer || ex.sql) {
+              hydrated.push({
+                type: "ai",
+                text: ex.answer || (ex.sql ? "Query executed successfully." : ""),
+                result: {
+                  source: ex.source || "unknown",
+                  meta: { model: ex.model },
+                  data: ex.sql ? { sql: ex.sql } : null
+                }
+              });
+            }
+          }
+          if (hydrated.length > 0) {
+            setMessages(hydrated);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not hydrate conversation history:", err);
+      }
+    }
+    hydrateHistory();
+  }, []);
+
+  function handleNewChat() {
+    const newId = generateSessionId();
+    setSessionId(newId);
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, newId);
+    } catch (e) {}
+    setMessages([
+      {
+        type: "ai",
+        text: "Hello! I'm CogniCore, your AI analytics assistant. Ask me anything about your organization data."
+      }
+    ]);
+  }
 
   // ==========================================
   // ASK COGNICORE
@@ -46,17 +166,28 @@ function App() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "X-Session-ID": sessionId
           },
           body: JSON.stringify({
             query: question,
             organization,
-            role: "admin"
+            role: "admin",
+            sessionId,
+            model: selectedModel
           })
         }
       );
 
       const result = await response.json();
+
+      const respSessionId = result.meta?.sessionId || result.sessionId;
+      if (respSessionId && respSessionId !== sessionId) {
+        setSessionId(respSessionId);
+        try {
+          localStorage.setItem(SESSION_STORAGE_KEY, respSessionId);
+        } catch (e) {}
+      }
 
       setMessages((previous) => [
         ...previous,
@@ -164,6 +295,12 @@ function App() {
   // ==========================================
 
   function startNewChat() {
+    const newSessionId = generateSessionId();
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, newSessionId);
+    } catch (e) {}
+    setSessionId(newSessionId);
+
     setMessages([
       {
         type: "ai",
@@ -210,6 +347,53 @@ function App() {
           onClick={startNewChat}
         >
           + New Chat
+        </button>
+
+        <div
+          className="session-tag"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "rgba(255, 255, 255, 0.05)",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            borderRadius: "6px",
+            padding: "4px 8px",
+            fontSize: "11px",
+            color: "#94a3b8",
+            marginTop: "6px",
+            marginBottom: "16px"
+          }}
+          title={`Active Session ID: ${sessionId}`}
+        >
+          <span>Session:</span>
+          <code style={{ color: "#818cf8", fontFamily: "monospace" }}>
+            {sessionId && sessionId.length > 12 ? `${sessionId.slice(0, 8)}...` : sessionId}
+          </code>
+        </div>
+
+        <button
+          onClick={handleNewChat}
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            marginBottom: "16px",
+            background: "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
+            color: "#ffffff",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            borderRadius: "6px",
+            fontSize: "12px",
+            fontWeight: "600",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+          }}
+          title="Start a new chat session"
+        >
+          ➕ New Chat
         </button>
 
 
@@ -320,6 +504,36 @@ function App() {
         </div>
 
 
+        {/* MODEL SELECTOR */}
+        <div className="sidebar-section">
+
+          <p className="sidebar-title">
+            LLM MODEL {!llmOnline && <span className="model-offline-tag">(offline)</span>}
+          </p>
+
+          <select
+            className="model-select"
+            value={selectedModel}
+            disabled={!llmOnline && availableModels.length <= 1}
+            onChange={(e) => {
+              const m = e.target.value;
+              setSelectedModel(m);
+              try {
+                localStorage.setItem(MODEL_STORAGE_KEY, m);
+              } catch (err) {}
+            }}
+          >
+            {availableModels.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+
+        </div>
+
+
+
         <div className="sidebar-bottom">
 
           <div className="status">
@@ -415,82 +629,74 @@ function App() {
 
 
                         <div className="result-item">
-
-                          <span>Engine</span>
-
+                          <span>Source</span>
                           <strong>
-
-                            {message.result.meta?.engineMode ===
-                            "dynamic_query"
-                              ? "Dynamic Query"
-                              : "Configured Tool"}
-
+                            <span className={`source-badge badge-${message.result.source || "tool"}`}>
+                              {message.result.source === "tool"
+                                ? (message.result.meta?.tool || "Configured Tool")
+                                : message.result.source === "dynamic"
+                                ? "Dynamic Query"
+                                : message.result.source === "fallback"
+                                ? "Fallback"
+                                : message.result.source === "llm"
+                                ? `Local LLM (${message.result.meta?.model || "gemma3:4b"})`
+                                : message.result.source || "N/A"}
+                            </span>
                           </strong>
-
                         </div>
 
-
-                        <div className="result-item">
-
-                          <span>Tool</span>
-
-                          <strong>
-
-                            {message.result.tool || "N/A"}
-
-                          </strong>
-
-                        </div>
-
-
-                        {message.result.data?.value !==
-                          undefined && (
-
-                          <div className="result-item highlight">
-
-                            <span>Result</span>
-
+                        {message.result.meta?.processingMs !== undefined && (
+                          <div className="result-item">
+                            <span>Latency</span>
                             <strong>
-
-                              {message.result.data.value}
-
+                              {message.result.meta.processingMs} ms
                             </strong>
-
                           </div>
-
                         )}
 
+                        {message.result.data?.value !== undefined && (
+                          <div className="result-item highlight">
+                            <span>Result</span>
+                            <strong>
+                              {message.result.data.value}
+                            </strong>
+                          </div>
+                        )}
                       </div>
 
+                      {message.result.data?.sql && (
+                        <div className="sql-card">
+                          <span className="sql-label">Executed SQL</span>
+                          <code>{message.result.data.sql}</code>
+                        </div>
+                      )}
 
                       {message.result.data?.records &&
                         message.result.data.records.length > 0 && (
-
-                          <details>
-
+                          <details open className="table-wrapper">
                             <summary>
-
-                              View matching records (
-                              {message.result.data.records.length}
-                              )
-
+                              Matching records ({message.result.data.records.length})
                             </summary>
-
-
-                            <pre>
-
-                              {JSON.stringify(
-                                message.result.data.records,
-                                null,
-                                2
-                              )}
-
-                            </pre>
-
+                            <table className="data-table">
+                              <thead>
+                                <tr>
+                                  {Object.keys(message.result.data.records[0]).map((col) => (
+                                    <th key={col}>{col}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {message.result.data.records.map((row, rIdx) => (
+                                  <tr key={rIdx}>
+                                    {Object.keys(message.result.data.records[0]).map((col) => (
+                                      <td key={col}>{String(row[col] ?? "")}</td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </details>
-
                         )}
-
                     </div>
 
                   )}

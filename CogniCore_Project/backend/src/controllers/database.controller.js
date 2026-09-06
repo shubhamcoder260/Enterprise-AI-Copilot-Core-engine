@@ -58,3 +58,30 @@ export async function uploadDatabase(req, res) {
     });
   }
 }
+
+export async function getActiveDatabase(req, res) {
+  try {
+    return res.status(200).json({
+      success: true,
+      activeDatabase: getActiveDatabasePath()
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function switchActiveDatabase(req, res) {
+  try {
+    const { databasePath } = req.body || {};
+    if (!databasePath) {
+      return res.status(400).json({ success: false, message: "Missing databasePath in request body." });
+    }
+    await switchDatabase(databasePath);
+    return res.status(200).json({
+      success: true,
+      activeDatabase: getActiveDatabasePath()
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
