@@ -3,7 +3,7 @@
 // Safely connects to the active database, runs prepared SQL plans, and returns raw results
 // ==========================================
 
-import { connectDatabase, closeDatabase } from "../config/database.js";
+import { connectDatabase, getReadOnlyDatabase } from "../config/database.js";
 
 export async function executeQueryPlan(plan) {
   if (!plan || plan.executionType === "meta" || !plan.sql) {
@@ -19,7 +19,7 @@ export async function executeQueryPlan(plan) {
 
   let db;
   try {
-    db = await connectDatabase();
+    db = plan.readOnly ? await getReadOnlyDatabase() : await connectDatabase();
 
     let rawResult = null;
     if (plan.executionType === "get") {
@@ -46,9 +46,5 @@ export async function executeQueryPlan(plan) {
       rawResult: null,
       error: error.message
     };
-  } finally {
-    if (db) {
-      await closeDatabase();
-    }
   }
 }
