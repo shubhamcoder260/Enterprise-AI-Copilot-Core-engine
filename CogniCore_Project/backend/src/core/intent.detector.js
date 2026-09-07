@@ -33,7 +33,7 @@ export function detectIntent(query, organization) {
   // ==========================================
   const hasCgpaKeyword = q.includes("cgpa") || q.includes("grade point") || /\bgpa\b/.test(q);
   const isEducationScoreQuery =
-    (organization === "education" || q.includes("student")) &&
+    (organization === "education" || organization === "college" || q.includes("student")) &&
     /\b\d+(?:\.\d+)?\s*(?:\+|or\s*(?:higher|above|lower|below|more|less)|and\s*(?:higher|above|lower|below|more|less))\b/i.test(q);
 
   if (hasCgpaKeyword || isEducationScoreQuery) {

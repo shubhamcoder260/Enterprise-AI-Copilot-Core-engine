@@ -62,12 +62,16 @@ export const foreignStudentTool = {
         }
       };
     } catch (err) {
-      if (err.message && err.message.includes("no such table: students")) {
+      const isMissingTable = typeof err?.message === "string" && /no such table/i.test(err.message);
+      const isMissingColumn = typeof err?.message === "string" && /no such column/i.test(err.message);
+
+      if (isMissingTable || isMissingColumn) {
         return {
-          answer: "The currently active database does not contain a 'students' table. Please upload or select an education database.",
+          answer: "The currently active database does not contain a compatible 'students' schema for this fixed tool.",
           data: {
             error: "table_not_found",
-            table: "students"
+            table: "students",
+            detail: err.message
           }
         };
       }

@@ -1,3 +1,4 @@
+import fs from "fs/promises";
 import {
   switchDatabase,
   getActiveDatabasePath
@@ -16,8 +17,30 @@ export async function uploadDatabase(req, res) {
 
     const uploadedPath = req.file.path;
 
+    // Verify SQLite format 3 magic header
+    try {
+      const handle = await fs.open(uploadedPath, "r");
+      const buffer = Buffer.alloc(16);
+      await handle.read(buffer, 0, 16, 0);
+      await handle.close();
+      const header = buffer.toString("utf8", 0, 15);
+      if (header !== "SQLite format 3") {
+        await fs.unlink(uploadedPath).catch(() => {});
+        return res.status(400).json({
+          success: false,
+          message: "The uploaded file is not a valid SQLite database."
+        });
+      }
+    } catch (readErr) {
+      await fs.unlink(uploadedPath).catch(() => {});
+      return res.status(400).json({
+        success: false,
+        message: "Failed to read uploaded database file: " + readErr.message
+      });
+    }
+
     console.log(
-      "📁 Database uploaded:",
+      "📁 Database uploaded and verified:",
       uploadedPath
     );
 

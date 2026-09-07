@@ -146,12 +146,16 @@ export const cardiologyTool = {
         }
       };
     } catch (err) {
-      if (err.message && err.message.includes("no such table: hospital_visits")) {
+      const isMissingTable = typeof err?.message === "string" && /no such table/i.test(err.message);
+      const isMissingColumn = typeof err?.message === "string" && /no such column/i.test(err.message);
+
+      if (isMissingTable || isMissingColumn) {
         return {
-          answer: "The currently active database does not contain a 'hospital_visits' table. Please upload or select a hospital database.",
+          answer: "The currently active database does not contain a compatible 'hospital_visits' schema.",
           data: {
             error: "table_not_found",
-            table: "hospital_visits"
+            table: "hospital_visits",
+            detail: err.message
           }
         };
       }

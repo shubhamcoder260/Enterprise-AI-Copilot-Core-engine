@@ -194,3 +194,10 @@ The following changes are recommended for inclusion in the next revision of `MAS
 4. §9.4 Active Database File Protection:
    - Document mandatory snapshot-at-start and restore-in-finally pattern in test harnesses touching backend/active-database.json.
 ```
+
+---
+
+## 8. Root Cause: 40-vs-80 Count Discrepancy
+
+During Part 1 router development, the natural language query `"how many students are there"` returned `40` instead of the database total of `80`. Investigation revealed that the distinct-value matcher checked whether candidate column values appeared inside the query string via loose substring inclusion; the single-character distinct section value `'A'` from the `students.section` column (`'A'`, `'B'`) matched the letter `'a'` inside query words like `"many"` and `"are"`. As a result, an unintended filter `WHERE "section" = ?` (`'A'`) was injected into the query, counting only section A's 40 students. The issue was resolved by enforcing exact token equality (`norm(v.value) === tok`) on tokenized words and hardening stopword filtering. Regression protection is strictly enforced by `backend/verify_college_attendance.js` (Question 1 hard assertion: `result === 80`).
+

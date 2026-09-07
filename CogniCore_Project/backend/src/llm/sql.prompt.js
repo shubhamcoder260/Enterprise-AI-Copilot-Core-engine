@@ -29,22 +29,58 @@ function loadSchemaNotes() {
  * @param {object} schema - In-memory schema map from schema.reader.js
  * @returns {string}
  */
+function isCategoricalColumn(col) {
+  const name = String(col.name || "").toLowerCase();
+  // Skip high-cardinality identifiers, timestamps, free-text
+  if (/date|time|_at|dob|email|phone|url|desc|message|comment|note|reason|title|code|address/i.test(name)) {
+    return false;
+  }
+  // Include if sample values exist and are reasonably concise
+  if (Array.isArray(col.sampleValues) && col.sampleValues.length > 0) {
+    return col.sampleValues.every((v) => typeof v === "string" && v.length <= 40);
+  }
+  return false;
+}
+
 export function formatSchemaForPrompt(schema = {}) {
   const lines = [];
   const tableNames = Object.keys(schema).sort();
   const notes = loadSchemaNotes();
 
   for (const tableName of tableNames) {
-    const columns = schema[tableName];
-    if (!Array.isArray(columns) || columns.length === 0) continue;
+    const tableData = schema[tableName];
+    const columns = tableData?.columns || [];
+    if (columns.length === 0) continue;
+
+    const isLargeTableUnsampled =
+      tableData?.isSampled === false ||
+      tableData?.samplingSkippedReason === "table_too_large" ||
+      (typeof tableData?.rowCount === "number" && tableData.rowCount > 50000);
 
     const colDefs = columns.map((col) => {
       const type = col.type && String(col.type).trim() ? String(col.type).trim() : "TEXT";
-      const pk = col.primaryKey ? " PRIMARY KEY" : "";
-      return `${col.name} ${type}${pk}`.trim();
+      const pk = (col.primaryKey || col.pk) ? " PRIMARY KEY" : "";
+      let colStr = `${col.name} ${type}${pk}`.trim();
+
+      if (isCategoricalColumn(col)) {
+        const formatted = col.sampleValues.slice(0, 5).map((v) => `'${v.replace(/'/g, "''")}'`).join(", ");
+        colStr += ` [values: ${formatted}]`;
+      } else if (
+        col.sampleStatus === "not_sampled_large_table" ||
+        (isLargeTableUnsampled && (/CHAR|TEXT|CLOB|VARCHAR/i.test(type) || !type))
+      ) {
+        colStr += ` [values: unknown/not sampled (large table)]`;
+      }
+
+      return colStr;
     });
 
-    lines.push(`Table: ${tableName} (${colDefs.join(", ")})`);
+    const rowCountInfo =
+      typeof tableData?.rowCount === "number" && tableData.rowCount > 0
+        ? ` (${tableData.rowCount.toLocaleString()} rows${isLargeTableUnsampled ? ", un-sampled" : ""})`
+        : "";
+
+    lines.push(`Table: ${tableName}${rowCountInfo} (${colDefs.join(", ")})`);
     if (notes[tableName]) {
       lines.push(`Note: ${tableName} — ${notes[tableName]}`);
     }
@@ -62,26 +98,56 @@ export function formatSchemaForPrompt(schema = {}) {
  */
 export function detectRelationships(schema = {}) {
   const relationships = [];
-  const pkMap = new Map();
+  const seen = new Set();
 
-  for (const [tableName, columns] of Object.entries(schema)) {
-    if (!Array.isArray(columns)) continue;
-    for (const col of columns) {
-      if (col.primaryKey) {
-        pkMap.set(col.name.toLowerCase(), { tableName, colName: col.name });
+  // Tier 1: Use explicit foreign keys read directly from SQLite PRAGMA foreign_key_list
+  for (const [tableName, tableData] of Object.entries(schema)) {
+    const fks = tableData?.foreignKeys || [];
+    for (const fk of fks) {
+      if (!fk.from || !fk.toTable || !fk.toColumn) continue;
+      const desc = `${tableName}.${fk.from} references ${fk.toTable}.${fk.toColumn}`;
+      if (!seen.has(desc)) {
+        seen.add(desc);
+        relationships.push(desc);
       }
     }
   }
 
-  for (const [tableName, columns] of Object.entries(schema)) {
-    if (!Array.isArray(columns)) continue;
+  // If explicit foreign keys exist in the database, return them
+  if (relationships.length > 0) {
+    return relationships;
+  }
+
+  // Tier 2: Heuristic fallback when SQLite schema lacks explicit foreign key constraints
+  const pkMap = new Map();
+  for (const [tableName, tableData] of Object.entries(schema)) {
+    const columns = tableData?.columns || [];
     for (const col of columns) {
-      if (col.primaryKey) continue;
+      if (col.primaryKey || col.pk) {
+        const lower = col.name.toLowerCase();
+        // Ignore generic 'id' to prevent falsely linking every table with an 'id' PK
+        if (lower === "id") continue;
+        // Prefer entity table over shadow tables (e.g. film over film_text)
+        if (!pkMap.has(lower) || tableName.toLowerCase() === lower.replace(/_?id$/, "")) {
+          pkMap.set(lower, { tableName, colName: col.name });
+        }
+      }
+    }
+  }
+
+  for (const [tableName, tableData] of Object.entries(schema)) {
+    const columns = tableData?.columns || [];
+    for (const col of columns) {
       const lower = col.name.toLowerCase();
+      if (lower === "id") continue;
       if (pkMap.has(lower)) {
         const target = pkMap.get(lower);
         if (target.tableName.toLowerCase() !== tableName.toLowerCase()) {
-          relationships.push(`${tableName}.${col.name} references ${target.tableName}.${target.colName}`);
+          const desc = `${tableName}.${col.name} references ${target.tableName}.${target.colName}`;
+          if (!seen.has(desc)) {
+            seen.add(desc);
+            relationships.push(desc);
+          }
         }
       }
     }
@@ -135,7 +201,9 @@ ${relText}
 
 
 ### Dialect & Schema Rules:
-- Case-insensitive text matches: use LIKE '%value%' or LOWER(col) = LOWER('val').
+- Injected sample values: When filtering on a column where sample values are provided in the schema (e.g. status TEXT [values: 'Submitted', 'Late', 'Not Submitted']), you MUST use the EXACT casing from the sample values using string equality (e.g. status = 'Submitted' or status = 'Submitted' COLLATE NOCASE). Do not guess with arbitrary LIKE wildcards if the exact values are listed in the schema.
+- Unsampled text columns: For columns marked as [values: unknown/not sampled (large table)] or text columns without sample values, use COLLATE NOCASE (e.g. col = 'value' COLLATE NOCASE) or LIKE '%value%' or LOWER(col) = 'val' to ensure case-insensitive matching.
+- Entity counting: when the question asks "how many <entity>" (e.g. "how many students", "how many customers"), count distinct entities using COUNT(DISTINCT entity_id) if the entity can have multiple records in the table.
 - Identifiers: double-quote identifiers with spaces (e.g. "Column Name").
 - Explicit JOINs: in the ON clause, ALWAYS join columns that have the exact same name (e.g. tableA.ColId = tableB.ColId). NEVER equate different column names (e.g. NEVER equate ArtistId = AlbumId).
 - Intermediate Tables: if the question asks to count or inspect items from a target table that does not directly link to the entity (e.g. counting tracks for artists), you MUST join through all intermediate linking tables (e.g. FROM artists JOIN albums ON artists.ArtistId = albums.ArtistId JOIN tracks ON albums.AlbumId = tracks.AlbumId) and aggregate the target table's items (e.g. COUNT(tracks.TrackId)).
@@ -146,13 +214,16 @@ ${relText}
 
 ### Few-Shot Examples (neutral reference schemas):
 Question: Find all active users sorted by registration date
-SQL: SELECT user_id, email, created_at FROM users WHERE status = 'active' ORDER BY created_at DESC LIMIT 50
+SQL: SELECT user_id, email, created_at FROM users WHERE status = 'Active' COLLATE NOCASE ORDER BY created_at DESC LIMIT 50
+
+Question: How many students have submitted assignments?
+SQL: SELECT COUNT(DISTINCT student_id) FROM assignment_submissions WHERE status = 'Submitted' COLLATE NOCASE
 
 Question: Which 5 authors have the most book reviews?
 SQL: SELECT authors.name, COUNT(reviews.id) AS review_count FROM authors JOIN books ON authors.id = books.author_id JOIN reviews ON books.id = reviews.book_id GROUP BY authors.id ORDER BY review_count DESC LIMIT 5
 
 Question: What is the average rating for electronics products?
-SQL: SELECT AVG(rating) AS avg_rating FROM reviews WHERE category = 'electronics' LIMIT 50
+SQL: SELECT AVG(rating) AS avg_rating FROM reviews WHERE category LIKE 'electronics' LIMIT 50
 ${contextSection}
 ### Actual Task:
 Question: ${query}
