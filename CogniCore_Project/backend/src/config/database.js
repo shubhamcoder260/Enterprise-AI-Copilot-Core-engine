@@ -251,9 +251,9 @@ export async function getReadOnlyDatabase() {
   return readOnlyDb;
 }
 
-export async function executeReadOnlySql(sql) {
+export async function executeReadOnlySql(sql, params = []) {
   const roDb = await getReadOnlyDatabase();
-  return await roDb.all(sql);
+  return await roDb.all(sql, params);
 }
 
 // ==========================================

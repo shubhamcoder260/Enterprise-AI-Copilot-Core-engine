@@ -99,14 +99,17 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
     };
   }
 
-  const columns = schema[tableName] || [];
+  const tableData = schema[tableName];
+  const columns = tableData?.columns || [];
   let detectedColumn = columnName || findMatchingColumn(query, columns);
 
   // 5. Detect operation type
+  const isTopOrBottom = /\b(?:top|bottom)\s*\d+/i.test(q);
   const isCountQuestion =
-    q.includes("how many") ||
-    q.includes("count") ||
-    q.includes("number of");
+    !isTopOrBottom &&
+    (q.includes("how many") ||
+      q.includes("count") ||
+      q.includes("number of"));
 
   const isShowQuestion =
     q.startsWith("show") ||
@@ -129,6 +132,21 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
 
   // Plan: COUNT
   if (isCountQuestion) {
+    const hasUnfilteredCriteria =
+      /\d+/.test(q) || /\b(?:where|enrolled|born|from|in the year)\b/i.test(q);
+    if (hasUnfilteredCriteria) {
+      return {
+        operation: "unsupported",
+        sql: null,
+        params: [],
+        tableName,
+        columnName: null,
+        executionType: "meta",
+        errorType: "filter_not_supported",
+        error: `Query contains filtering criteria that requires LLM escalation.`
+      };
+    }
+
     return {
       operation: "count",
       sql: `SELECT COUNT(*) AS count FROM ${quoteIdentifier(tableName)}`,
@@ -141,6 +159,21 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
 
   // Plan: SHOW / RECORDS
   if (isShowQuestion) {
+    const hasUnfilteredCriteria =
+      /\d+/.test(q) || /\b(?:where|enrolled|born|from|in the year)\b/i.test(q);
+    if (hasUnfilteredCriteria) {
+      return {
+        operation: "unsupported",
+        sql: null,
+        params: [],
+        tableName,
+        columnName: null,
+        executionType: "meta",
+        errorType: "filter_not_supported",
+        error: `Query contains filtering criteria that requires LLM escalation.`
+      };
+    }
+
     return {
       operation: "records",
       sql: `SELECT * FROM ${quoteIdentifier(tableName)} LIMIT 50`,

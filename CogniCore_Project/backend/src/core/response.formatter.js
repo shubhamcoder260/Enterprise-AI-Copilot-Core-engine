@@ -26,7 +26,8 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
     }
 
     if (plan.errorType === "numeric_column_missing") {
-      const columns = schema[tableName] || [];
+      const tableData = schema[tableName];
+      const columns = tableData?.columns || [];
       return {
         success: false,
         answer: `I found the ${tableName} table, but I could not determine which numeric column you want to calculate. Available numeric columns are: ${plan.availableNumericColumns?.join(", ") || "none"}.`,
@@ -47,7 +48,8 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
     }
 
     if (plan.errorType === "unknown_operation") {
-      const columns = schema[tableName] || [];
+      const tableData = schema[tableName];
+      const columns = tableData?.columns || [];
       return {
         success: false,
         answer: `I found the ${tableName} table, but I could not understand the operation you want to perform. You can ask to count records, show records, list columns, calculate an average, total, highest value, or lowest value.`,
@@ -83,7 +85,8 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
 
   // 4. Table columns query
   if (operation === "table_columns") {
-    const tableColumns = schema[tableName] || [];
+    const tableData = schema[tableName];
+    const tableColumns = tableData?.columns || [];
     const columnNames = tableColumns.map((c) => c.name).join(", ");
     return {
       success: true,
@@ -101,7 +104,7 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
 
   // 5. Count operation
   if (operation === "count") {
-    const count = raw?.count ?? 0;
+    const count = raw?.count ?? raw?.result ?? 0;
     return {
       success: true,
       answer: `There are ${count} record(s) in the ${tableName} table.`,
@@ -113,8 +116,8 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
     };
   }
 
-  // 6. Show / Records operation
-  if (operation === "records") {
+  // 6. Show / Records / List operation
+  if (operation === "records" || operation === "list") {
     const records = Array.isArray(raw) ? raw : [];
     return {
       success: true,
@@ -216,9 +219,97 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
     };
   }
 
+  // 11. Top N / Bottom N
+  if (operation === "topN" || operation === "bottomN") {
+    const records = Array.isArray(raw) ? raw : [];
+    const direction = operation === "topN" ? "top" : "bottom";
+    return {
+      success: true,
+      answer: `Showing the ${direction} ${records.length} record(s) from the ${tableName} table by ${columnName}.`,
+      data: {
+        type: operation,
+        table: tableName,
+        column: columnName,
+        value: records.length,
+        records
+      }
+    };
+  }
+
+  // 12. Threshold filter
+  if (operation === "threshold_filter") {
+    const records = Array.isArray(raw) ? raw : [];
+    return {
+      success: true,
+      answer: `Found ${records.length} record(s) in the ${tableName} table matching the ${columnName} filter.`,
+      data: {
+        type: "threshold_filter",
+        table: tableName,
+        column: columnName,
+        value: records.length,
+        records
+      }
+    };
+  }
+
+  // 13. ID lookup
+  if (operation === "id_lookup") {
+    if (!raw) {
+      return {
+        success: false,
+        answer: `No record found in ${tableName} for the given identifier.`,
+        data: { table: tableName, column: columnName }
+      };
+    }
+    return {
+      success: true,
+      answer: `Found a record in the ${tableName} table.`,
+      data: {
+        type: "id_lookup",
+        table: tableName,
+        column: columnName,
+        value: 1,
+        record: raw
+      }
+    };
+  }
+
+  // 14. Value-match filter
+  if (operation === "value_match_filter") {
+    const records = Array.isArray(raw) ? raw : [];
+    return {
+      success: true,
+      answer: `Found ${records.length} record(s) in the ${tableName} table matching the filter on ${columnName}.`,
+      data: {
+        type: "value_match_filter",
+        table: tableName,
+        column: columnName,
+        value: records.length,
+        records
+      }
+    };
+  }
+
+  // 15. FastIntent Aggregate (AVG, SUM, etc.)
+  if (operation === "aggregate") {
+    const val = raw?.result ?? raw?.average ?? raw?.total;
+    const num = val !== null && val !== undefined ? Number(Number(val).toFixed(2)) : null;
+    return {
+      success: true,
+      answer: `The calculated value for ${columnName || tableName} is ${num}.`,
+      data: {
+        type: "aggregate",
+        table: tableName,
+        column: columnName,
+        value: num
+      }
+    };
+  }
+
   return {
     success: false,
     answer: `Could not format response for operation: ${operation}`,
     data: { table: tableName, operation }
   };
 }
+

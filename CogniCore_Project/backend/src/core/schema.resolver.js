@@ -94,11 +94,16 @@ export function findMatchingColumn(query, columns = []) {
   return null;
 }
 
+export function getTableColumns(tableData) {
+  return tableData?.columns || [];
+}
+
 export function findTableFromColumn(query, schema = {}) {
   const words = getWords(query).map(normalizeWord);
   const matches = [];
 
-  for (const [tableName, columns] of Object.entries(schema)) {
+  for (const [tableName, tableData] of Object.entries(schema)) {
+    const columns = getTableColumns(tableData);
     for (const column of columns) {
       const normalizedColumn = normalizeWord(column.name);
       if (words.includes(normalizedColumn)) {
@@ -137,7 +142,7 @@ export function resolveTableAndColumn(query, schema = {}) {
   if (tableName) {
     return {
       tableName,
-      columnName: findMatchingColumn(query, schema[tableName] || [])
+      columnName: findMatchingColumn(query, getTableColumns(schema[tableName]))
     };
   }
 

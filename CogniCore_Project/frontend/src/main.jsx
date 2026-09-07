@@ -127,19 +127,6 @@ function App() {
     hydrateHistory();
   }, []);
 
-  function handleNewChat() {
-    const newId = generateSessionId();
-    setSessionId(newId);
-    try {
-      localStorage.setItem(SESSION_STORAGE_KEY, newId);
-    } catch (e) {}
-    setMessages([
-      {
-        type: "ai",
-        text: "Hello! I'm CogniCore, your AI analytics assistant. Ask me anything about your organization data."
-      }
-    ]);
-  }
 
   // ==========================================
   // ASK COGNICORE
@@ -372,29 +359,6 @@ function App() {
           </code>
         </div>
 
-        <button
-          onClick={handleNewChat}
-          style={{
-            width: "100%",
-            padding: "8px 12px",
-            marginBottom: "16px",
-            background: "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
-            color: "#ffffff",
-            border: "1px solid rgba(255, 255, 255, 0.15)",
-            borderRadius: "6px",
-            fontSize: "12px",
-            fontWeight: "600",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "6px",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-          }}
-          title="Start a new chat session"
-        >
-          ➕ New Chat
-        </button>
 
 
         {/* DATABASE UPLOAD */}
