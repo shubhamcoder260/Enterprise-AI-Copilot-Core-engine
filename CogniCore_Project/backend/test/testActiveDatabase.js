@@ -1,11 +1,11 @@
 import {
   connectDatabase,
   getActiveDatabasePath
-} from "./src/config/database.js";
+} from "../src/config/database.js";
 
 import {
   readDatabaseSchema
-} from "./src/core/schema.reader.js";
+} from "../src/core/schema.reader.js";
 
 
 console.log("\n📂 ACTIVE DATABASE:");

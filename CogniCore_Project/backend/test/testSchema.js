@@ -1,4 +1,4 @@
-import { readDatabaseSchema } from "./src/core/schema.reader.js";
+import { readDatabaseSchema } from "../src/core/schema.reader.js";
 
 const schema = await readDatabaseSchema();
 

@@ -15,8 +15,8 @@
 //   • Every generated SQL string passes sql.validator.js
 // ==========================================
 
-import { tryRoute } from "./src/core/fastIntent.js";
-import { validateAndSanitizeSql } from "./src/llm/sql.validator.js";
+import { tryRoute } from "../src/core/fastIntent.js";
+import { validateAndSanitizeSql } from "../src/llm/sql.validator.js";
 
 // Mock enriched schema
 const mockSchema = {

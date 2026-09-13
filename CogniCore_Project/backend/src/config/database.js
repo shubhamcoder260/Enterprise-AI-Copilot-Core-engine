@@ -56,6 +56,15 @@ async function fileExists(filePath) {
 
 async function loadActiveDatabasePath() {
   try {
+    // O3 FIX: env override wins over everything - test scripts never touch the JSON
+    if (process.env.COGNICORE_ACTIVE_DB) {
+      const p = path.resolve(process.env.COGNICORE_ACTIVE_DB);
+      if (await fileExists(p)) {
+        console.log("🔒 [Config] COGNICORE_ACTIVE_DB override active:", p);
+        return p;
+      }
+      console.warn("⚠️ COGNICORE_ACTIVE_DB set but file missing, falling through:", p);
+    }
     if (!(await fileExists(CONFIG_FILE))) {
       return DEFAULT_DATABASE;
     }

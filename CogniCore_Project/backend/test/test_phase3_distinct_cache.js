@@ -5,21 +5,21 @@
 
 import path from "path";
 import { fileURLToPath } from "url";
-import { switchDatabase, getActiveDatabasePath } from "./src/config/database.js";
-import { readDatabaseSchema } from "./src/core/schema.reader.js";
+import { switchDatabase, getActiveDatabasePath } from "../src/config/database.js";
+import { readDatabaseSchema } from "../src/core/schema.reader.js";
 import {
   ensureDistinctCacheLoaded,
   getDistinct,
   clearDistinctCache
-} from "./src/core/distinct.cache.js";
+} from "../src/core/distinct.cache.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const COLLEGE_DB = path.resolve(
   __dirname,
-  "uploads/1788767199100-college_attendance_(3).db"
+  "../uploads/1788767199100-college_attendance_(3).db"
 );
-const CHINOOK_DB = path.resolve(__dirname, "chinook.db");
+const CHINOOK_DB = path.resolve(__dirname, "..", "fixtures", "chinook.db");
 
 async function runStalenessTest() {
   console.log("==========================================");
