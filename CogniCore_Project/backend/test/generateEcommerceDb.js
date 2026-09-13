@@ -10,7 +10,7 @@ import { fileURLToPath } from "url";
 import fs from "fs/promises";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, "ecommerce_test.db");
+const DB_PATH = path.join(__dirname, "..", "fixtures", "ecommerce_test.db");
 
 // Deterministic PRNG (Linear Congruential Generator)
 let seed = 123456789;
