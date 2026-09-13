@@ -1,10 +1,10 @@
 // ==========================================
-// VERIFICATION TEST 8: Hallucinated Table Execution Error Cascade
+// VERIFICATION TEST 7: Malformed / Prose Output Cascade
 // ==========================================
 
 import http from "http";
-import { runCoreEngine } from "./src/core/core.engine.js";
-import { switchDatabase } from "./src/config/database.js";
+import { runCoreEngine } from "../src/core/core.engine.js";
+import { switchDatabase } from "../src/config/database.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -12,18 +12,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function runTest() {
   console.log("==========================================");
-  console.log("TEST 8: HALLUCINATED TABLE (llm_execution_error) CASCADE");
+  console.log("TEST 7: MALFORMED / PROSE OUTPUT CASCADE");
   console.log("==========================================\n");
 
   const originalUrl = process.env.LOCAL_LLM_URL;
   const originalTimeout = process.env.LOCAL_LLM_TIMEOUT_MS;
 
-  const mockPort = 58882;
+  // Spin up mock server that returns prose
+  const mockPort = 58881;
   const mockServer = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
-      model: "mock-hallucinating-model",
-      response: "SELECT * FROM definitely_not_a_table",
+      model: "mock-prose-model",
+      response: "Sure, here is your query: SELECT * FROM",
       done: true
     }));
   });
@@ -35,7 +36,8 @@ async function runTest() {
   process.env.LOCAL_LLM_TIMEOUT_MS = "2000";
 
   try {
-    const cognicorePath = path.resolve(__dirname, "cognicore.db");
+    // Ensure active database is cognicore.db
+    const cognicorePath = path.resolve(__dirname, "..", "fixtures", "cognicore.db");
     await switchDatabase(cognicorePath);
 
     const query = "Count total students";
@@ -46,7 +48,7 @@ async function runTest() {
       query,
       organization: "college",
       role: "admin",
-      sessionId: "test-session-8"
+      sessionId: "test-session-7"
     });
     const elapsed = Date.now() - startTime;
 
@@ -64,16 +66,17 @@ async function runTest() {
       }
     }
 
+    // Assert Link 2 cascaded past LLM because of llm_invalid_sql
     assert(response.source !== "llm", `Expected response.source !== 'llm', got '${response.source}'`);
-    assert(response.source === "dynamic" || response.source === "fallback", `Expected cascade to dynamic/fallback, got '${response.source}'`);
+    assert(response.source === "dynamic" || response.source === "fallback", `Expected response.source === 'dynamic' or 'fallback', got '${response.source}'`);
     assert(typeof response.answer === "string" && response.answer.length > 0, "Expected non-empty answer string");
-    assert(elapsed < 2000, `Expected elapsed < 2000ms, took ${elapsed}ms`);
+    assert(elapsed < 2000, `Expected prompt handling < 2000ms, took ${elapsed}ms`);
 
     console.log("\n==========================================");
     if (passed) {
-      console.log(`🎉 TEST 8 PASSED: Hallucinated table cascaded cleanly in ${elapsed}ms`);
+      console.log(`🎉 TEST 7 PASSED: Malformed prose cascaded cleanly in ${elapsed}ms`);
     } else {
-      console.error("💥 TEST 8 FAILED");
+      console.error("💥 TEST 7 FAILED");
       process.exit(1);
     }
     console.log("==========================================");
@@ -87,6 +90,6 @@ async function runTest() {
 }
 
 runTest().catch((err) => {
-  console.error("FATAL in test 8:", err);
+  console.error("FATAL in test 7:", err);
   process.exit(1);
 });

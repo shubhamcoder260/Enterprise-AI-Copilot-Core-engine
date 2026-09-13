@@ -3,13 +3,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { performance } from "perf_hooks";
 import fs from "fs/promises";
-import { switchDatabase } from "./src/config/database.js";
+import { switchDatabase } from "../src/config/database.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const cognicoreDb = path.join(__dirname, "cognicore.db");
-const chinookDb = path.join(__dirname, "chinook.db");
+const cognicoreDb = path.join(__dirname, "..", "fixtures", "cognicore.db");
+const chinookDb = path.join(__dirname, "..", "fixtures", "chinook.db");
 
 // Monkey-patch fs.writeFile temporarily to simulate a slow 200ms disk I/O
 const originalWriteFile = fs.writeFile;

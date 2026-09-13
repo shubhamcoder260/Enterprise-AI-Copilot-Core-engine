@@ -2,8 +2,8 @@
 // VERIFICATION TEST 5: Complex JOIN / Aggregation (chinook.db)
 // ==========================================
 
-import { runCoreEngine } from "./src/core/core.engine.js";
-import { executeReadOnlySql, switchDatabase } from "./src/config/database.js";
+import { runCoreEngine } from "../src/core/core.engine.js";
+import { executeReadOnlySql, switchDatabase } from "../src/config/database.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -15,7 +15,7 @@ async function runTest() {
   console.log("==========================================\n");
 
   // 1. Switch database to chinook.db
-  const chinookPath = path.resolve(__dirname, "chinook.db");
+  const chinookPath = path.resolve(__dirname, "..", "fixtures", "chinook.db");
   console.log(`[Test] Switching to chinook.db: ${chinookPath}`);
   await switchDatabase(chinookPath);
 

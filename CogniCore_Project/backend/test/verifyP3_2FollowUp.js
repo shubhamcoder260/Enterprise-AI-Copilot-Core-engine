@@ -4,8 +4,8 @@
 
 import path from "path";
 import { fileURLToPath } from "url";
-import { initHistoryStore } from "./src/store/history.store.js";
-import { executeReadOnlySql } from "./src/config/database.js";
+import { initHistoryStore } from "../src/store/history.store.js";
+import { executeReadOnlySql } from "../src/config/database.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = "http://localhost:5000";
@@ -45,7 +45,7 @@ async function run() {
   await historyDb.run("DELETE FROM exchanges WHERE session_id = ?", [sessionId]);
 
   // Ensure active database is chinook.db
-  const chinookPath = path.resolve(__dirname, "chinook.db");
+  const chinookPath = path.resolve(__dirname, "..", "fixtures", "chinook.db");
   await switchDb(chinookPath);
 
   // Turn 1: Anchor query

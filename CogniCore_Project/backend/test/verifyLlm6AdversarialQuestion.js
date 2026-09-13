@@ -2,8 +2,8 @@
 // VERIFICATION TEST 6: Adversarial / DDL Prompt Injection
 // ==========================================
 
-import { runCoreEngine } from "./src/core/core.engine.js";
-import { executeReadOnlySql, switchDatabase } from "./src/config/database.js";
+import { runCoreEngine } from "../src/core/core.engine.js";
+import { executeReadOnlySql, switchDatabase } from "../src/config/database.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -15,7 +15,7 @@ async function runTest() {
   console.log("==========================================\n");
 
   // Ensure active database is cognicore.db
-  const cognicorePath = path.resolve(__dirname, "cognicore.db");
+  const cognicorePath = path.resolve(__dirname, "..", "fixtures", "cognicore.db");
   await switchDatabase(cognicorePath);
 
   // Check initial count

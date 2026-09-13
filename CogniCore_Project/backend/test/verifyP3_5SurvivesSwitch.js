@@ -4,7 +4,7 @@
 
 import path from "path";
 import { fileURLToPath } from "url";
-import { initHistoryStore } from "./src/store/history.store.js";
+import { initHistoryStore } from "../src/store/history.store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = "http://localhost:5000";
@@ -47,8 +47,8 @@ async function run() {
   const historyDb = await initHistoryStore();
   await historyDb.run("DELETE FROM exchanges WHERE session_id = ?", [sessionId]);
 
-  const chinookPath = path.resolve(__dirname, "chinook.db");
-  const ecommercePath = path.resolve(__dirname, "ecommerce_test.db");
+  const chinookPath = path.resolve(__dirname, "..", "fixtures", "chinook.db");
+  const ecommercePath = path.resolve(__dirname, "..", "fixtures", "ecommerce_test.db");
 
   // Step 1: Switch to chinook.db
   console.log(`[Step 1] Switching to chinook.db...`);

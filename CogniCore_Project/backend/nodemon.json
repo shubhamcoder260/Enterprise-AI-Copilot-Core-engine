@@ -1,13 +1,5 @@
 {
   "watch": ["src/"],
-  "ignore": [
-    "*.db",
-    "*.db-journal",
-    "*.json",
-    "uploads/*",
-    "verify*.js",
-    "run*.js",
-    "ecommerce_test.db"
-  ],
+  "ignore": ["test/**", "fixtures/**", "uploads/**"],
   "ext": "js"
 }

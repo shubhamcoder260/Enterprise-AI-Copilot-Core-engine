@@ -37,8 +37,8 @@ async function run() {
   console.log("REGRESSION: PHASE 2 STALENESS TRAP");
   console.log("==========================================\n");
 
-  const ecommercePath = path.resolve(__dirname, "ecommerce_test.db");
-  const chinookPath = path.resolve(__dirname, "chinook.db");
+  const ecommercePath = path.resolve(__dirname, "..", "fixtures", "ecommerce_test.db");
+  const chinookPath = path.resolve(__dirname, "..", "fixtures", "chinook.db");
 
   // Step 1: Switch to ecommerce_test.db
   console.log("[Step 1] Switching to ecommerce_test.db...");

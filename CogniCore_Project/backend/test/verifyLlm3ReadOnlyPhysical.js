@@ -1,10 +1,10 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import { switchDatabase, executeReadOnlySql, connectDatabase } from "./src/config/database.js";
+import { switchDatabase, executeReadOnlySql, connectDatabase } from "../src/config/database.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const cognicoreDb = path.join(__dirname, "cognicore.db");
+const cognicoreDb = path.join(__dirname, "..", "fixtures", "cognicore.db");
 
 async function main() {
   console.log("\n================================================================================");

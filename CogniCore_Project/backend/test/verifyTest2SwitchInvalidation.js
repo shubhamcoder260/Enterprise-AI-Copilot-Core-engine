@@ -1,19 +1,19 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import { switchDatabase } from "./src/config/database.js";
-import { runDynamicQuery } from "./src/core/dynamic.query.engine.js";
+import { switchDatabase } from "../src/config/database.js";
+import { runDynamicQuery } from "../src/core/dynamic.query.engine.js";
 import {
   clearSchemaCache,
   resetSchemaCacheStats,
   getSchemaCacheStats,
   readDatabaseSchema
-} from "./src/core/schema.reader.js";
+} from "../src/core/schema.reader.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const cognicoreDb = path.join(__dirname, "cognicore.db");
-const chinookDb = path.join(__dirname, "chinook.db");
+const cognicoreDb = path.join(__dirname, "..", "fixtures", "cognicore.db");
+const chinookDb = path.join(__dirname, "..", "fixtures", "chinook.db");
 
 async function runTest2() {
   console.log("\n========================================================");

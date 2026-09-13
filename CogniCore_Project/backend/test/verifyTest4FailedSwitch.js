@@ -1,18 +1,18 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import { switchDatabase, getActiveDatabasePath } from "./src/config/database.js";
-import { runDynamicQuery } from "./src/core/dynamic.query.engine.js";
+import { switchDatabase, getActiveDatabasePath } from "../src/config/database.js";
+import { runDynamicQuery } from "../src/core/dynamic.query.engine.js";
 import {
   clearSchemaCache,
   resetSchemaCacheStats,
   getSchemaCacheStats,
   readDatabaseSchema
-} from "./src/core/schema.reader.js";
+} from "../src/core/schema.reader.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const cognicoreDb = path.join(__dirname, "cognicore.db");
+const cognicoreDb = path.join(__dirname, "..", "fixtures", "cognicore.db");
 const badDbPath = path.join(__dirname, "nonexistent_corrupt_database_99999.db");
 
 async function runTest4() {

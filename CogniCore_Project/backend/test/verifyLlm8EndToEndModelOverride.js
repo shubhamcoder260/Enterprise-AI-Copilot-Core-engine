@@ -2,8 +2,8 @@
 // VERIFICATION TEST 8B: End-to-End Model Passthrough
 // ==========================================
 
-import { runCoreEngine } from "./src/core/core.engine.js";
-import { switchDatabase } from "./src/config/database.js";
+import { runCoreEngine } from "../src/core/core.engine.js";
+import { switchDatabase } from "../src/config/database.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -14,7 +14,7 @@ async function runTest() {
   console.log("TEST 8B: MODEL OVERRIDE PASSTHROUGH");
   console.log("==========================================\n");
 
-  const cognicorePath = path.resolve(__dirname, "cognicore.db");
+  const cognicorePath = path.resolve(__dirname, "..", "fixtures", "cognicore.db");
   await switchDatabase(cognicorePath);
 
   const query = "Show all students enrolled in the year 2026";

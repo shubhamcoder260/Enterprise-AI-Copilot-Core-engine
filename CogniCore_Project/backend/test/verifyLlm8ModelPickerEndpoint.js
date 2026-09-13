@@ -4,7 +4,7 @@
 
 import http from "http";
 import express from "express";
-import aiRoutes from "./src/routes/ai.routes.js";
+import aiRoutes from "../src/routes/ai.routes.js";
 
 async function runTest() {
   console.log("==========================================");

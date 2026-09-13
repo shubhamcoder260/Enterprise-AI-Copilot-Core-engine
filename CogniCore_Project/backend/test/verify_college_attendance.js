@@ -20,13 +20,14 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = "http://localhost:5000";
-const CONFIG_FILE = path.join(__dirname, "active-database.json");
+const CONFIG_FILE = path.join(__dirname, "..", "active-database.json");
 
 const COLLEGE_DB = path.join(
   __dirname,
+  "..",
   "uploads/1788767199100-college_attendance_(3).db"
 );
-const ERP_DEMO_DB = path.join(__dirname, "erp_demo.db");
+const ERP_DEMO_DB = path.join(__dirname, "..", "fixtures", "erp_demo.db");
 
 const QUESTIONS = [
   {

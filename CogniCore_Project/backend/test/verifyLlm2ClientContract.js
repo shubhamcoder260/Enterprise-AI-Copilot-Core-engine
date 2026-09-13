@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { generateSql } from "./src/llm/llm.client.js";
+import { generateSql } from "../src/llm/llm.client.js";
 
 async function main() {
   console.log("\n================================================================================");

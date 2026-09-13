@@ -11,7 +11,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = "http://localhost:5000";
-const CONFIG_FILE = path.join(__dirname, "active-database.json");
+const CONFIG_FILE = path.join(__dirname, "..", "active-database.json");
 
 async function main() {
   console.log("==========================================");

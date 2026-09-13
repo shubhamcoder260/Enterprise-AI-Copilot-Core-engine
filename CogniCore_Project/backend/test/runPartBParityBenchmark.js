@@ -40,7 +40,7 @@ async function runBenchmark() {
   const results = [];
 
   // Query A: Students with CGPA above 8.5
-  await switchDb("cognicore.db");
+  await switchDb("../fixtures/cognicore.db");
   console.log("\n--- [Query A] 'Students with CGPA above 8.5' on cognicore.db ---");
   const resA = await queryApi("Students with CGPA above 8.5", "college", "part-b-a");
   console.log("Answer:", resA.answer);
@@ -92,7 +92,7 @@ async function runBenchmark() {
   });
 
   // Switch to chinook.db
-  await switchDb("chinook.db");
+  await switchDb("../fixtures/chinook.db");
 
   // Query D: Top 5 artists by number of tracks
   console.log("\n--- [Query D] 'Top 5 artists by number of tracks' on chinook.db ---");

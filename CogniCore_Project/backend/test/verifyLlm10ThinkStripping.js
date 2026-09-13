@@ -2,9 +2,9 @@
 // VERIFICATION TEST 10: <think> Tag Stripping
 // ==========================================
 
-import { cleanLlmSql } from "./src/llm/llm.client.js";
-import { runCoreEngine } from "./src/core/core.engine.js";
-import { switchDatabase } from "./src/config/database.js";
+import { cleanLlmSql } from "../src/llm/llm.client.js";
+import { runCoreEngine } from "../src/core/core.engine.js";
+import { switchDatabase } from "../src/config/database.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -53,7 +53,7 @@ async function runTest() {
 
   // 2. Live Query on gemma3:4b
   console.log("\n[Test 10B] Testing live Ollama response on cognicore.db...");
-  const cognicorePath = path.resolve(__dirname, "cognicore.db");
+  const cognicorePath = path.resolve(__dirname, "..", "fixtures", "cognicore.db");
   await switchDatabase(cognicorePath);
 
   const liveResponse = await runCoreEngine({

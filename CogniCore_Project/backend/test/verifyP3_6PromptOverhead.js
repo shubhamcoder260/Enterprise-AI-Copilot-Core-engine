@@ -4,9 +4,9 @@
 
 import path from "path";
 import { fileURLToPath } from "url";
-import { buildSqlPrompt } from "./src/llm/sql.prompt.js";
-import { readDatabaseSchema } from "./src/core/schema.reader.js";
-import { switchDatabase } from "./src/config/database.js";
+import { buildSqlPrompt } from "../src/llm/sql.prompt.js";
+import { readDatabaseSchema } from "../src/core/schema.reader.js";
+import { switchDatabase } from "../src/config/database.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,7 +15,7 @@ async function run() {
   console.log("VERIFY P3.6: PROMPT TOKEN OVERHEAD ANALYSIS");
   console.log("==========================================\n");
 
-  const chinookPath = path.resolve(__dirname, "chinook.db");
+  const chinookPath = path.resolve(__dirname, "..", "fixtures", "chinook.db");
   await switchDatabase(chinookPath);
   const schema = await readDatabaseSchema();
 

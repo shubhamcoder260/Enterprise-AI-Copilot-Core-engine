@@ -1,5 +1,5 @@
 import { performance } from "perf_hooks";
-import { validateAndSanitizeSql } from "./src/llm/sql.validator.js";
+import { validateAndSanitizeSql } from "../src/llm/sql.validator.js";
 
 console.log("\n================================================================================");
 console.log("🛡️ RUNNING EXPANDED STEP 1 TEST SUITE: SQL VALIDATOR & SECURITY GATE (37 CASES)");

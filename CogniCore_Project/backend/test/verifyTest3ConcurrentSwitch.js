@@ -1,14 +1,14 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs/promises";
-import { switchDatabase, getActiveDatabasePath } from "./src/config/database.js";
+import { switchDatabase, getActiveDatabasePath } from "../src/config/database.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const cognicoreDb = path.join(__dirname, "cognicore.db");
-const chinookDb = path.join(__dirname, "chinook.db");
-const configFile = path.join(__dirname, "active-database.json");
+const cognicoreDb = path.join(__dirname, "..", "fixtures", "cognicore.db");
+const chinookDb = path.join(__dirname, "..", "fixtures", "chinook.db");
+const configFile = path.join(__dirname, "..", "active-database.json");
 
 async function runTest3() {
   console.log("\n========================================================");

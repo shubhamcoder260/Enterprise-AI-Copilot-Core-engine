@@ -1,9 +1,9 @@
-import { runDynamicQuery } from "./src/core/dynamic.query.engine.js";
+import { runDynamicQuery } from "../src/core/dynamic.query.engine.js";
 import {
   clearSchemaCache,
   resetSchemaCacheStats,
   getSchemaCacheStats
-} from "./src/core/schema.reader.js";
+} from "../src/core/schema.reader.js";
 
 async function main() {
   console.log("\n==========================================");
