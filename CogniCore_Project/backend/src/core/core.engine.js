@@ -28,41 +28,38 @@ async function executeToolLink({ query, organization, role, sessionId, intent, s
   ];
 
   if (!configuredIntents.includes(intent)) {
-    return { handled: false, reason: "intent_not_configured_for_tool" };
-  }
+
+    return PASS("intent_not_configured_for_tool");  }
 
   const tool = getTool(intent);
   if (!tool) {
-    return { handled: false, reason: "tool_not_found" };
+    return PASS("tool_not_found");
   }
 
-  try {
+   try {
     console.log("🔧 Attempting Tool Link:", tool.name);
     const result = await tool.execute({ query, organization, role, sessionId });
 
     // Expected soft failure: active database lacks the required table
     if (result.data?.error === "table_not_found") {
       console.log(`ℹ️ [Soft Cascade] Tool "${tool.name}" bypassed: missing required table "${result.data.table}". Cascading to next link.`);
-      return { handled: false, reason: `table_not_found:${result.data.table}` };
+      return PASS(`table_not_found:${result.data.table}`);
     }
 
-    return {
-      handled: true,
-      response: {
-        answer: result.answer,
-        source: "tool",
-        data: result.data || {},
-        meta: {
-          sessionId,
-          organization,
-          role,
-          engineMode: "configured_tool",
-          intent,
-          tool: tool.name,
-          processingMs: Date.now() - startTime
-        }
+    return ANSWERED({
+      answer: result.answer,
+      source: "tool",
+      data: result.data || {},
+      meta: {
+        sessionId,
+        organization,
+        role,
+        engineMode: "configured_tool",
+        intent,
+        tool: tool.name,
+        processingMs: Date.now() - startTime
       }
-    };
+    });
   } catch (err) {
     // Soft cascade against real node-sqlite3 driver string: "SQLITE_ERROR: no such table/column: <name>"
     const isExpectedMissingSchema =
@@ -73,15 +70,13 @@ async function executeToolLink({ query, organization, role, sessionId, intent, s
       const schemaMatch = err.message.match(/\bno\s+such\s+(?:table|column):\s*([a-zA-Z0-9_]+)/i);
       const itemName = schemaMatch ? schemaMatch[1] : "unknown";
       console.log(`ℹ️ [Soft Cascade] Tool "${tool.name}" bypassed due to SQLite driver missing schema element (${itemName}). Cascading down chain.`);
-      return { handled: false, reason: `missing_schema:${itemName}` };
+      return PASS(`missing_schema:${itemName}`);
     }
 
-    // Real unexpected exception/bug (TypeError, ReferenceError, etc.): MUST be logged with console.error
+    // Real unexpected exception/bug (TypeError, ReferenceError, etc.): MUST be logged loud
     console.error(`🚨 [TOOL BUG] Unexpected exception in tool "${tool.name}":`, err);
-    return { handled: false, reason: `tool_bug:${err.message}` };
-  }
-}
-
+    return BUG(`tool_bug:${err.message}`, err);
+  }}
 // ==========================================
 // LINK 2: LOCAL LLM SQL GENERATOR (PHASE 2 SEAM)
 // ==========================================
@@ -290,7 +285,8 @@ export async function runCoreEngine({
   role = "admin",
   sessionId,
   model
-}) {
+}) 
+{
   const startTime = Date.now();
 
   console.log("\n==============================");
