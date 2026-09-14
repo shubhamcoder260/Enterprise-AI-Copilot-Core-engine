@@ -7,6 +7,7 @@
 import { detectIntent } from "./intent.detector.js";
 import { DEFAULT_PIPELINE } from "../kernel/pipeline.config.js";
 import { isHandlerResult } from "../kernel/handler-result.js";
+import { capabilities } from "../kernel/capabilities.js";
 
 export async function runCoreEngine(
   { query, organization = "college", role = "admin", sessionId, model },
@@ -37,7 +38,7 @@ export async function runCoreEngine(
   for (const link of chain) {
     const linkStart = Date.now();
     console.log(`🔗 Evaluating chain link: [${link.name}]`);
-    const outcome = await link.execute(ctx);
+    const outcome = await link.execute({ ...ctx, capabilities });
 
     if (outcome == null) {
       console.error(`🚨 [ENGINE] Link [${link.name}] returned undefined/null — treating as BUG`);

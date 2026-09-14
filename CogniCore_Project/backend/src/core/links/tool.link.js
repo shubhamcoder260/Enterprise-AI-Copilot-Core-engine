@@ -19,7 +19,7 @@ const configuredIntents = [
 
    try {
     console.log("🔧 Attempting Tool Link:", tool.name);
-    const result = await tool.execute({ query, organization, role, sessionId });
+    const result = await tool.execute({ query, organization, role, sessionId, capabilities: ctx.capabilities });
 
     // Expected soft failure: active database lacks the required table
     if (result.data?.error === "table_not_found") {

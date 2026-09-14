@@ -1,4 +1,3 @@
-import { connectDatabase } from "../../config/database.js";
 
 function parseCgpaQuery(query = "") {
   const q = String(query).toLowerCase();
@@ -82,7 +81,7 @@ export const cgpaTool = {
 
   async execute({ query = "" } = {}) {
     const { operator, opLabel, threshold } = parseCgpaQuery(query);
-    const db = await connectDatabase();
+    const db = await db.connectDatabase();
 
     // Validate operator to prevent SQL injection
     const allowedOperators = [">", ">=", "<", "<=", "="];

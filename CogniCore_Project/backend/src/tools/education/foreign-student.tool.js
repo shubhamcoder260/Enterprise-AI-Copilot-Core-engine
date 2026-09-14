@@ -1,4 +1,3 @@
-import { connectDatabase } from "../../config/database.js";
 
 function parseForeignStudentQuery(query = "", defaultHomeCountry = process.env.DEFAULT_HOME_COUNTRY || "India") {
   const q = String(query).toLowerCase();
@@ -24,7 +23,7 @@ export const foreignStudentTool = {
 
   async execute({ query = "" } = {}) {
     const { year, homeCountry } = parseForeignStudentQuery(query);
-    const db = await connectDatabase();
+    const db = await db.connectDatabase();
 
     try {
       const MAX_RECORDS = 50;

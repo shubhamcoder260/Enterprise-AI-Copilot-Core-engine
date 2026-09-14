@@ -1,4 +1,3 @@
-import { connectDatabase } from "../../config/database.js";
 
 const MONTH_MAP = {
   january: "01", jan: "01",
@@ -99,7 +98,7 @@ export const cardiologyTool = {
   name: "Hospital Patient Analytics Tool",
 
   async execute({ query = "" } = {}) {
-    const db = await connectDatabase();
+    const db = await db.connectDatabase();
 
     try {
       const department = await resolveDepartment(db, query);

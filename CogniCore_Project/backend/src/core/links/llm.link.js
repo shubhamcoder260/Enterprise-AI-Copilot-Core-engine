@@ -1,13 +1,14 @@
 import { readDatabaseSchema } from "../schema.reader.js";
 import { buildSqlPrompt } from "../../llm/sql.prompt.js";
-import { generateSql } from "../../llm/llm.client.js";
 import { formatLlmResponse } from "../../llm/llm.formatter.js";
 import { getRecentExchanges } from "../../store/history.store.js";
-import { executeReadOnlySql } from "../../config/database.js";
 import { GATE_CHAIN } from "../../kernel/gate.chain.js";
 import { PASS, BUG, ANSWERED } from "../../kernel/handler-result.js";
 
-export async function executeLlmLink({ query, organization, role, sessionId, model, startTime }) {
+export async function executeLlmLink(ctx) {
+  const { query, organization, role, sessionId, model, startTime, capabilities } = ctx;
+  const { db, llm } = capabilities;
+
   const isLlmEnabled = process.env.ENABLE_LOCAL_LLM !== "false";
 
   if (!isLlmEnabled) {
@@ -26,8 +27,8 @@ export async function executeLlmLink({ query, organization, role, sessionId, mod
     // 2. Build prompt
     const prompt = buildSqlPrompt({ query, schema, history });
 
-    // 3. Client generation with optional requestedModel
-    const clientResult = await generateSql({ prompt, model });
+    // 3. Client generation — via capability seam (llm)
+    const clientResult = await llm.generateSql({ prompt, model });
 
     if (!clientResult.success) {
       console.log(`ℹ️ [LLM Cascade] Generation failed: ${clientResult.errorType}`);
@@ -63,6 +64,7 @@ export async function executeLlmLink({ query, organization, role, sessionId, mod
     }
 
     // 5b. Case-sensitivity recovery: retry with COLLATE NOCASE on zero results.
+    // Retry goes through the db capability (same read-only guarantee).
     const isZeroCount =
       Array.isArray(rows) &&
       rows.length === 1 &&
@@ -80,7 +82,7 @@ export async function executeLlmLink({ query, organization, role, sessionId, mod
 
       if (enhancedSql !== finalSql) {
         try {
-          const recoveryRows = await executeReadOnlySql(enhancedSql);
+          const recoveryRows = await db.executeReadOnlySql(enhancedSql);
           const recoveryZeroCount =
             Array.isArray(recoveryRows) &&
             recoveryRows.length === 1 &&
