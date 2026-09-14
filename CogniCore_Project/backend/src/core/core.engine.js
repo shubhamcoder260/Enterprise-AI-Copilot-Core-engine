@@ -207,32 +207,23 @@ async function executeDynamicLink({ query, organization, role, sessionId, startT
     const dynamicResult = await runDynamicQuery(query);
 
     if (dynamicResult.success) {
-      return {
-        handled: true,
-        response: {
-          answer: dynamicResult.answer,
-          source: "dynamic",
-          data: dynamicResult.data || {},
-          meta: {
-            sessionId,
-            organization,
-            role,
-            engineMode: "dynamic_query",
-            intent: "dynamic_query",
-            processingMs: Date.now() - startTime
-          }
-        }
-      };
+      return ANSWERED({ answer: dynamicResult.answer, 
+      source: "dynamic",
+      data: dynamicResult.data || {}, 
+      meta: { sessionId, organization, 
+      role, 
+      engineMode: "dynamic_query", 
+      intent: "dynamic_query", 
+      processingMs: Date.now() - startTime } });
     }
 
-    return {
-      handled: false,
-      reason: dynamicResult.answer,
-      partialResult: dynamicResult
-    };
+    return PASS(dynamicResult.answer,{
+      partialResult:dynamicResult
+    })
+    
   } catch (err) {
     console.error("🚨 [DYNAMIC ENGINE BUG] Unexpected error:", err);
-    return { handled: false, reason: err.message };
+    return BUG(`dynamic_bug:${err.message}`,err);
   }
 }
 
@@ -342,6 +333,7 @@ export async function runCoreEngine({
     if (status === "BUG") {
       console.error(`🚨 [ENGINE] Link [${link.name}] bug: ${reason}`);
     }
+    if (outcome.extra) Object.assign(context, outcome.extra);
     if (reason) {
       lastReason = reason;
       console.log(`↪ Link [${link.name}] ${status}: ${reason}`);
