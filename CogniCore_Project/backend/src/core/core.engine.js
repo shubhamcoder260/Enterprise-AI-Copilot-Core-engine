@@ -15,6 +15,8 @@ import { executeReadOnlySql } from "../config/database.js";
 import { formatLlmResponse } from "../llm/llm.formatter.js";
 import { getRecentExchanges } from "../store/history.store.js";
 
+import { ANSWERED, PASS, ABSTAIN, BUG, isHandlerResult } from "../kernel/handler-result.js";
+
 // ==========================================
 // LINK 1: CONFIGURED TOOL HANDLER
 // ==========================================
@@ -242,45 +244,42 @@ async function executeDynamicLink({ query, organization, role, sessionId, startT
 // ==========================================
 // LINK 4: HELPFUL FALLBACK WITH SCHEMA INSPECTION
 // ==========================================
+
+
 async function executeFallbackLink({ query, organization, role, sessionId, startTime, lastReason }) {
   console.log("🛡️ Falling back to Helpful Fallback handler with schema inspection");
-
-  let tables = [];
   try {
-    const schema = await readDatabaseSchema();
-    tables = Object.keys(schema);
-  } catch (e) {}
+    let tables = [];
+    try {
+      const schema = await readDatabaseSchema();
+      tables = Object.keys(schema);
+    } catch (e) {}
 
-  const tablesText =
-    tables.length > 0
-      ? `Available tables in the active database: ${tables.join(", ")}.`
-      : "No readable tables found in the currently active database.";
+    const tablesText =
+      tables.length > 0
+        ? `Available tables in the active database: ${tables.join(", ")}.`
+        : "No readable tables found in the currently active database.";
 
-  const answer =
-    lastReason && lastReason.length > 10 && !lastReason.includes(":")
-      ? lastReason
-      : `I could not find an exact answer for: "${query}".\n\n${tablesText}\n\nYou can ask to count records, show records, list columns, or calculate averages/totals for numeric fields.`;
+    const answer = `I could not find an exact answer for: "${query}".\n\n${tablesText}\n\nYou can ask to count records, show records, list columns, or calculate averages/totals for numeric fields.`;
 
-  return {
-    handled: true,
-    response: {
+    console.log("🛡️ about to return ANSWERED");
+
+    return ANSWERED({
       answer,
       source: "fallback",
-      data: {
-        error: "unresolved_query",
-        query,
-        availableTables: tables
-      },
+      data: { error: "unresolved_query", query, availableTables: tables },
       meta: {
-        sessionId,
-        organization,
-        role,
+        sessionId, organization, role,
         engineMode: "fallback",
         processingMs: Date.now() - startTime
       }
-    }
-  };
+    });
+  } catch (e) {
+    console.error("🛡️💥 FALLBACK THREW:", e);
+    throw e;
+  }
 }
+
 
 // ==========================================
 // RUN CORE ENGINE — CHAIN RUNNER
@@ -326,18 +325,30 @@ export async function runCoreEngine({
   ];
 
   let lastReason = "";
-  for (const link of chain) {
+
+     for (const link of chain) {
     console.log(`🔗 Evaluating chain link: [${link.name}]`);
     const outcome = await link.execute({ ...context, lastReason });
 
-    if (outcome.handled && outcome.response) {
-      console.log(`✅ Handled by: [${link.name}] (source: ${outcome.response.source})`);
-      return outcome.response;
+    let status, response, reason;
+    if (isHandlerResult(outcome)) {
+      ({ status, response, reason } = outcome);
+    } else {
+      status = outcome.handled ? "ANSWERED" : "PASS";
+      response = outcome.response;
+      reason = outcome.reason;
     }
 
-    if (outcome.reason) {
-      lastReason = outcome.reason;
-      console.log(`↪ Link [${link.name}] passed: ${outcome.reason}`);
+    if (status === "ANSWERED" && response) {
+      console.log(`✅ Handled by: [${link.name}] (source: ${response.source})`);
+      return response;
+    }
+    if (status === "BUG") {
+      console.error(`🚨 [ENGINE] Link [${link.name}] bug: ${reason}`);
+    }
+    if (reason) {
+      lastReason = reason;
+      console.log(`↪ Link [${link.name}] ${status}: ${reason}`);
     }
   }
 
