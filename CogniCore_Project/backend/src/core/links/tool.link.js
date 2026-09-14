@@ -1,7 +1,7 @@
 import { getTool } from "../tool.router.js";
 import { ANSWERED, PASS, BUG } from "../../kernel/handler-result.js";
 
-export async function executeToolLink({ query, organization, role, sessionId, intent, startTime }) {
+export async function executeToolLink({ query, organization, role, sessionId, intent, startTime, capabilities }) {
 const configuredIntents = [
     "education_cgpa_analytics",
     "education_foreign_students",
@@ -19,7 +19,7 @@ const configuredIntents = [
 
    try {
     console.log("🔧 Attempting Tool Link:", tool.name);
-    const result = await tool.execute({ query, organization, role, sessionId, capabilities: ctx.capabilities });
+    const result = await tool.execute({ query, organization, role, sessionId, capabilities });
 
     // Expected soft failure: active database lacks the required table
     if (result.data?.error === "table_not_found") {

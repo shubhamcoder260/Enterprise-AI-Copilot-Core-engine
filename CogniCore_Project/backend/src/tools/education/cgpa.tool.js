@@ -79,9 +79,10 @@ function parseCgpaQuery(query = "") {
 export const cgpaTool = {
   name: "CGPA Analytics Tool",
 
-  async execute({ query = "" } = {}) {
+  async execute({ query = "", capabilities } = {}) {
+    const { db } = capabilities;
     const { operator, opLabel, threshold } = parseCgpaQuery(query);
-    const db = await db.connectDatabase();
+    const conn = await db.connectDatabase();
 
     // Validate operator to prevent SQL injection
     const allowedOperators = [">", ">=", "<", "<=", "="];
@@ -89,12 +90,12 @@ export const cgpaTool = {
 
     try {
       const MAX_RECORDS = 50;
-      const result = await db.get(
+      const result = await conn.get(
         `SELECT COUNT(*) AS count FROM students WHERE cgpa ${safeOperator} ?`,
         [threshold]
       );
 
-      const records = await db.all(
+      const records = await conn.all(
         `SELECT * FROM students WHERE cgpa ${safeOperator} ? ORDER BY cgpa DESC LIMIT ?`,
         [threshold, MAX_RECORDS]
       );

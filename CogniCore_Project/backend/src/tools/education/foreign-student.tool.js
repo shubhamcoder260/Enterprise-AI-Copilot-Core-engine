@@ -21,9 +21,10 @@ function parseForeignStudentQuery(query = "", defaultHomeCountry = process.env.D
 export const foreignStudentTool = {
   name: "Foreign Student Analytics Tool",
 
-  async execute({ query = "" } = {}) {
+  async execute({ query = "", capabilities } = {}) {
+    const { db } = capabilities;
     const { year, homeCountry } = parseForeignStudentQuery(query);
-    const db = await db.connectDatabase();
+    const conn = await db.connectDatabase();
 
     try {
       const MAX_RECORDS = 50;
@@ -40,8 +41,8 @@ export const foreignStudentTool = {
       recordSql += ` ORDER BY name ASC LIMIT ?`;
       const recordParams = [...params, MAX_RECORDS];
 
-      const result = await db.get(countSql, params);
-      const records = await db.all(recordSql, recordParams);
+      const result = await conn.get(countSql, params);
+      const records = await conn.all(recordSql, recordParams);
       const count = result?.count ?? 0;
 
       const yearLabel = year !== null ? ` enrolled in ${year}` : " enrolled";

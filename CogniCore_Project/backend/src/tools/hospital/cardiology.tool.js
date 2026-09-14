@@ -71,7 +71,7 @@ async function resolveDepartment(db, query = "") {
   const q = String(query).toLowerCase();
 
   try {
-    const deptRows = await db.all(`SELECT DISTINCT department FROM hospital_visits`);
+    const deptRows = await conn.all(`SELECT DISTINCT department FROM hospital_visits`);
     for (const row of deptRows) {
       if (row.department && q.includes(row.department.toLowerCase())) {
         return row.department;
@@ -97,11 +97,12 @@ async function resolveDepartment(db, query = "") {
 export const cardiologyTool = {
   name: "Hospital Patient Analytics Tool",
 
-  async execute({ query = "" } = {}) {
-    const db = await db.connectDatabase();
+  async execute({ query = "", capabilities } = {}) {
+    const { db } = capabilities;
+    const conn = await db.connectDatabase();
 
     try {
-      const department = await resolveDepartment(db, query);
+      const department = await resolveDepartment(conn, query);
       const { datePattern, dateLabel } = parseDateFilters(query);
 
       let countSql = `SELECT COUNT(*) AS count FROM hospital_visits WHERE 1=1`;
@@ -124,8 +125,8 @@ export const cardiologyTool = {
       recordSql += ` ORDER BY visit_date DESC LIMIT ?`;
       const recordParams = [...params, MAX_RECORDS];
 
-      const result = await db.get(countSql, params);
-      const records = await db.all(recordSql, recordParams);
+      const result = await conn.get(countSql, params);
+      const records = await conn.all(recordSql, recordParams);
       const count = result?.count ?? 0;
 
       const deptLabel = department ? `${department} department` : "the hospital";
