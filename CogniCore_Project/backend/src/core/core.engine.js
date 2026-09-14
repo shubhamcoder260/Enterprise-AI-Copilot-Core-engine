@@ -84,7 +84,7 @@ async function executeLlmLink({ query, organization, role, sessionId, model, sta
   const isLlmEnabled = process.env.ENABLE_LOCAL_LLM !== "false";
 
   if (!isLlmEnabled) {
-    return { handled: false, reason: "llm_not_configured" };
+    return PASS("llm_not_configured");
   }
 
   try {
@@ -104,7 +104,7 @@ async function executeLlmLink({ query, organization, role, sessionId, model, sta
 
     if (!clientResult.success) {
       console.log(`ℹ️ [LLM Cascade] Generation failed: ${clientResult.errorType}`);
-      return { handled: false, reason: clientResult.errorType };
+      return PASS(clientResult.errorType);
     }
 
     // 4. Validator security gate
@@ -112,7 +112,7 @@ async function executeLlmLink({ query, organization, role, sessionId, model, sta
 
     if (!validation.valid) {
       console.log(`ℹ️ [LLM Cascade] Validation failed: ${validation.reason}`);
-      return { handled: false, reason: validation.reason };
+      return PASS(validation.reason);
     }
 
     console.log("📝 [LLM Link] Validated SQL:", validation.sql);
@@ -124,7 +124,7 @@ async function executeLlmLink({ query, organization, role, sessionId, model, sta
       rows = await executeReadOnlySql(finalSql);
     } catch (dbErr) {
       console.log(`ℹ️ [LLM Cascade] SQL execution error: ${dbErr.message}`);
-      return { handled: false, reason: "llm_execution_error" };
+      return PASS("llm_execution_error");
     }
 
     // 5b. Case-sensitivity recovery:
@@ -188,13 +188,10 @@ async function executeLlmLink({ query, organization, role, sessionId, model, sta
       extraMeta
     });
 
-    return {
-      handled: true,
-      response: responsePayload
-    };
+    return ANSWERED(responsePayload);
   } catch (err) {
     console.error("🚨 [LLM BUG] Local LLM execution threw unexpected error:", err);
-    return { handled: false, reason: err.message };
+    return BUG(`llm_bug:${err.message}`,err);
   }
 }
 
@@ -316,6 +313,12 @@ export async function runCoreEngine({
      for (const link of chain) {
     console.log(`🔗 Evaluating chain link: [${link.name}]`);
     const outcome = await link.execute({ ...context, lastReason });
+      
+    if (outcome == null) {
+      console.error(`🚨 [ENGINE] Link [${link.name}] returned undefined/null — treating as BUG`);
+      lastReason = `${link.name}_returned_nothing`;
+      continue;
+    }
 
     let status, response, reason;
     if (isHandlerResult(outcome)) {
