@@ -112,7 +112,7 @@ export async function getAvailableModels(req, res) {
     return res.json({
       available: false,
       current: defaultModel,
-      models: []
+      models: [defaultModel]
     });
   }
 }
