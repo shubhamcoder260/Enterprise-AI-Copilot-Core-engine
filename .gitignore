@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+CogniCore_Project/backend/data/*.db
+CogniCore_Project/backend/data/*.db-shm
+CogniCore_Project/backend/data/*.db-wal
+CogniCore_Project/backend/uploads/
