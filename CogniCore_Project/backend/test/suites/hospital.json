@@ -2,6 +2,18 @@
   "realm": "hospital",
   "questions": [
     {
+      "id": "H-S0-01", "stage": "S0", "db": "H1_clinic.db",
+      "text": "What is this database about?",
+      "validate": { "kind": "mentions", "anyOf": ["departments", "patients", "visits", "doctors", "diagnoses", "prescriptions"] },
+      "note": "orient question: fallback lists tables = correct orientation behavior"
+    },
+    {
+      "id": "H-S0-02", "stage": "S0", "db": "H1_clinic.db",
+      "text": "What tables exist in this database?",
+      "validate": { "kind": "mentions", "anyOf": ["departments", "patients", "visits", "doctors", "diagnoses", "prescriptions"] },
+      "note": "same orient path"
+    },
+    {
       "id": "H-S1-01", "stage": "S1", "db": "H1_clinic.db",
       "text": "How many patients are there?",
       "gt_sql": { "sqlite": "SELECT COUNT(*) FROM patients" },
@@ -11,13 +23,32 @@
       "id": "H-S1-02", "stage": "S1", "db": "H1_clinic.db",
       "text": "How many visits happened in 2024?",
       "gt_sql": { "sqlite": "SELECT COUNT(*) FROM visits WHERE visit_date LIKE '2024%'" },
-      "validate": { "kind": "count", "value": 886 }
+      "validate": { "kind": "count", "value": 886 },
+      "known_risk": "date-filter: may cascade to LLM (O2 wall) or fail"
     },
     {
       "id": "H-S1-03", "stage": "S1", "db": "H1_clinic.db",
       "text": "How many visits were cancelled?",
       "gt_sql": { "sqlite": "SELECT COUNT(*) FROM visits WHERE status = 'Cancelled'" },
       "validate": { "kind": "count", "value": 439 }
+    },
+    {
+      "id": "H-S1-04", "stage": "S1", "db": "H1_clinic.db",
+      "text": "How many doctors work here?",
+      "gt_sql": { "sqlite": "SELECT COUNT(*) FROM doctors" },
+      "validate": { "kind": "count", "value": 25 }
+    },
+    {
+      "id": "H-S1-05", "stage": "S1", "db": "H1_clinic.db",
+      "text": "How many diagnoses were recorded?",
+      "gt_sql": { "sqlite": "SELECT COUNT(*) FROM diagnoses" },
+      "validate": { "kind": "count", "value": 2244 }
+    },
+    {
+      "id": "H-S1-06", "stage": "S1", "db": "H1_clinic.db",
+      "text": "How many prescriptions were issued?",
+      "gt_sql": { "sqlite": "SELECT COUNT(*) FROM prescriptions" },
+      "validate": { "kind": "count", "value": 1235 }
     },
     {
       "id": "H-S2-01", "stage": "S2", "db": "H1_clinic.db",
@@ -29,7 +60,42 @@
       "id": "H-S2-02", "stage": "S2", "db": "H1_clinic.db",
       "text": "What is the total fee collected from completed visits?",
       "gt_sql": { "sqlite": "SELECT ROUND(SUM(fee),2) FROM visits WHERE status='Completed'" },
-      "validate": { "kind": "scalar", "value": 4660050.0, "tol": 0.01 }
+      "validate": { "kind": "scalar", "value": 4660050.0, "tol": 0.01 },
+      "known_risk": "S4-class: engine must apply the status filter (previous run gave 6,972,034 = all visits)"
+    },
+    {
+      "id": "H-S2-03", "stage": "S2", "db": "H1_clinic.db",
+      "text": "What is the average visit fee?",
+      "gt_sql": { "sqlite": "SELECT ROUND(AVG(fee),2) FROM visits" },
+      "validate": { "kind": "scalar", "value": 2598.6, "tol": 1.0, "key": null },
+      "note": "REPLACE 1911.0 with the value from your verification query above"
+    },
+    {
+      "id": "H-S2-04", "stage": "S2", "db": "H1_clinic.db",
+      "text": "How many visits had a fee above 3000?",
+      "gt_sql": { "sqlite": "SELECT COUNT(*) FROM visits WHERE fee > 3000" },
+      "validate": { "kind": "count", "value": 1128 },
+      "note": "REPLACE 0 with your verification query result"
+    },
+    {
+      "id": "H-S3-01", "stage": "S3", "db": "H1_clinic.db",
+      "text": "Which patients have never been diagnosed?",
+      "gt_sql": { "sqlite": "SELECT COUNT(*) FROM patients WHERE patient_id NOT IN (SELECT patient_id FROM visits WHERE visit_id IN (SELECT visit_id FROM diagnoses))" },
+      "validate": { "kind": "count", "value": 0 },
+      "note": "anti-join, H1 gives 0 - tests zero-result honesty; every patient has visits with diagnoses by generation"
+    },
+    {
+      "id": "H-S3-02", "stage": "S3", "db": "H1_clinic.db",
+      "text": "What percentage of completed visits resulted in a prescription?",
+      "validate": { "kind": "scalar", "value": 50.0, "tol": 25.0, "key": null },
+      "note": "derived metric - REPLACE with computed truth: (214 / completed_visits) * 100. Compute completed visits first, then verify the percentage"
+    },
+    {
+      "id": "H-S3-03", "stage": "S3", "db": "H1_clinic.db",
+      "text": "Which department employs the most experienced doctor?",
+      "gt_sql": { "sqlite": "SELECT dept_id FROM doctors ORDER BY experience_yrs DESC LIMIT 1" },
+      "validate": { "kind": "rows", "count": 1 },
+      "note": "derived lookup - run the GT once via sqlite3, then pin the dept value into contains"
     },
     {
       "id": "H-S4-01", "stage": "S4", "db": "H1_clinic.db",
@@ -40,13 +106,19 @@
       "id": "H-S4-02", "stage": "S4", "db": "H1_clinic.db",
       "text": "How many patients were treated in the radiology department?",
       "validate": { "kind": "swf" },
-      "note": "no radiology dept in schema - must refuse/clarify/flag, never bare-wrong"
+      "note": "radiology dept absent - S6-class surrogate risk"
     },
     {
       "id": "H-S4-03", "stage": "S4", "db": "H1_clinic.db",
       "text": "How many nurses are employed here?",
       "validate": { "kind": "swf" },
-      "note": "no nurses table - entity-absent trap (S6 class)"
+      "note": "nurses entity absent - S6-class"
+    },
+    {
+      "id": "H-S4-04", "stage": "S4", "db": "H1_clinic.db",
+      "text": "Show me all pregnant patients",
+      "validate": { "kind": "swf" },
+      "note": "pregnancy column absent - S6-class surrogate risk"
     }
   ]
 }

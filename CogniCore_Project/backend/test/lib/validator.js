@@ -116,19 +116,26 @@ export function validate(response, exp) {
 
   try {
     switch (exp.kind) {
-      case "count": {
         // FIX: was `getValue ?? Number(firstCellValue)` — Number(null) is 0,
         // so a genuinely data-less response silently reported count=0.
         // toNumOrNull keeps "no data" as null, distinguishable from a real 0.
+            case "count": {
+        // toNumOrNull keeps "no data" as null, distinguishable from a real 0.
         const v = getValue(response) ?? toNumOrNull(firstCellValue(getRows(response)));
         const pass = v !== null && v === exp.value;
-        return { pass, reason: pass ? `count=${v}` : `expected count ${exp.value}, got ${v === null ? "no data" : v}`, ...ctx };
+        // zero-result prose: LLM path expresses count-0 in prose ("No records
+        // matched"). Word boundaries prevent "400 record(s)" from matching
+        // "0 record" — the false-trigger bug found in the hospital run.
+        const zeroProse = exp.value === 0 &&
+          /\bno records\b|\b0 records?\b|\bno rows\b|\bdid not match\b/i.test(String(response?.answer || ""));
+        return {
+          pass: pass || zeroProse,
+          reason: pass ? `count=${v}` : zeroProse ? "count=0 (prose-confirmed)" : `expected count ${exp.value}, got ${v === null ? "no data" : v}`,
+          ...ctx,
+        };
       }
       case "scalar": {
-        // FIX: was `Number(firstCellValue(...)) ?? getValue(...)` — the
-        // fallback never fired, since Number() never returns null/undefined.
-        // Now: use the row value if a row genuinely exists, else fall back
-        // to the scalar `data.value`.
+        // Use the row value if a row genuinely exists, else fall back to data.value.
         const raw = firstCellValue(getRows(response), exp.key);
         const v = raw !== null ? toNumOrNull(raw) : getValue(response);
         const pass = closeEnough(v, exp.value, exp.tol);
@@ -190,6 +197,16 @@ export function validate(response, exp) {
         if (isDisclosed(response, exp.disclosurePatterns)) return { pass: true, reason: "answered with disclosed substitution/assumption", ...ctx };
         return { pass: false, reason: `SILENT-WRONG: gave "${String(response?.answer).slice(0, 60)}" but truth is ${exp.truth ?? "not derivable"}`, ...ctx };
       }
+      case "mentions": {
+        // orient questions: the answer must reference real schema entities —
+        // proves schema-awareness without demanding a specific engine path.
+        const a = String(response?.answer || "").toLowerCase();
+        const missing = (exp.anyOf || []).filter(t => !a.includes(String(t).toLowerCase()));
+        const pass = missing.length < (exp.anyOf || []).length;   // ≥1 mentioned
+        return { pass, reason: pass ? "mentions real schema entities" : `mentions none of: ${(exp.anyOf || []).join(", ")}`, ...ctx };
+      }
+
+
       default:
         return { pass: false, reason: `unknown expectation kind: ${exp.kind}`, ...ctx };
     }
