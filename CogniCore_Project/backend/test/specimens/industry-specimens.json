@@ -1,0 +1,86 @@
+[
+  {
+    "realm": "industry",
+    "db": "I3_plantops.db",
+    "id": "I-S0-01",
+    "stage": "S0",
+    "question": "What is this database about?",
+    "got": "Found 5 record(s) matching your request.",
+    "expected": "{\"kind\":\"mentions\",\"anyOf\":[\"machines\",\"production\",\"defects\",\"shifts\"]}",
+    "sql": "SELECT DISTINCT defect_type FROM defect_log LIMIT 50",
+    "source": "llm",
+    "ms": 35833
+  },
+  {
+    "realm": "industry",
+    "db": "I3_plantops.db",
+    "id": "I-S1-03",
+    "stage": "S1",
+    "question": "What is the total number of units produced?",
+    "got": "The calculated value for efficiency_pct is 9324.",
+    "expected": "{\"kind\":\"rows\",\"count\":1}",
+    "sql": "SELECT SUM(\"efficiency_pct\") AS result FROM \"machines\"",
+    "source": "dynamic",
+    "ms": 15
+  },
+  {
+    "realm": "industry",
+    "db": "I3_plantops.db",
+    "id": "I-S2-01",
+    "stage": "S2",
+    "question": "Which machine produced the most units?",
+    "got": "Found 50 record(s) matching your request.",
+    "expected": "{\"kind\":\"rows\",\"count\":1}",
+    "sql": "SELECT T1.machine_name FROM machines AS T1 JOIN production_runs AS T2 ON T1.machine_id = T2.machine_id GROUP BY T1.machine_id ORDER BY SUM(T2.units_produced) DESC LIMIT 50",
+    "source": "llm",
+    "ms": 12408
+  },
+  {
+    "realm": "industry",
+    "db": "I3_plantops.db",
+    "id": "I-S2-02",
+    "stage": "S2",
+    "question": "Which shift has the highest average output per run?",
+    "got": "Showing the top 5 record(s) from the machines table by machine_id.",
+    "expected": "{\"kind\":\"rows\",\"count\":1}",
+    "sql": "SELECT * FROM \"machines\" ORDER BY \"machine_id\" DESC LIMIT ?",
+    "source": "dynamic",
+    "ms": 13
+  },
+  {
+    "realm": "industry",
+    "db": "I3_plantops.db",
+    "id": "I-S4-02",
+    "stage": "S4",
+    "question": "How many delivery trucks does the plant operate?",
+    "got": "There are 60 record(s) matching your request.",
+    "expected": "{\"kind\":\"swf\"}",
+    "sql": "SELECT COUNT(DISTINCT machine_id) FROM machines WHERE machine_name IN ('CNC Mill Alpha', 'CNC Lathe Beta', 'Assembly Robot A', 'Assembly Robot B') LIMIT 50",
+    "source": "llm",
+    "ms": 10080
+  },
+  {
+    "realm": "industry",
+    "db": "I1_workshop.db",
+    "id": "I-S1-05",
+    "stage": "S1",
+    "question": "What is the total number of units produced?",
+    "got": "There are 500 record(s) in the prod table.",
+    "expected": "{\"kind\":\"count\",\"value\":304631}",
+    "sql": "SELECT COUNT(*) AS count FROM \"prod\"",
+    "source": "dynamic",
+    "ms": 15
+  },
+  {
+    "realm": "industry",
+    "db": "I1_workshop.db",
+    "id": "I-S1-06",
+    "stage": "S1",
+    "question": "What is the total number of defective units?",
+    "got": "There are 500 record(s) in the prod table.",
+    "expected": "{\"kind\":\"count\",\"value\":4394}",
+    "sql": "SELECT COUNT(*) AS count FROM \"prod\"",
+    "source": "dynamic",
+    "ms": 12
+  }
+]

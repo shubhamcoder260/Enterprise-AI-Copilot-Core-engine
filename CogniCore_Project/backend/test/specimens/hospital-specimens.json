@@ -1,0 +1,86 @@
+[
+  {
+    "realm": "hospital",
+    "db": "H1_clinic.db",
+    "id": "H-S0-01",
+    "stage": "S0",
+    "question": "What is this database about?",
+    "got": "Found 7 record(s) matching your request.",
+    "expected": "{\"kind\":\"mentions\",\"anyOf\":[\"departments\",\"patients\",\"visits\",\"doctors\",\"diagnoses\",\"prescriptions\"]}",
+    "sql": "SELECT name FROM departments LIMIT 50",
+    "source": "llm",
+    "ms": 40743
+  },
+  {
+    "realm": "hospital",
+    "db": "H1_clinic.db",
+    "id": "H-S2-01",
+    "stage": "S2",
+    "question": "Which doctor handled the most visits?",
+    "got": "Found 25 record(s) matching your request.",
+    "expected": "{\"kind\":\"swf\",\"truth\":\"Dr. Lena Gupta\"}",
+    "sql": "SELECT doctors.name FROM doctors JOIN visits ON doctors.doc_id = visits.doctor_id GROUP BY doctors.doc_id ORDER BY COUNT(visits.visit_id) DESC LIMIT 50",
+    "source": "llm",
+    "ms": 16944
+  },
+  {
+    "realm": "hospital",
+    "db": "H1_clinic.db",
+    "id": "H-S2-02",
+    "stage": "S2",
+    "question": "What is the total fee collected from completed visits?",
+    "got": "The total fee in the visits table is 6972034.",
+    "expected": "{\"kind\":\"scalar\",\"value\":4660050,\"tol\":0.01}",
+    "sql": "SELECT SUM(\"fee\") AS total FROM \"visits\" WHERE \"fee\" IS NOT NULL",
+    "source": "dynamic",
+    "ms": 15
+  },
+  {
+    "realm": "hospital",
+    "db": "H1_clinic.db",
+    "id": "H-S3-02",
+    "stage": "S3",
+    "question": "What percentage of completed visits resulted in a prescription?",
+    "got": "Showing 50 record(s) from the visits table. The display is limited to the first 50 records.",
+    "expected": "{\"kind\":\"scalar\",\"value\":50,\"tol\":25,\"key\":null}",
+    "sql": "SELECT * FROM \"visits\" WHERE \"status\" = ? LIMIT 50",
+    "source": "dynamic",
+    "ms": 17
+  },
+  {
+    "realm": "hospital",
+    "db": "H1_clinic.db",
+    "id": "H-S4-02",
+    "stage": "S4",
+    "question": "How many patients were treated in the radiology department?",
+    "got": "There are 400 record(s) in the patients table.",
+    "expected": "{\"kind\":\"swf\"}",
+    "sql": "SELECT COUNT(*) AS result FROM \"patients\"",
+    "source": "dynamic",
+    "ms": 17
+  },
+  {
+    "realm": "hospital",
+    "db": "H1_clinic.db",
+    "id": "H-S4-03",
+    "stage": "S4",
+    "question": "How many nurses are employed here?",
+    "got": "There are 0 record(s) matching your request.",
+    "expected": "{\"kind\":\"swf\"}",
+    "sql": "SELECT COUNT(DISTINCT doc_id) FROM doctors WHERE name LIKE '%Nurse%' COLLATE NOCASE LIMIT 50",
+    "source": "llm",
+    "ms": 12988
+  },
+  {
+    "realm": "hospital",
+    "db": "H1_clinic.db",
+    "id": "H-S4-04",
+    "stage": "S4",
+    "question": "Show me all pregnant patients",
+    "got": "Showing 50 record(s) from the patients table. The display is limited to the first 50 records.",
+    "expected": "{\"kind\":\"swf\"}",
+    "sql": "SELECT * FROM \"patients\" LIMIT 50",
+    "source": "dynamic",
+    "ms": 11
+  }
+]

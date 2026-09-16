@@ -1,0 +1,98 @@
+[
+  {
+    "realm": "university",
+    "db": "U1_stateuniv.db",
+    "id": "U-S2-01",
+    "stage": "S2",
+    "question": "Which department has the highest average student GPA?",
+    "got": "Showing the top 5 record(s) from the students table by gpa.",
+    "expected": "{\"kind\":\"swf\",\"truth\":\"Physics\"}",
+    "sql": "SELECT * FROM \"students\" ORDER BY \"gpa\" DESC LIMIT ?",
+    "source": "dynamic",
+    "ms": 25
+  },
+  {
+    "realm": "university",
+    "db": "U1_stateuniv.db",
+    "id": "U-S2-02",
+    "stage": "S2",
+    "question": "Which course has the most enrollments?",
+    "got": "Found 40 record(s) matching your request.",
+    "expected": "{\"kind\":\"rows\",\"count\":1}",
+    "sql": "SELECT courses.course_code, COUNT(enrollments.enrollment_id) AS enrollment_count FROM courses JOIN enrollments ON courses.course_id = enrollments.course_id GROUP BY courses.course_id ORDER BY enrollment_count DESC LIMIT 50",
+    "source": "llm",
+    "ms": 14145
+  },
+  {
+    "realm": "university",
+    "db": "U1_stateuniv.db",
+    "id": "U-S3-01",
+    "stage": "S3",
+    "question": "How many students have no advisor assigned?",
+    "got": "There are 300 record(s) in the students table.",
+    "expected": "{\"kind\":\"count\",\"value\":32}",
+    "sql": "SELECT COUNT(*) AS result FROM \"students\"",
+    "source": "dynamic",
+    "ms": 16
+  },
+  {
+    "realm": "university",
+    "db": "U1_stateuniv.db",
+    "id": "U-S3-02",
+    "stage": "S3",
+    "question": "How many instructors advise other instructors?",
+    "got": "There are 20 record(s) in the instructors table.",
+    "expected": "{\"kind\":\"count\",\"value\":7}",
+    "sql": "SELECT COUNT(*) AS result FROM \"instructors\"",
+    "source": "dynamic",
+    "ms": 13
+  },
+  {
+    "realm": "university",
+    "db": "U1_stateuniv.db",
+    "id": "U-S4-02",
+    "stage": "S4",
+    "question": "How many professors teach in the medical department?",
+    "got": "There are 8 record(s) in the departments table.",
+    "expected": "{\"kind\":\"swf\"}",
+    "sql": "SELECT COUNT(*) AS result FROM \"departments\"",
+    "source": "dynamic",
+    "ms": 12
+  },
+  {
+    "realm": "university",
+    "db": "U3_institute.db",
+    "id": "U-S1-06",
+    "stage": "S1",
+    "question": "How many students are there?",
+    "got": "I could not find an exact answer for: \"How many students are there?\".\n\nAvailable tables in the active database: crss, de",
+    "expected": "{\"kind\":\"count\",\"value\":12000}",
+    "sql": null,
+    "source": "fallback",
+    "ms": 39458
+  },
+  {
+    "realm": "university",
+    "db": "U3_institute.db",
+    "id": "U-S1-07",
+    "stage": "S1",
+    "question": "How many enrollments are there?",
+    "got": "I could not find an exact answer for: \"How many enrollments are there?\".\n\nAvailable tables in the active database: crss,",
+    "expected": "{\"kind\":\"count\",\"value\":59488}",
+    "sql": null,
+    "source": "fallback",
+    "ms": 7645
+  },
+  {
+    "realm": "university",
+    "db": "U3_institute.db",
+    "id": "U-S1-08",
+    "stage": "S1",
+    "question": "How many enrollments received a B grade?",
+    "got": "There are 5391 record(s) in the enrs table.",
+    "expected": "{\"kind\":\"count\",\"value\":5541}",
+    "sql": "SELECT COUNT(*) AS result FROM \"enrs\" WHERE \"grade\" = ?",
+    "source": "dynamic",
+    "ms": 22
+  }
+]

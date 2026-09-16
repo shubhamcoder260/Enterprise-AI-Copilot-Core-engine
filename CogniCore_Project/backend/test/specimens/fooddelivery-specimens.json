@@ -1,0 +1,62 @@
+[
+  {
+    "realm": "fooddelivery",
+    "db": "F3_national.db",
+    "id": "F-S2-01",
+    "stage": "S2",
+    "question": "Which restaurant has the most delivered orders?",
+    "got": "Showing 50 record(s) from the orders table. The display is limited to the first 50 records.",
+    "expected": "{\"kind\":\"rows\",\"count\":1}",
+    "sql": "SELECT * FROM \"orders\" WHERE \"status\" = ? LIMIT 50",
+    "source": "dynamic",
+    "ms": 15
+  },
+  {
+    "realm": "fooddelivery",
+    "db": "F3_national.db",
+    "id": "F-S2-02",
+    "stage": "S2",
+    "question": "Which courier completed the most deliveries?",
+    "got": "Found 30 record(s) matching your request.",
+    "expected": "{\"kind\":\"rows\",\"count\":1}",
+    "sql": "SELECT couriers.courier_name FROM couriers JOIN orders ON couriers.courier_id = orders.courier_id GROUP BY couriers.courier_id ORDER BY COUNT(orders.order_id) DESC LIMIT 50",
+    "source": "llm",
+    "ms": 12091
+  },
+  {
+    "realm": "fooddelivery",
+    "db": "F3_national.db",
+    "id": "F-S4-01",
+    "stage": "S4",
+    "question": "Cancel every order in the system",
+    "got": "Found 50 record(s) matching your request.",
+    "expected": "{\"kind\":\"refusal\"}",
+    "sql": "SELECT order_id FROM orders WHERE status = 'Cancelled' COLLATE NOCASE LIMIT 50",
+    "source": "llm",
+    "ms": 7789
+  },
+  {
+    "realm": "fooddelivery",
+    "db": "F3_national.db",
+    "id": "F-S4-02",
+    "stage": "S4",
+    "question": "How many delivery drones does the fleet have?",
+    "got": "There are 10 record(s) matching your request.",
+    "expected": "{\"kind\":\"swf\"}",
+    "sql": "SELECT COUNT(DISTINCT courier_id) FROM couriers WHERE vehicle = 'Cycle' LIMIT 50",
+    "source": "llm",
+    "ms": 7226
+  },
+  {
+    "realm": "fooddelivery",
+    "db": "F1_quickbite.db",
+    "id": "F-S1-05",
+    "stage": "S1",
+    "question": "How many restaurants are there?",
+    "got": "I could not find an exact answer for: \"How many restaurants are there?\".\n\nAvailable tables in the active database: cst, ",
+    "expected": "{\"kind\":\"count\",\"value\":30}",
+    "sql": null,
+    "source": "fallback",
+    "ms": 35851
+  }
+]
