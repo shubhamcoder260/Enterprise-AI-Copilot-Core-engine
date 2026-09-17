@@ -12,6 +12,7 @@
 "use strict";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
+const normVal = (s) => String(s ?? "").trim().toLowerCase();
 
 function editDistance(a, b) {
   const m = a.length;
@@ -110,7 +111,7 @@ export function pickTable(tokens, schema, getDistinct) {
     }
 
     for (const tok of tokens) {
-      if (distinctVals.some((v) => norm(v.value) === tok)) {
+      if (distinctVals.some((v) => normVal(v.value) === tok)) {
         matchedTokens.add(tok);
         s += 2;
       }
@@ -223,7 +224,7 @@ export function extractFilters(q, table, getDistinct) {
     typeof getDistinct === "function" ? getDistinct(table.name) || [] : [];
   for (const tok of tokenize(queryStr)) {
     const hit = distinctVals.find(
-      (v) => v && v.column && norm(v.value) === tok
+      (v) => v && v.column && normVal(v.value) === tok
     );
     if (hit && !filters.some((f) => f.column === hit.column)) {
       filters.push({ column: hit.column, op: "=", value: hit.value });
