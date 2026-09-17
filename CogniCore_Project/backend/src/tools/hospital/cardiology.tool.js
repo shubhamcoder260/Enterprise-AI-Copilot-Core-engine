@@ -71,7 +71,7 @@ async function resolveDepartment(db, query = "") {
   const q = String(query).toLowerCase();
 
   try {
-    const deptRows = await conn.all(`SELECT DISTINCT department FROM hospital_visits`);
+    const deptRows = await db.all(`SELECT DISTINCT department FROM hospital_visits`);
     for (const row of deptRows) {
       if (row.department && q.includes(row.department.toLowerCase())) {
         return row.department;
