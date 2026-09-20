@@ -147,10 +147,20 @@ export function validateAst(sql, options = {}) {
     }
   }
 
+  // Collect CTE aliases defined in WITH clause
+  const cteNames = new Set();
+  if (Array.isArray(stmt.with)) {
+    for (const w of stmt.with) {
+      const name = typeof w.name === "string" ? w.name : w.name?.value;
+      if (name) cteNames.add(norm(name));
+    }
+  }
+
   if (schemaTables.length > 0 && fromTables.length > 0) {
-    // Check tables exist in live schema
+    // Check tables exist in live schema or are CTEs
     for (const ft of fromTables) {
-      const exists = schemaTables.some((st) => norm(st.name) === norm(ft.name));
+      const isCte = cteNames.has(norm(ft.name));
+      const exists = isCte || schemaTables.some((st) => norm(st.name) === norm(ft.name));
       if (!exists) {
         return { valid: false, reason: `ast_table_not_in_schema:${ft.name}` };
       }
@@ -167,10 +177,12 @@ export function validateAst(sql, options = {}) {
       if (colName === "*" || colName === "(EXTRACT_PARAM)") return;
 
       if (tableName) {
+        if (cteNames.has(norm(tableName))) return; // CTE reference
         const matchedFrom = fromTables.find(
           (ft) => norm(ft.as) === norm(tableName) || norm(ft.name) === norm(tableName)
         );
         if (matchedFrom) {
+          if (cteNames.has(norm(matchedFrom.name))) return; // CTE reference
           const tableData = schemaTables.find((st) => norm(st.name) === norm(matchedFrom.name));
           const colExists = (tableData?.columns || []).some(
             (c) => norm(c.name || c) === norm(colName)
@@ -185,6 +197,7 @@ export function validateAst(sql, options = {}) {
         );
         if (!isSelectAlias) {
           const colExists = fromTables.some((ft) => {
+            if (cteNames.has(norm(ft.name))) return true;
             const tableData = schemaTables.find((st) => norm(st.name) === norm(ft.name));
             return (tableData?.columns || []).some((c) => norm(c.name || c) === norm(colName));
           });
@@ -215,7 +228,7 @@ export function validateAst(sql, options = {}) {
       } else {
         const directCol = extractColRef(expr);
         if (directCol && directCol.column !== "*") {
-          projectedBareCols.push(directCol.column);
+          projectedBareCols.push({ name: directCol.column, as: colNode.as || null });
         } else {
           let exprHasAgg = false;
           walkAst(expr, (n) => {
@@ -227,7 +240,7 @@ export function validateAst(sql, options = {}) {
             walkAst(expr, (n) => {
               const innerCol = extractColRef(n);
               if (innerCol && innerCol.column !== "*") {
-                projectedBareCols.push(innerCol.column);
+                projectedBareCols.push({ name: innerCol.column, as: colNode.as || null });
               }
             });
           }
@@ -245,15 +258,28 @@ export function validateAst(sql, options = {}) {
           groupByCols.push(norm(gbCol.column));
         } else if (typeof gbNode === "string") {
           groupByCols.push(norm(gbNode));
+        } else if (
+          (gbNode.type === "number" || typeof gbNode.value === "number") &&
+          Array.isArray(stmt.columns)
+        ) {
+          const idx = (gbNode.value || gbNode) - 1;
+          if (stmt.columns[idx]) {
+            const ordCol = extractColRef(stmt.columns[idx].expr);
+            if (ordCol && ordCol.column) groupByCols.push(norm(ordCol.column));
+            if (stmt.columns[idx].as) groupByCols.push(norm(stmt.columns[idx].as));
+          }
         }
       }
     }
 
     for (const bareCol of projectedBareCols) {
-      if (!groupByCols.includes(norm(bareCol))) {
+      const isCovered =
+        groupByCols.includes(norm(bareCol.name)) ||
+        (bareCol.as && groupByCols.includes(norm(bareCol.as)));
+      if (!isCovered) {
         return {
           valid: false,
-          reason: `ast_bare_column_without_group_by:${bareCol}`
+          reason: `ast_bare_column_without_group_by:${bareCol.name}`
         };
       }
     }
