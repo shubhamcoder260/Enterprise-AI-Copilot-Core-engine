@@ -12,6 +12,35 @@ const FAST_REFUSAL_CODES = [
   "numeric_column_missing"
 ];
 
+export function getRuleHint(reason = "") {
+  if (reason.startsWith("ast_bare_column_without_group_by")) {
+    return "every non-aggregated SELECT column must appear in GROUP BY, or the table's full primary key must be grouped";
+  }
+  if (reason.startsWith("ast_column_not_in_schema")) {
+    return "the projected or referenced column does not exist in the schema. Check schema table definitions and column names";
+  }
+  if (reason.startsWith("ast_table_not_in_schema")) {
+    return "the referenced table does not exist in the schema. Use only valid tables from the schema";
+  }
+  if (reason.startsWith("ast_disallowed_function")) {
+    return "the SQL uses a disallowed function. Allowed functions are COUNT, SUM, AVG, MIN, MAX, strftime, LOWER, UPPER, ROUND";
+  }
+  if (reason.startsWith("group_by_required")) {
+    return "queries with aggregate expressions and non-aggregated columns require a GROUP BY clause";
+  }
+  return "the generated SQL violated validation constraints. Correct the SQL syntax, schema references, or grouping";
+}
+
+export function buildCorrectivePrompt(reason, priorSql, basePrompt = "") {
+  const hint = getRuleHint(reason);
+  const rejectionNotice = `REJECTION NOTICE:
+Your previous SQL was rejected: ${priorSql}.
+Reason: ${reason}.
+Rule violated: ${hint}.
+Regenerate the complete corrected SQL. Output ONLY the SQL.`;
+  return basePrompt ? `${basePrompt}\n\n${rejectionNotice}` : rejectionNotice;
+}
+
 export async function executeLlmLink(ctx) {
   const { query, organization, role, sessionId, model, startTime, capabilities, attempts = [] } = ctx;
   const { db, llm } = capabilities;
@@ -54,16 +83,25 @@ export async function executeLlmLink(ctx) {
       return PASS(clientResult.errorType);
     }
 
+    let totalLlmDurationMs = clientResult.durationMs || 0;
+    let didRetry = false;
+    let retryReason = null;
+    let attemptsCount = 1;
+
     // 4+5. GATE CHAIN: validation gates first, then physical read-only execution.
     let rows;
     let finalSql;
     let sawValidator = false;
+    let initialValidationFailed = false;
+    let initialValidationReason = "";
+
     for (const gate of GATE_CHAIN) {
       if (gate.type === "validate") {
         const validation = await gate.run(finalSql || clientResult.sql, { schema });
         if (!validation.valid) {
-          console.log(`ℹ️ [LLM Cascade] Validation failed: ${validation.reason}`);
-          return PASS(validation.reason);
+          initialValidationFailed = true;
+          initialValidationReason = validation.reason;
+          break;
         }
         finalSql = validation.sql;
         sawValidator = true;
@@ -77,6 +115,74 @@ export async function executeLlmLink(ctx) {
         }
       }
     }
+
+    if (initialValidationFailed) {
+      console.log(`ℹ️ [LLM Cascade] Initial validation failed: ${initialValidationReason}`);
+      const isRetryable =
+        (initialValidationReason.startsWith("ast_") ||
+         initialValidationReason.startsWith("group_by_required")) &&
+        attemptsCount < 2;
+
+      if (!isRetryable) {
+        return PASS(initialValidationReason);
+      }
+
+      // ONE-SHOT CORRECTIVE RETRY (Max 2 total attempts)
+      attemptsCount++;
+      retryReason = initialValidationReason;
+      console.log(`🔄 [LLM Corrective Retry] Prompting retry (attempt 2/2) for: ${retryReason}`);
+
+      const correctivePrompt = buildCorrectivePrompt(retryReason, finalSql || clientResult.sql, prompt);
+      const retryResult = await llm.generateSql({ prompt: correctivePrompt, model });
+
+      if (!retryResult.success) {
+        console.log(`ℹ️ [LLM Corrective Retry] Retry generation failed: ${retryResult.errorType}`);
+        return PASS(`corrective_retry_exhausted:${retryResult.errorType || retryReason}`);
+      }
+
+      totalLlmDurationMs += (retryResult.durationMs || 0);
+
+      let retryRows;
+      let retryFinalSql;
+      let retrySawValidator = false;
+      let retryValidationFailed = false;
+      let retryValidationReason = "";
+
+      for (const gate of GATE_CHAIN) {
+        if (gate.type === "validate") {
+          const v = await gate.run(retryFinalSql || retryResult.sql, { schema });
+          if (!v.valid) {
+            retryValidationFailed = true;
+            retryValidationReason = v.reason;
+            break;
+          }
+          retryFinalSql = v.sql;
+          retrySawValidator = true;
+          console.log("📝 [LLM Link Retry] Validated SQL:", retryFinalSql);
+        } else if (gate.type === "execute") {
+          if (!retrySawValidator) {
+            return BUG("llm_gate_chain_missing_validator");
+          }
+          try {
+            retryRows = await gate.run(retryFinalSql);
+          } catch (dbErr) {
+            console.log(`ℹ️ [LLM Corrective Retry] Retry SQL execution error: ${dbErr.message}`);
+            return PASS("corrective_retry_exhausted:llm_execution_error");
+          }
+        }
+      }
+
+      if (retryValidationFailed) {
+        console.log(`ℹ️ [LLM Corrective Retry] Retry validation failed: ${retryValidationReason}`);
+        return PASS(`corrective_retry_exhausted:${retryValidationReason}`);
+      }
+
+      finalSql = retryFinalSql;
+      rows = retryRows;
+      sawValidator = retrySawValidator;
+      didRetry = true;
+    }
+
     if (!sawValidator) {
       console.error("🚨 [LLM BUG] GATE_CHAIN had no validator gate — refusing to execute");
       return BUG("llm_gate_chain_missing_validator");
@@ -126,16 +232,23 @@ export async function executeLlmLink(ctx) {
     if (history && history.length > 0) {
       extraMeta.contextTurns = history.length;
     }
+    if (didRetry) {
+      extraMeta.retryReason = retryReason;
+    }
 
     const responsePayload = formatLlmResponse({
       sql: finalSql,
       rows,
       model: clientResult.model,
-      llmDurationMs: clientResult.durationMs,
+      llmDurationMs: totalLlmDurationMs,
       extraMeta
     });
 
-    return ANSWERED(responsePayload);
+    const outcome = ANSWERED(responsePayload);
+    if (didRetry) {
+      outcome.reason = `corrective_retry:${retryReason}`;
+    }
+    return outcome;
   } catch (err) {
     console.error("🚨 [LLM BUG] Local LLM execution threw unexpected error:", err);
     return BUG(`llm_bug:${err.message}`, err);
