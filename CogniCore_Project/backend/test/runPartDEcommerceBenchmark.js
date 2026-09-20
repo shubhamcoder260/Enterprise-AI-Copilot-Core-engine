@@ -7,25 +7,32 @@ import { open } from "sqlite";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import fs from "fs";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, "..", "fixtures", "ecommerce_test.db");
+const CONFIG_FILE = path.join(__dirname, "..", "active-database.json");
 
 async function runPartDBenchmark() {
   console.log("==========================================");
   console.log("PART D: E-COMMERCE 9-QUESTION BENCHMARK + REFUSAL TRAPS");
   console.log("==========================================\n");
 
+  const originalConfig = fs.readFileSync(CONFIG_FILE, "utf-8");
+  console.log("📸 [Hygiene] Snapshotted active-database.json");
+
   const db = await open({
     filename: DB_PATH,
     driver: sqlite3.Database
   });
 
-  // Ensure active DB is ecommerce_test.db
-  await fetch("http://localhost:5000/api/database/switch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ databasePath: DB_PATH })
-  });
+  try {
+    // Ensure active DB is ecommerce_test.db
+    await fetch("http://localhost:5000/api/database/switch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ databasePath: DB_PATH })
+    });
 
   const benchmarkCases = [
     {
@@ -221,8 +228,19 @@ async function runPartDBenchmark() {
   console.log("PART D 9-QUESTION BENCHMARK TABLE");
   console.log("==========================================");
   console.table(results);
-
-  await db.close();
+  } finally {
+    fs.writeFileSync(CONFIG_FILE, originalConfig, "utf-8");
+    try {
+      const orig = JSON.parse(originalConfig);
+      await fetch("http://localhost:5000/api/database/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databasePath: orig.activeDatabasePath })
+      });
+    } catch (_) {}
+    console.log("\n🔄 [Hygiene] Restored active-database.json snapshot.");
+    await db.close();
+  }
 }
 
 runPartDBenchmark().catch(err => {
