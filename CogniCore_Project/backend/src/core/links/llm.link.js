@@ -4,6 +4,7 @@ import { formatLlmResponse } from "../../llm/llm.formatter.js";
 import { getRecentExchanges } from "../../store/history.store.js";
 import { GATE_CHAIN } from "../../kernel/gate.chain.js";
 import { PASS, BUG, ANSWERED } from "../../kernel/handler-result.js";
+import { checkResultSanity } from "../result.sanity.js";
 
 const FAST_REFUSAL_CODES = [
   "table_missing",
@@ -224,6 +225,20 @@ export async function executeLlmLink(ctx) {
           console.log(`ℹ️ [Case-Sensitivity Recovery] Retry failed: ${recoveryErr.message}`);
         }
       }
+    }
+
+    // 5c. Result Sanity Check (S9: boolean-shaped aggregates)
+    const sanityCheck = await checkResultSanity({
+      sql: finalSql,
+      rows,
+      query,
+      schema,
+      db
+    });
+
+    if (!sanityCheck.valid) {
+      console.log(`ℹ️ [Result Sanity] Flagged: ${sanityCheck.reason}`);
+      return PASS(sanityCheck.reason);
     }
 
     // 6. Formatter
