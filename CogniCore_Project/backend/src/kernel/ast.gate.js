@@ -135,18 +135,6 @@ export function validateAst(sql, options = {}) {
     }));
   }
 
-  const fromTables = [];
-  if (Array.isArray(stmt.from)) {
-    for (const f of stmt.from) {
-      if (f.table) {
-        fromTables.push({
-          name: f.table,
-          as: f.as || f.table
-        });
-      }
-    }
-  }
-
   // Collect CTE aliases defined in WITH clause
   const cteNames = new Set();
   if (Array.isArray(stmt.with)) {
@@ -156,13 +144,37 @@ export function validateAst(sql, options = {}) {
     }
   }
 
-  if (schemaTables.length > 0 && fromTables.length > 0) {
-    // Check tables exist in live schema or are CTEs
-    for (const ft of fromTables) {
-      const isCte = cteNames.has(norm(ft.name));
-      const exists = isCte || schemaTables.some((st) => norm(st.name) === norm(ft.name));
+  // Collect subquery derived table aliases from FROM / JOIN
+  const derivedAliases = new Set([...cteNames]);
+  const fromTables = [];
+  if (Array.isArray(stmt.from)) {
+    for (const f of stmt.from) {
+      if (f.table) {
+        fromTables.push({
+          name: f.table,
+          as: f.as || f.table
+        });
+      } else if (f.as) {
+        derivedAliases.add(norm(f.as));
+      }
+    }
+  }
+
+  if (schemaTables.length > 0) {
+    // Check all tables in the query (including subqueries and CTE definitions)
+    let allQueryTables = [];
+    try {
+      const tableList = parser.tableList(cleanSql, { database: "sqlite" }) || [];
+      allQueryTables = tableList.map((t) => t.split("::")[2]).filter(Boolean);
+    } catch {
+      allQueryTables = fromTables.map((f) => f.name);
+    }
+
+    for (const tbl of allQueryTables) {
+      const isCte = cteNames.has(norm(tbl));
+      const exists = isCte || schemaTables.some((st) => norm(st.name) === norm(tbl));
       if (!exists) {
-        return { valid: false, reason: `ast_table_not_in_schema:${ft.name}` };
+        return { valid: false, reason: `ast_table_not_in_schema:${tbl}` };
       }
     }
 
@@ -177,12 +189,12 @@ export function validateAst(sql, options = {}) {
       if (colName === "*" || colName === "(EXTRACT_PARAM)") return;
 
       if (tableName) {
-        if (cteNames.has(norm(tableName))) return; // CTE reference
+        if (derivedAliases.has(norm(tableName))) return; // CTE or subquery reference
         const matchedFrom = fromTables.find(
           (ft) => norm(ft.as) === norm(tableName) || norm(ft.name) === norm(tableName)
         );
         if (matchedFrom) {
-          if (cteNames.has(norm(matchedFrom.name))) return; // CTE reference
+          if (derivedAliases.has(norm(matchedFrom.name))) return;
           const tableData = schemaTables.find((st) => norm(st.name) === norm(matchedFrom.name));
           const colExists = (tableData?.columns || []).some(
             (c) => norm(c.name || c) === norm(colName)
@@ -197,11 +209,11 @@ export function validateAst(sql, options = {}) {
         );
         if (!isSelectAlias) {
           const colExists = fromTables.some((ft) => {
-            if (cteNames.has(norm(ft.name))) return true;
+            if (derivedAliases.has(norm(ft.name))) return true;
             const tableData = schemaTables.find((st) => norm(st.name) === norm(ft.name));
             return (tableData?.columns || []).some((c) => norm(c.name || c) === norm(colName));
           });
-          if (!colExists) {
+          if (!colExists && derivedAliases.size === 0) {
             invalidCol = colName;
           }
         }
@@ -214,28 +226,56 @@ export function validateAst(sql, options = {}) {
   }
 
   // 3. STRICT-MODE BARE-COLUMN / AGGREGATE / GROUP-BY RULE
-  // If SELECT projects an aggregate AND a bare column, GROUP BY MUST exist and contain that column.
+  // If SELECT projects an aggregate AND a bare column, GROUP BY MUST exist and contain that column/expression.
+  const gbColumns = Array.isArray(stmt.groupby)
+    ? stmt.groupby
+    : stmt.groupby?.columns || [];
+
+  const groupByExprStrs = new Set(gbColumns.map((gb) => JSON.stringify(gb)));
+  const groupByCols = new Set();
+  const coveredOrdinalIndices = new Set();
+
+  for (const gbNode of gbColumns) {
+    if (gbNode.type === "number" || typeof gbNode.value === "number") {
+      const idx = (gbNode.value || gbNode) - 1;
+      coveredOrdinalIndices.add(idx);
+    }
+    const gbCol = extractColRef(gbNode);
+    if (gbCol && gbCol.column) {
+      groupByCols.add(norm(gbCol.column));
+    } else if (typeof gbNode === "string") {
+      groupByCols.add(norm(gbNode));
+    }
+  }
+
   const projectedBareCols = [];
   let hasAggregateInSelect = false;
 
   if (Array.isArray(stmt.columns)) {
-    for (const colNode of stmt.columns) {
+    stmt.columns.forEach((colNode, idx) => {
       const expr = colNode.expr;
-      if (!expr) continue;
+      if (!expr) return;
+
+      const exprStr = JSON.stringify(expr);
+      const isDirectlyGrouped =
+        coveredOrdinalIndices.has(idx) ||
+        groupByExprStrs.has(exprStr) ||
+        (colNode.as && groupByCols.has(norm(colNode.as)));
 
       if (expr.type === "aggr_func") {
         hasAggregateInSelect = true;
       } else {
-        const directCol = extractColRef(expr);
-        if (directCol && directCol.column !== "*") {
-          projectedBareCols.push({ name: directCol.column, as: colNode.as || null });
-        } else {
-          let exprHasAgg = false;
-          walkAst(expr, (n) => {
-            if (n.type === "aggr_func") exprHasAgg = true;
-          });
-          if (exprHasAgg) {
-            hasAggregateInSelect = true;
+        let exprHasAgg = false;
+        walkAst(expr, (n) => {
+          if (n.type === "aggr_func") exprHasAgg = true;
+        });
+
+        if (exprHasAgg) {
+          hasAggregateInSelect = true;
+        } else if (!isDirectlyGrouped) {
+          const directCol = extractColRef(expr);
+          if (directCol && directCol.column !== "*") {
+            projectedBareCols.push({ name: directCol.column, as: colNode.as || null });
           } else {
             walkAst(expr, (n) => {
               const innerCol = extractColRef(n);
@@ -246,36 +286,14 @@ export function validateAst(sql, options = {}) {
           }
         }
       }
-    }
+    });
   }
 
   if (hasAggregateInSelect && projectedBareCols.length > 0) {
-    const groupByCols = [];
-    if (stmt.groupby && Array.isArray(stmt.groupby.columns)) {
-      for (const gbNode of stmt.groupby.columns) {
-        const gbCol = extractColRef(gbNode);
-        if (gbCol && gbCol.column) {
-          groupByCols.push(norm(gbCol.column));
-        } else if (typeof gbNode === "string") {
-          groupByCols.push(norm(gbNode));
-        } else if (
-          (gbNode.type === "number" || typeof gbNode.value === "number") &&
-          Array.isArray(stmt.columns)
-        ) {
-          const idx = (gbNode.value || gbNode) - 1;
-          if (stmt.columns[idx]) {
-            const ordCol = extractColRef(stmt.columns[idx].expr);
-            if (ordCol && ordCol.column) groupByCols.push(norm(ordCol.column));
-            if (stmt.columns[idx].as) groupByCols.push(norm(stmt.columns[idx].as));
-          }
-        }
-      }
-    }
-
     for (const bareCol of projectedBareCols) {
       const isCovered =
-        groupByCols.includes(norm(bareCol.name)) ||
-        (bareCol.as && groupByCols.includes(norm(bareCol.as)));
+        groupByCols.has(norm(bareCol.name)) ||
+        (bareCol.as && groupByCols.has(norm(bareCol.as)));
       if (!isCovered) {
         return {
           valid: false,

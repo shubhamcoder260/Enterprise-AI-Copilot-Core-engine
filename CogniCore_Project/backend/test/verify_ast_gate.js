@@ -31,6 +31,20 @@ const mockSchema = {
       { name: "supplier_id", type: "INTEGER" },
       { name: "name", type: "TEXT" }
     ]
+  },
+  orders: {
+    columns: [
+      { name: "order_id", type: "INTEGER" },
+      { name: "order_date", type: "TEXT" },
+      { name: "total_amount", type: "REAL" }
+    ]
+  },
+  albums: {
+    columns: [
+      { name: "album_id", type: "INTEGER" },
+      { name: "artist_id", type: "INTEGER" },
+      { name: "title", type: "TEXT" }
+    ]
   }
 };
 
@@ -152,6 +166,35 @@ assert.strictEqual(c4Res.valid, false, "CASE 4 must be rejected (fake_column not
 assert.strictEqual(c4Res.reason, "ast_column_not_in_schema:fake_column");
 console.log("  ✅ PASS: CASE 4 rejected (ast_column_not_in_schema:fake_column)\n");
 
+// CASE 5: Expression GROUP BY and Ordinal GROUP BY
+console.log("[CASE 5: Expression & Ordinal GROUP BY Verification]");
+const c5aSql = "SELECT strftime('%Y', order_date), COUNT(*) FROM orders GROUP BY strftime('%Y', order_date)";
+const c5aRes = validateAst(c5aSql, { schema: mockSchema });
+assert.strictEqual(c5aRes.valid, true, "CASE 5a: matching expression in GROUP BY must pass");
+
+const c5bSql = "SELECT strftime('%Y', order_date), COUNT(*) FROM orders GROUP BY 1";
+const c5bRes = validateAst(c5bSql, { schema: mockSchema });
+assert.strictEqual(c5bRes.valid, true, "CASE 5b: ordinal GROUP BY 1 on expression must pass");
+
+const c5cSql = "SELECT order_date, COUNT(*) FROM orders GROUP BY strftime('%Y', order_date)";
+const c5cRes = validateAst(c5cSql, { schema: mockSchema });
+assert.strictEqual(c5cRes.valid, false, "CASE 5c: bare column with non-matching GROUP BY expression must be rejected");
+assert.strictEqual(c5cRes.reason, "ast_bare_column_without_group_by:order_date");
+console.log("  ✅ PASS: CASE 5 expression & ordinal GROUP BY invariants verified\n");
+
+// CASE 6: Subquery Schema & Derived Table Aliases
+console.log("[CASE 6: Subquery Table & Derived Table Join Verification]");
+const c6aSql = "SELECT * FROM (SELECT * FROM nonexistent_table)";
+const c6aRes = validateAst(c6aSql, { schema: mockSchema });
+assert.strictEqual(c6aRes.valid, false, "CASE 6a: table inside subquery must be validated against schema");
+assert.strictEqual(c6aRes.reason, "ast_table_not_in_schema:nonexistent_table");
+
+const c6bSql = "SELECT a.name, s.total FROM artists a JOIN (SELECT artist_id, COUNT(*) AS total FROM albums GROUP BY artist_id) s ON a.artist_id = s.artist_id";
+const c6bRes = validateAst(c6bSql, { schema: mockSchema });
+assert.strictEqual(c6bRes.valid, true, "CASE 6b: derived table subquery join must be recognized without false column error");
+console.log("  ✅ PASS: CASE 6 subquery table & derived table join verified\n");
+
 console.log("==================================================");
 console.log("🎉 ALL STEP 2 (A2) AST GATE ASSERTIONS PASSED!    ");
 console.log("==================================================");
+
