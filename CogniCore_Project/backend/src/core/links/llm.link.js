@@ -60,7 +60,7 @@ export async function executeLlmLink(ctx) {
     let sawValidator = false;
     for (const gate of GATE_CHAIN) {
       if (gate.type === "validate") {
-        const validation = gate.run(clientResult.sql);
+        const validation = await gate.run(finalSql || clientResult.sql, { schema });
         if (!validation.valid) {
           console.log(`ℹ️ [LLM Cascade] Validation failed: ${validation.reason}`);
           return PASS(validation.reason);

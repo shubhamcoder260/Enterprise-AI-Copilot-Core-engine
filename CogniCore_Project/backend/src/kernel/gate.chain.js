@@ -5,10 +5,11 @@
 // ============================================================
 
 import { validateAndSanitizeSql } from "../llm/sql.validator.js";
+import { astGate } from "./ast.gate.js";
 import { executeReadOnlySql } from "../config/database.js";
 
 export const GATE_CHAIN = [
   { name: "validator", type: "validate", run: validateAndSanitizeSql },
-  // { name: "ast", type: "validate", run: astGate },   // ← RESERVED SLOT (add-on #2)
+  { name: "ast", type: "validate", run: astGate },
   { name: "readonly-executor", type: "execute", run: executeReadOnlySql }
 ];
