@@ -1,0 +1,38 @@
+[
+  {
+    "realm": "ecommerce",
+    "db": "ecommerce_test.db",
+    "id": "S1-LLM",
+    "stage": "S1",
+    "question": "Average product price per category, highest first",
+    "failure_class": "LLM-tier bare-column aggregate without GROUP BY (SQLite executes it, returns 1 arbitrary category + global AVG)",
+    "sql": "SELECT \"category\", AVG(\"price\") AS average_price FROM \"products\" ORDER BY \"price\" DESC LIMIT 50",
+    "disposition": "guarded by ast.gate (ast_bare_column_without_group_by)",
+    "status": "CLOSED via A2"
+  },
+  {
+    "realm": "chinook",
+    "db": "chinook.db",
+    "id": "S5",
+    "stage": "S5",
+    "question": "Total revenue per country",
+    "original_failure": "row-count impersonation (59 customers answer)",
+    "sql": "SELECT COUNT(*) AS result FROM \"customers\"",
+    "source": "dynamic",
+    "disposition": "ELIMINATED via A1 shield + O15",
+    "status": "CLOSED via A1"
+  },
+  {
+    "realm": "chinook",
+    "db": "chinook.db",
+    "id": "S14",
+    "stage": "S14",
+    "question": "and for albums? (follow-up asking for top artist by track count with context)",
+    "failure_class": "wrong-grain grouping (L1/R6 family)",
+    "sql": "SELECT Albums.Title, COUNT(Tracks.TrackId) AS track_count FROM Albums JOIN Tracks ON Albums.AlbumId = Tracks.AlbumId GROUP BY Albums.AlbumId ORDER BY track_count DESC LIMIT 50",
+    "got": "{\"Title\":\"Greatest Hits\",\"track_count\":57}",
+    "expected": "artist-level grain (Iron Maiden 213 per chinook canon)",
+    "disposition": "OPEN, owner A3 corrective-retry / semantic sanity",
+    "status": "REGISTERED"
+  }
+]
