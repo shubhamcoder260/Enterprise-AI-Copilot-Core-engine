@@ -1,0 +1,40 @@
+[
+  {
+    "realm": "chinook",
+    "db": "chinook.db",
+    "id": "S5",
+    "stage": "S5",
+    "question": "Total revenue per country",
+    "original_failure": "row-count impersonation (59 customers answer)",
+    "sql": "SELECT COUNT(*) AS result FROM \"customers\"",
+    "source": "dynamic",
+    "disposition": "silent-wrong ELIMINATED via A2 gate (live: ast_column_not_in_schema:T1.Country); answer recovery via M1 corrective retry — corrective_retry_exhausted:ast_column_not_in_schema:T1.Country",
+    "status": "CLOSED via A1/A2/M1"
+  },
+  {
+    "realm": "chinook",
+    "db": "chinook.db",
+    "id": "S14",
+    "stage": "S14",
+    "question": "and for albums? (follow-up asking for top albums by track count with context)",
+    "failure_class": "test-expectation bug + A2 gate over-rejection",
+    "sql": "SELECT Albums.Title, COUNT(Tracks.TrackId) AS track_count FROM Albums JOIN Tracks ON Albums.AlbumId = Tracks.AlbumId GROUP BY Albums.AlbumId ORDER BY track_count DESC LIMIT 50",
+    "got": "{\"Title\":\"Greatest Hits\",\"track_count\":57}",
+    "expected": "album-level grain matching ground truth (Greatest Hits = 57 tracks)",
+    "disposition": "RESOLVED via A2.1 PK-FD semantics",
+    "status": "CLOSED via A2.1"
+  },
+  {
+    "realm": "chinook",
+    "db": "chinook.db",
+    "id": "S15",
+    "stage": "S15",
+    "question": "Top 5 artists by number of tracks",
+    "failure_class": "PK-FD over-rejection",
+    "sql": "SELECT Artists.Name, COUNT(Tracks.TrackId) AS track_count FROM Artists JOIN Albums ON Artists.ArtistId = Albums.ArtistId JOIN Tracks ON Albums.AlbumId = Tracks.AlbumId GROUP BY Artists.ArtistId ORDER BY track_count DESC LIMIT 5",
+    "got": "ast_bare_column_without_group_by:Name under column-name strict mode",
+    "expected": "accepted via PK functional dependency (ArtistId is PK of Artists)",
+    "disposition": "RESOLVED via A2.1 PK-FD semantics",
+    "status": "CLOSED via A2.1"
+  }
+]
