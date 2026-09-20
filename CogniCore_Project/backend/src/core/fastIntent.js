@@ -140,6 +140,10 @@ export function detectAction(q) {
   const isBottom = /\b(bottom|lowest|min(?:imum)?)\b/i.test(queryStr);
   const isTop = /\b(top|highest|max(?:imum)?)\b/i.test(queryStr);
 
+  if (/\bwhat\s+percentage\s+of\b/i.test(queryStr) || /\b(?:percentage|proportion|fraction)\s+of\b/i.test(queryStr)) {
+    return { type: "percentage" };
+  }
+
   const topM = queryStr.match(/\b(top|highest|max(?:imum)?)\s*(\d+)?/i);
   const botM = queryStr.match(/\b(bottom|lowest|min(?:imum)?)\s*(\d+)?/i);
 
@@ -270,6 +274,13 @@ export function compile(act, table, filters) {
   const params = where.map((f) => f.value);
   const qt = `"${table.name}"`;
 
+  if (act.type === "percentage") {
+    if (!filters.length) return null; // Unmatchable filter -> return null (cascade), never guess
+    return {
+      sql: `SELECT ROUND((SELECT COUNT(*) FROM ${qt}${wsql}) * 100.0 / COUNT(*), 2) AS result FROM ${qt}`,
+      params
+    };
+  }
   if (act.type === "count") {
     return { sql: `SELECT COUNT(*) AS result FROM ${qt}${wsql}`, params };
   }

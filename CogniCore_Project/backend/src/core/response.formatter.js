@@ -339,6 +339,22 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
     };
   }
 
+  // 16. FastIntent Ratio / Percentage
+  if (operation === "percentage") {
+    const val = raw?.result ?? raw?.percentage ?? raw?.value;
+    const num = val !== null && val !== undefined ? Number(Number(val).toFixed(2)) : null;
+    return {
+      success: true,
+      answer: `The calculated percentage for ${tableName} is ${num}%.`,
+      data: {
+        type: "percentage",
+        table: tableName,
+        column: columnName,
+        value: num
+      }
+    };
+  }
+
   return {
     success: false,
     answer: `Could not format response for operation: ${operation}`,

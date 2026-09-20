@@ -72,7 +72,7 @@ export async function runDynamicQuery(query) {
           tableName: fastPlan.table,
           columnName: fastPlan.orderCol || fastPlan.aggCol || null,
           executionType:
-            fastPlan.shape === "count" || fastPlan.shape === "aggregate"
+            fastPlan.shape === "count" || fastPlan.shape === "aggregate" || fastPlan.shape === "percentage"
               ? "get"
               : "all",
           readOnly: true,
