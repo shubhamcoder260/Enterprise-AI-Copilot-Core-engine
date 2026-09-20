@@ -12,26 +12,30 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
     if (plan.errorType === "no_tables") {
       return {
         success: false,
+        code: "no_tables",
         answer: "The active database does not contain any readable tables.",
-        data: { availableTables: [] }
+        data: { errorType: "no_tables", availableTables: [] }
       };
     }
 
-    if (plan.errorType === "table_missing") {
+    if (plan.errorType === "table_missing" || plan.errorType === "table_not_found") {
       return {
         success: false,
+        code: "table_missing",
         answer: `I found the active database, but I could not determine which table this question refers to. Available tables are: ${tables.join(", ")}.`,
-        data: { availableTables: tables }
+        data: { errorType: "table_missing", availableTables: tables }
       };
     }
 
-    if (plan.errorType === "numeric_column_missing") {
+    if (plan.errorType === "unresolvable_missing_column" || plan.errorType === "numeric_column_missing") {
       const tableData = schema[tableName];
       const columns = tableData?.columns || [];
       return {
         success: false,
+        code: "unresolvable_missing_column",
         answer: `I found the ${tableName} table, but I could not determine which numeric column you want to calculate. Available numeric columns are: ${plan.availableNumericColumns?.join(", ") || "none"}.`,
         data: {
+          errorType: "unresolvable_missing_column",
           table: tableName,
           columns: columns.map((c) => c.name),
           numericColumns: plan.availableNumericColumns || []
@@ -42,8 +46,27 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
     if (plan.errorType === "column_not_numeric") {
       return {
         success: false,
+        code: "column_not_numeric",
         answer: `${columnName} is not a numeric column, so I cannot perform this calculation.`,
-        data: { table: tableName, column: columnName }
+        data: { errorType: "column_not_numeric", table: tableName, column: columnName }
+      };
+    }
+
+    if (plan.errorType === "group_by_required") {
+      return {
+        success: false,
+        code: "group_by_required",
+        answer: `Query contains grouping criteria (GROUP BY) not supported in baseline builder.`,
+        data: { errorType: "group_by_required", table: tableName }
+      };
+    }
+
+    if (plan.errorType === "unbound_filter_criteria" || plan.errorType === "filter_not_supported") {
+      return {
+        success: false,
+        code: "unbound_filter_criteria",
+        answer: `Query contains filtering criteria that requires LLM escalation.`,
+        data: { errorType: "unbound_filter_criteria", table: tableName }
       };
     }
 
@@ -52,13 +75,22 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
       const columns = tableData?.columns || [];
       return {
         success: false,
+        code: "unknown_operation",
         answer: `I found the ${tableName} table, but I could not understand the operation you want to perform. You can ask to count records, show records, list columns, calculate an average, total, highest value, or lowest value.`,
         data: {
+          errorType: "unknown_operation",
           table: tableName,
           columns: columns.map((c) => c.name)
         }
       };
     }
+
+    return {
+      success: false,
+      code: plan.errorType,
+      answer: plan.error || `Plan could not be fulfilled: ${plan.errorType}`,
+      data: { errorType: plan.errorType, table: tableName }
+    };
   }
 
   // 2. Execution failure
@@ -294,9 +326,10 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
   if (operation === "aggregate") {
     const val = raw?.result ?? raw?.average ?? raw?.total;
     const num = val !== null && val !== undefined ? Number(Number(val).toFixed(2)) : null;
+    const colDisplayName = columnName && columnName !== "derived_aggregate" ? columnName : tableName;
     return {
       success: true,
-      answer: `The calculated value for ${columnName || tableName} is ${num}.`,
+      answer: `The calculated value for ${colDisplayName} is ${num}.`,
       data: {
         type: "aggregate",
         table: tableName,

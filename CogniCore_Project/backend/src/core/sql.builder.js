@@ -5,12 +5,28 @@
 // ==========================================
 
 import { findBestNumericColumn, isNumericColumn, findMatchingColumn } from "./schema.resolver.js";
+import { checkGroupByRequired } from "./guard-markers.js";
 
 export function quoteIdentifier(name) {
   return `"${String(name).replace(/"/g, '""')}"`;
 }
 
-export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
+function hasUnboundCriteria(q, tableName, getDistinct) {
+  const statusMarkers = /\b(?:where|enrolled|born|from|in the year|completed|pending|active|inactive|paid|unpaid|pregnant|radiology)\b/i;
+  if (statusMarkers.test(q)) return true;
+  if (typeof getDistinct === "function" && tableName) {
+    const distinctVals = getDistinct(tableName) || [];
+    const tokens = q.toLowerCase().split(/[^a-z0-9_]+/).filter(Boolean);
+    for (const tok of tokens) {
+      if (distinctVals.some((v) => v && v.value && String(v.value).trim().toLowerCase() === tok)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct }) {
   const q = String(query || "").toLowerCase().trim();
   const tables = Object.keys(schema);
 
@@ -103,6 +119,21 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
   const columns = tableData?.columns || [];
   let detectedColumn = columnName || findMatchingColumn(query, columns);
 
+  // b1 Guard: Reject grouping/count-by markers that require GROUP BY aggregation
+  const gbCheck = checkGroupByRequired(query, tableData);
+  if (gbCheck.requiresGroupBy) {
+    return {
+      operation: "unsupported",
+      sql: null,
+      params: [],
+      tableName,
+      columnName: null,
+      executionType: "meta",
+      errorType: "group_by_required",
+      error: "Query contains grouping criteria (GROUP BY) not supported in baseline builder."
+    };
+  }
+
   // 5. Detect operation type
   const isTopOrBottom = /\b(?:top|bottom)\s*\d+/i.test(q);
   const isCountQuestion =
@@ -133,7 +164,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
   // Plan: COUNT
   if (isCountQuestion) {
     const hasUnfilteredCriteria =
-      /\d+/.test(q) || /\b(?:where|enrolled|born|from|in the year)\b/i.test(q);
+      /\d+/.test(q) || hasUnboundCriteria(q, tableName, getDistinct);
     if (hasUnfilteredCriteria) {
       return {
         operation: "unsupported",
@@ -142,7 +173,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
         tableName,
         columnName: null,
         executionType: "meta",
-        errorType: "filter_not_supported",
+        errorType: "unbound_filter_criteria",
         error: `Query contains filtering criteria that requires LLM escalation.`
       };
     }
@@ -160,7 +191,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
   // Plan: SHOW / RECORDS
   if (isShowQuestion) {
     const hasUnfilteredCriteria =
-      /\d+/.test(q) || /\b(?:where|enrolled|born|from|in the year)\b/i.test(q);
+      /\d+/.test(q) || hasUnboundCriteria(q, tableName, getDistinct);
     if (hasUnfilteredCriteria) {
       return {
         operation: "unsupported",
@@ -169,7 +200,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
         tableName,
         columnName: null,
         executionType: "meta",
-        errorType: "filter_not_supported",
+        errorType: "unbound_filter_criteria",
         error: `Query contains filtering criteria that requires LLM escalation.`
       };
     }
@@ -189,6 +220,19 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
     isAverageQuestion || isSumQuestion || isHighestQuestion || isLowestQuestion;
 
   if (needsNumericColumn) {
+    if (hasUnboundCriteria(q, tableName, getDistinct)) {
+      return {
+        operation: "unsupported",
+        sql: null,
+        params: [],
+        tableName,
+        columnName: null,
+        executionType: "meta",
+        errorType: "unbound_filter_criteria",
+        error: `Query contains filtering criteria that requires LLM escalation.`
+      };
+    }
+
     if (!detectedColumn) {
       detectedColumn = findBestNumericColumn(columns);
     }
@@ -202,7 +246,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {} }) {
         tableName,
         columnName: null,
         executionType: "meta",
-        errorType: "numeric_column_missing",
+        errorType: "unresolvable_missing_column",
         availableNumericColumns: numericColumns,
         error: `Could not determine which numeric column to calculate for table ${tableName}.`
       };

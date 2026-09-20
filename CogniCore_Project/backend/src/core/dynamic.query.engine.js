@@ -102,23 +102,44 @@ export async function runDynamicQuery(query) {
     }
 
     // 3. Plan (Build SQL query plan)
-    const plan = buildQueryPlan({ query, schema, resolved });
+    const plan = buildQueryPlan({ query, schema, resolved, getDistinct });
+
+    // H2 Universal builder shield: all builder operations decline if query contains unbound categorical distinct values
+    if (plan.tableName && typeof getDistinct === "function" && !plan.errorType) {
+      const distinctVals = getDistinct(plan.tableName) || [];
+      const queryTokens = String(query || "").toLowerCase().split(/[^a-z0-9_]+/).filter(Boolean);
+      const hasUnboundVal = queryTokens.some((tok) =>
+        distinctVals.some((v) => v && v.value && String(v.value).trim().toLowerCase() === tok)
+      );
+      if (hasUnboundVal) {
+        plan.errorType = "unbound_filter_criteria";
+        plan.error = "Query contains categorical filter criteria that cannot be bound by single-table builder.";
+        plan.sql = null;
+        plan.executionType = "meta";
+      }
+    }
 
     // 4. Execute (Run SQL against active DB)
     const execution = await executeQueryPlan(plan);
 
     // 5. Format (Build natural language answer & data payload)
     const formatted = formatExecutionResponse({ plan, execution, schema });
-    if (formatted && formatted.data && plan.sql) {
-      formatted.data.sql = plan.sql;
+    if (formatted) {
+      if (plan.errorType && !formatted.code) {
+        formatted.code = plan.errorType;
+      }
+      if (formatted.data && plan.sql) {
+        formatted.data.sql = plan.sql;
+      }
     }
     return formatted;
   } catch (error) {
     console.error("❌ DYNAMIC QUERY ERROR:", error);
     return {
       success: false,
+      code: "dynamic_error",
       answer: `An error occurred while querying the active database: ${error.message}`,
-      data: { error: error.message }
+      data: { error: error.message, errorType: "dynamic_error" }
     };
   }
 }

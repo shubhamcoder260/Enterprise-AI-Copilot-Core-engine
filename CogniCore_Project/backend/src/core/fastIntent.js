@@ -11,6 +11,8 @@
 
 "use strict";
 
+import { checkGroupByRequired } from "./guard-markers.js";
+
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
 const normVal = (s) => String(s ?? "").trim().toLowerCase();
 
@@ -222,12 +224,38 @@ export function extractFilters(q, table, getDistinct) {
   // 3. Value-match: "present"/"absent"/any token equal to a cached distinct TEXT value
   const distinctVals =
     typeof getDistinct === "function" ? getDistinct(table.name) || [] : [];
-  for (const tok of tokenize(queryStr)) {
-    const hit = distinctVals.find(
+  const tokens = tokenize(queryStr);
+  const matchedDistinctTokens = new Set();
+
+  for (const tok of tokens) {
+    // Note M1: Keep normVal to prevent collision degradation. Cross-column duplicates are caught by ambiguity decline.
+    const matches = distinctVals.filter(
       (v) => v && v.column && normVal(v.value) === tok
     );
-    if (hit && !filters.some((f) => f.column === hit.column)) {
-      filters.push({ column: hit.column, op: "=", value: hit.value });
+    // b2(b) Ambiguity-decline: if a token matches more than one distinct value, decline rather than guessing
+    if (matches.length > 1) {
+      return null;
+    }
+    if (matches.length === 1) {
+      const hit = matches[0];
+      matchedDistinctTokens.add(tok);
+      // Conflict check: if filter on this column already exists with different value, decline
+      const existing = filters.find((f) => f.column === hit.column);
+      if (existing) {
+        if (existing.value !== hit.value) {
+          return null;
+        }
+      } else {
+        filters.push({ column: hit.column, op: "=", value: hit.value });
+      }
+    }
+  }
+
+  // b2(a) Bind-or-decline: every token that matched a distinct value must be bound in filters
+  for (const tok of matchedDistinctTokens) {
+    const isBound = filters.some((f) => normVal(f.value) === tok);
+    if (!isBound) {
+      return null;
     }
   }
 
@@ -259,6 +287,12 @@ export function compile(act, table, filters) {
     };
   }
   if (act.type === "aggregate") {
+    if (act.derivedExpr) {
+      return {
+        sql: `SELECT ${act.derivedExpr} AS result FROM ${qt}${wsql}`,
+        params
+      };
+    }
     const col = act.aggCol;
     if (!col) return null;
     return {
@@ -321,8 +355,14 @@ export function tryRoute(question, deps) {
   let table = pickTable(tokenize(question), schema, deps.getDistinct);
   if (!table) return null;
 
+  // b1 Guard: Reject grouping/count-by markers that require GROUP BY aggregation
+  const gbCheck = checkGroupByRequired(question, table);
+  if (gbCheck.requiresGroupBy) {
+    return null;
+  }
+
   let act = detectAction(question);
-  const filters = extractFilters(question, table, deps.getDistinct);
+  let filters = extractFilters(question, table, deps.getDistinct);
   if (filters === null) return null;
 
   if (!act) {
@@ -345,17 +385,30 @@ export function tryRoute(question, deps) {
     deps.isLongFormat(table.name)
   ) {
     // Check if a related short-format table exists with an attendance-like numeric column
-    const altTable = schema.tables.find(
-      (t) =>
-        !deps.isLongFormat(t.name) &&
-        t.columns.some(
-          (c) =>
-            /attend|percentage|pct|score|mark/i.test(c.name) &&
-            /int|real|num|float|double/i.test(c.type)
-        )
-    );
+    const altTable =
+      schema.tables.find(
+        (t) =>
+          !deps.isLongFormat(t.name) &&
+          t.columns.some(
+            (c) =>
+              /attend|present/i.test(c.name) &&
+              /percentage|pct|rate|score|count/i.test(c.name) &&
+              /int|real|num|float|double/i.test(c.type)
+          )
+      ) ||
+      schema.tables.find(
+        (t) =>
+          !deps.isLongFormat(t.name) &&
+          t.columns.some(
+            (c) =>
+              /attend|present|absent/i.test(c.name) &&
+              /int|real|num|float|double/i.test(c.type)
+          )
+      );
     if (altTable) {
       table = altTable;
+      filters = extractFilters(question, table, deps.getDistinct);
+      if (filters === null) return null;
     } else {
       return null;
     }
@@ -388,11 +441,29 @@ export function tryRoute(question, deps) {
 
     if (wantAbsent) {
       const absentCol = numCols.find((c) => /absent|miss/.test(norm(c.name)));
-      if (!absentCol) {
-        // User asked for absent, but table has no absent numeric column → router must not invent!
-        return null;
+      if (absentCol) {
+        act.aggCol = absentCol.name;
+      } else {
+        // B2 Derivation-Trap: percentage word REQUIRED + quantity/threshold veto
+        // TODO: domain hardcode debt - move attendance/absent semantic profile by A4 (M4)
+        const hasPercentageWord = /\b(?:percentage|pct|rate)\b/i.test(question);
+        const hasQuantityThreshold = /\b(?:no\.?\s*of|number\s*of|more\s*than|less\s*than|days?|\d+)\b/i.test(question);
+
+        if (hasPercentageWord && !hasQuantityThreshold) {
+          const attendanceCol =
+            numCols.find((c) => /attend|present/i.test(c.name) && /percentage|pct|rate/i.test(c.name)) ||
+            numCols.find((c) => /attend|present/i.test(c.name));
+
+          if (attendanceCol) {
+            act.derivedExpr = `(100.0 - AVG("${attendanceCol.name}"))`;
+          } else {
+            return null;
+          }
+        } else {
+          // User asked for absent, but table has no absent numeric column and derivation vetoed / not applicable
+          return null;
+        }
       }
-      act.aggCol = absentCol.name;
     } else {
       const col = table.columns.find(
         (c) =>
@@ -412,7 +483,7 @@ export function tryRoute(question, deps) {
         shape: act.type,
         table: table.name,
         orderCol: act.orderCol || null,
-        aggCol: act.aggCol || null
+        aggCol: act.aggCol || (act.derivedExpr ? "derived_aggregate" : null)
       }
     : null;
 }

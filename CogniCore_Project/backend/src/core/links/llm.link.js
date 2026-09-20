@@ -5,9 +5,28 @@ import { getRecentExchanges } from "../../store/history.store.js";
 import { GATE_CHAIN } from "../../kernel/gate.chain.js";
 import { PASS, BUG, ANSWERED } from "../../kernel/handler-result.js";
 
+const FAST_REFUSAL_CODES = [
+  "table_missing",
+  "table_not_found",
+  "unresolvable_missing_column",
+  "numeric_column_missing"
+];
+
 export async function executeLlmLink(ctx) {
-  const { query, organization, role, sessionId, model, startTime, capabilities } = ctx;
+  const { query, organization, role, sessionId, model, startTime, capabilities, attempts = [] } = ctx;
   const { db, llm } = capabilities;
+
+  // O15 Fast Refusal: Check if an upstream link reported an unresolvable structural decline
+  const dynamicAttempt = attempts.find((a) => a.link === "Dynamic Query Engine");
+  const reasonStr = dynamicAttempt?.reason || "";
+  const matchedCode = FAST_REFUSAL_CODES.find(
+    (code) => reasonStr.startsWith(`${code}:`) || ctx.code === code
+  );
+
+  if (matchedCode) {
+    console.log(`⚡ [O15 Fast Refusal] Skipping LLM for unresolvable decline: ${matchedCode}`);
+    return PASS(`fast_refusal:${matchedCode}`);
+  }
 
   const isLlmEnabled = process.env.ENABLE_LOCAL_LLM !== "false";
 

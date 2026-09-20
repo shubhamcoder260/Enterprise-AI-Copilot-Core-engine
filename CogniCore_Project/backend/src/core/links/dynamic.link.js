@@ -18,9 +18,11 @@ export async function executeDynamicLink({ query, organization, role, sessionId,
       processingMs: Date.now() - startTime } });
     }
 
-    return PASS(dynamicResult.answer,{
-      partialResult:dynamicResult
-    })
+    const code = dynamicResult.code || dynamicResult.data?.errorType || "dynamic_failed";
+    return PASS(`${code}: ${dynamicResult.answer}`, {
+      code,
+      partialResult: dynamicResult
+    });
     
   } catch (err) {
     console.error("🚨 [DYNAMIC ENGINE BUG] Unexpected error:", err);
