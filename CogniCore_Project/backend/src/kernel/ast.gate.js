@@ -5,8 +5,9 @@
 // Invariants:
 //   1. Function Whitelist: COUNT, SUM, AVG, MIN, MAX, strftime, LOWER, UPPER, ROUND only
 //   2. Schema Existence: Every AST table and column node must exist in live schema
-//   3. Strict-mode Bare-Column / Aggregate / GROUP-BY rule:
-//      Bare projected columns alongside aggregates without matching GROUP BY are rejected
+//   3. Strict-mode Bare-Column / Aggregate / GROUP-BY rule (MySQL ONLY_FULL_GROUP_BY semantics):
+//      Bare projected columns alongside aggregates without matching GROUP BY or
+//      table PRIMARY KEY in GROUP BY (functional dependency) are rejected
 //   4. O16: load_extension rejected structurally
 //   5. Byte-identical Litmus #8: sql.validator.js remains completely untouched
 // ==========================================
@@ -225,14 +226,58 @@ export function validateAst(sql, options = {}) {
     }
   }
 
-  // 3. STRICT-MODE BARE-COLUMN / AGGREGATE / GROUP-BY RULE
-  // If SELECT projects an aggregate AND a bare column, GROUP BY MUST exist and contain that column/expression.
+  // 3. STRICT-MODE BARE-COLUMN / AGGREGATE / GROUP-BY RULE (PK-FD ONLY_FULL_GROUP_BY)
+  // If SELECT projects an aggregate AND a bare column, GROUP BY MUST exist and contain
+  // either that column/expression, or the primary key of the column's table (functional dependency).
+
+  // Extract primary keys by table from schema
+  const pkByTable = new Map();
+  for (const st of schemaTables) {
+    const pks = new Set();
+    for (const col of st.columns || []) {
+      if (typeof col === "object" && col !== null) {
+        if (col.pk || col.primaryKey) {
+          pks.add(norm(col.name));
+        }
+      }
+    }
+    if (Array.isArray(st.primaryKeys)) {
+      st.primaryKeys.forEach((p) => pks.add(norm(p)));
+    }
+    if (Array.isArray(st.pk)) {
+      st.pk.forEach((p) => pks.add(norm(p)));
+    }
+    pkByTable.set(norm(st.name), pks);
+  }
+
+  // Helper to resolve physical table name for a column reference
+  function resolveColumnTable(colRef) {
+    if (!colRef) return null;
+    if (colRef.table) {
+      const matched = fromTables.find(
+        (ft) => norm(ft.as) === norm(colRef.table) || norm(ft.name) === norm(colRef.table)
+      );
+      return matched ? norm(matched.name) : norm(colRef.table);
+    }
+    const cName = norm(colRef.column);
+    const candidates = [];
+    for (const ft of fromTables) {
+      const st = schemaTables.find((s) => norm(s.name) === norm(ft.name));
+      if (st && (st.columns || []).some((c) => norm(c.name || c) === cName)) {
+        candidates.push(norm(ft.name));
+      }
+    }
+    const unique = [...new Set(candidates)];
+    return unique.length === 1 ? unique[0] : null;
+  }
+
   const gbColumns = Array.isArray(stmt.groupby)
     ? stmt.groupby
     : stmt.groupby?.columns || [];
 
   const groupByExprStrs = new Set(gbColumns.map((gb) => JSON.stringify(gb)));
   const groupByCols = new Set();
+  const qualifiedGbCols = new Set();
   const coveredOrdinalIndices = new Set();
 
   for (const gbNode of gbColumns) {
@@ -242,7 +287,14 @@ export function validateAst(sql, options = {}) {
     }
     const gbCol = extractColRef(gbNode);
     if (gbCol && gbCol.column) {
-      groupByCols.add(norm(gbCol.column));
+      const cNorm = norm(gbCol.column);
+      groupByCols.add(cNorm);
+      if (gbCol.table) {
+        const resolvedGbTable = resolveColumnTable(gbCol);
+        if (resolvedGbTable) {
+          qualifiedGbCols.add(`${resolvedGbTable}.${cNorm}`);
+        }
+      }
     } else if (typeof gbNode === "string") {
       groupByCols.add(norm(gbNode));
     }
@@ -275,12 +327,22 @@ export function validateAst(sql, options = {}) {
         } else if (!isDirectlyGrouped) {
           const directCol = extractColRef(expr);
           if (directCol && directCol.column !== "*") {
-            projectedBareCols.push({ name: directCol.column, as: colNode.as || null });
+            const resolvedTable = resolveColumnTable(directCol);
+            projectedBareCols.push({
+              name: directCol.column,
+              table: resolvedTable,
+              as: colNode.as || null
+            });
           } else {
             walkAst(expr, (n) => {
               const innerCol = extractColRef(n);
               if (innerCol && innerCol.column !== "*") {
-                projectedBareCols.push({ name: innerCol.column, as: colNode.as || null });
+                const resolvedTable = resolveColumnTable(innerCol);
+                projectedBareCols.push({
+                  name: innerCol.column,
+                  table: resolvedTable,
+                  as: colNode.as || null
+                });
               }
             });
           }
@@ -291,9 +353,25 @@ export function validateAst(sql, options = {}) {
 
   if (hasAggregateInSelect && projectedBareCols.length > 0) {
     for (const bareCol of projectedBareCols) {
+      const tablePks = bareCol.table ? pkByTable.get(bareCol.table) : null;
+      let hasPkInGroupBy = false;
+      if (tablePks && tablePks.size > 0) {
+        for (const pkCol of tablePks) {
+          if (
+            groupByCols.has(pkCol) ||
+            qualifiedGbCols.has(`${bareCol.table}.${pkCol}`)
+          ) {
+            hasPkInGroupBy = true;
+            break;
+          }
+        }
+      }
+
       const isCovered =
         groupByCols.has(norm(bareCol.name)) ||
-        (bareCol.as && groupByCols.has(norm(bareCol.as)));
+        (bareCol.as && groupByCols.has(norm(bareCol.as))) ||
+        hasPkInGroupBy;
+
       if (!isCovered) {
         return {
           valid: false,
