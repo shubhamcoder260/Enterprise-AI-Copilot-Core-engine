@@ -46,6 +46,20 @@ const mockSchema = {
       { name: "artist_id", type: "INTEGER" },
       { name: "title", type: "TEXT" }
     ]
+  },
+  assignments: {
+    columns: [
+      { name: "emp_id", type: "INTEGER", pk: true },
+      { name: "project_id", type: "INTEGER", pk: true },
+      { name: "role_on_project", type: "TEXT" },
+      { name: "hours_allocated", type: "INTEGER" }
+    ]
+  },
+  playlist_track: {
+    columns: [
+      { name: "PlaylistId", type: "INTEGER", pk: true },
+      { name: "TrackId", type: "INTEGER", pk: true }
+    ]
   }
 };
 
@@ -216,6 +230,41 @@ const c8bSql = "SELECT a.name, s.total FROM artists a JOIN (SELECT artist_id, CO
 const c8bRes = validateAst(c8bSql, { schema: mockSchema });
 assert.strictEqual(c8bRes.valid, true, "CASE 8b: derived table subquery join must be recognized without false column error");
 console.log("  ✅ PASS: CASE 8 subquery table & derived table join verified\n");
+
+console.log("[CASE 9: Composite Primary Key Functional Dependency Verification]");
+// 9a: Grouping on only one column of a composite key must REJECT bare non-key column
+const c9aSql = "SELECT role_on_project, SUM(hours_allocated) FROM assignments GROUP BY emp_id";
+const c9aRes = validateAst(c9aSql, { schema: mockSchema });
+console.log(`  SQL (partial PK) : ${c9aSql}`);
+console.log(`  Result           : valid=${c9aRes.valid}, reason="${c9aRes.reason}"`);
+assert.strictEqual(c9aRes.valid, false, "CASE 9a: partial composite PK grouping must be rejected");
+assert.strictEqual(c9aRes.reason, "ast_bare_column_without_group_by:role_on_project");
+console.log("  ✅ PASS: CASE 9a rejected (partial composite PK grouping lacks functional dependency)");
+
+// 9b: Grouping on ALL columns of a composite key must ACCEPT bare non-key column
+const c9bSql = "SELECT role_on_project, SUM(hours_allocated) FROM assignments GROUP BY emp_id, project_id";
+const c9bRes = validateAst(c9bSql, { schema: mockSchema });
+console.log(`  SQL (full PK)    : ${c9bSql}`);
+console.log(`  Result           : valid=${c9bRes.valid}, reason="${c9bRes.reason || "none"}"`);
+assert.strictEqual(c9bRes.valid, true, "CASE 9b: full composite PK grouping must be accepted under PK-FD");
+console.log("  ✅ PASS: CASE 9b accepted (full composite PK [emp_id, project_id] in GROUP BY)");
+
+// 9c: chinook-style all-PK junction table: grouping on only one PK column while projecting the other must REJECT
+const c9cSql = "SELECT TrackId, COUNT(*) FROM playlist_track GROUP BY PlaylistId";
+const c9cRes = validateAst(c9cSql, { schema: mockSchema });
+console.log(`  SQL (playlist_track partial PK): ${c9cSql}`);
+console.log(`  Result                         : valid=${c9cRes.valid}, reason="${c9cRes.reason}"`);
+assert.strictEqual(c9cRes.valid, false, "CASE 9c: grouping on PlaylistId alone must reject bare TrackId");
+assert.strictEqual(c9cRes.reason, "ast_bare_column_without_group_by:TrackId");
+console.log("  ✅ PASS: CASE 9c rejected (TrackId is not in GROUP BY and only half of composite PK is grouped)");
+
+// 9d: chinook-style all-PK junction table: grouping on BOTH PK columns must ACCEPT
+const c9dSql = "SELECT TrackId, COUNT(*) FROM playlist_track GROUP BY PlaylistId, TrackId";
+const c9dRes = validateAst(c9dSql, { schema: mockSchema });
+console.log(`  SQL (playlist_track full PK)   : ${c9dSql}`);
+console.log(`  Result                         : valid=${c9dRes.valid}, reason="${c9dRes.reason || "none"}"`);
+assert.strictEqual(c9dRes.valid, true, "CASE 9d: grouping on full composite PK [PlaylistId, TrackId] must be accepted");
+console.log("  ✅ PASS: CASE 9d accepted (full composite PK [PlaylistId, TrackId] in GROUP BY)\n");
 
 console.log("==================================================");
 console.log("🎉 ALL STEP 2 (A2) AST GATE ASSERTIONS PASSED!    ");

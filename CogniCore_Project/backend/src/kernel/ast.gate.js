@@ -356,15 +356,17 @@ export function validateAst(sql, options = {}) {
       const tablePks = bareCol.table ? pkByTable.get(bareCol.table) : null;
       let hasPkInGroupBy = false;
       if (tablePks && tablePks.size > 0) {
+        let allPksInGroupBy = true;
         for (const pkCol of tablePks) {
-          if (
+          const isPkPresent =
             groupByCols.has(pkCol) ||
-            qualifiedGbCols.has(`${bareCol.table}.${pkCol}`)
-          ) {
-            hasPkInGroupBy = true;
+            qualifiedGbCols.has(`${bareCol.table}.${pkCol}`);
+          if (!isPkPresent) {
+            allPksInGroupBy = false;
             break;
           }
         }
+        hasPkInGroupBy = allPksInGroupBy;
       }
 
       const isCovered =
