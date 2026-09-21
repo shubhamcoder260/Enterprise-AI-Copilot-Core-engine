@@ -39,11 +39,7 @@ export function formatLlmResponse({
 
       if (isNumeric && val !== null) {
         // Rule 2: Single row, single numeric column
-        if (/count|total|number/i.test(key)) {
-          answer = `There are ${val} record(s) matching your request.`;
-        } else {
-          answer = `The result is ${val}.`;
-        }
+        answer = `The result is ${val}.`;
       } else {
         // Single row, single non-numeric column
         answer = `Found ${rowCount} record(s) matching your request.`;
