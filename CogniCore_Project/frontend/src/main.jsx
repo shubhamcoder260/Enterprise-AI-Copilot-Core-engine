@@ -9,9 +9,9 @@ import {
   getInitialModel,
   fetchModels as apiFetchModels,
   fetchSessionHistory as apiFetchSessionHistory,
-  sendQuery as apiSendQuery,
-  uploadDatabase as apiUploadDatabase
+  sendQuery as apiSendQuery
 } from "./lib/api.js";
+import DatabaseSidebar from "./components/DatabaseSidebar.jsx";
 
 function App() {
 
@@ -31,11 +31,6 @@ function App() {
   ]);
 
   const [loading, setLoading] = useState(false);
-
-  // DATABASE UPLOAD STATES
-  const [selectedDatabase, setSelectedDatabase] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState("");
 
   useEffect(() => {
     async function loadModels() {
@@ -162,56 +157,15 @@ function App() {
     }
   }
 
-
-  // ==========================================
-  // UPLOAD DATABASE
-  // ==========================================
-
-  async function uploadDatabase() {
-    if (!selectedDatabase || uploading) return;
-
-    setUploading(true);
-    setUploadStatus("Uploading database...");
-
-    try {
-      const result = await apiUploadDatabase(selectedDatabase);
-
-      if (result.success) {
-
-        setUploadStatus(
-          `✅ ${selectedDatabase.name} uploaded and activated successfully!`
-        );
-
-        setMessages((previous) => [
-          ...previous,
-          {
-            type: "ai",
-            text: `Database "${selectedDatabase.name}" is now active. You can ask me questions about its data.`
-          }
-        ]);
-
-        setSelectedDatabase(null);
-
-      } else {
-
-        setUploadStatus(
-          `❌ Upload failed: ${result.message || "Unknown error"}`
-        );
-
+  function handleDatabaseActivated(dbName) {
+    setMessages((previous) => [
+      ...previous,
+      {
+        type: "ai",
+        text: `Database "${dbName}" is now active. You can ask me questions about its data.`
       }
-
-    } catch (error) {
-      console.error(error);
-
-      setUploadStatus(
-        "❌ Cannot connect to the backend. Make sure the backend is running."
-      );
-
-    } finally {
-      setUploading(false);
-    }
+    ]);
   }
-
 
   // ==========================================
   // KEYBOARD HANDLER
@@ -263,201 +217,17 @@ function App() {
   return (
     <div className="app">
 
-      {/* SIDEBAR */}
-
-      <aside className="sidebar">
-
-        <div className="logo">
-          <div className="logo-icon">C</div>
-
-          <div>
-            <h2>CogniCore</h2>
-            <span>AI Analytics Engine</span>
-          </div>
-        </div>
-
-
-        <button
-          className="new-chat"
-          onClick={startNewChat}
-        >
-          + New Chat
-        </button>
-
-        <div
-          className="session-tag"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "rgba(255, 255, 255, 0.05)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            borderRadius: "6px",
-            padding: "4px 8px",
-            fontSize: "11px",
-            color: "#94a3b8",
-            marginTop: "6px",
-            marginBottom: "16px"
-          }}
-          title={`Active Session ID: ${sessionId}`}
-        >
-          <span>Session:</span>
-          <code style={{ color: "#818cf8", fontFamily: "monospace" }}>
-            {sessionId && sessionId.length > 12 ? `${sessionId.slice(0, 8)}...` : sessionId}
-          </code>
-        </div>
-
-
-
-        {/* DATABASE UPLOAD */}
-
-        <div className="database-upload">
-
-          <p className="sidebar-title">
-            DATABASE
-          </p>
-
-
-          <input
-            type="file"
-            accept=".db,.sqlite,.sqlite3"
-            id="database-file"
-            style={{ display: "none" }}
-            onChange={(event) => {
-
-              if (
-                event.target.files &&
-                event.target.files[0]
-              ) {
-
-                setSelectedDatabase(
-                  event.target.files[0]
-                );
-
-                setUploadStatus("");
-              }
-            }}
-          />
-
-
-          <label
-            htmlFor="database-file"
-            className="upload-select-button"
-          >
-            📁 Choose Database
-          </label>
-
-
-          {selectedDatabase && (
-            <div className="selected-file">
-              📄 {selectedDatabase.name}
-            </div>
-          )}
-
-
-          <button
-            className="upload-button"
-            onClick={uploadDatabase}
-            disabled={
-              !selectedDatabase || uploading
-            }
-          >
-            {uploading
-              ? "Uploading..."
-              : "⬆ Upload Database"}
-          </button>
-
-
-          {uploadStatus && (
-            <p className="upload-status">
-              {uploadStatus}
-            </p>
-          )}
-
-        </div>
-
-
-        {/* ORGANIZATION */}
-
-        <div className="sidebar-section">
-
-          <p className="sidebar-title">
-            ORGANIZATION
-          </p>
-
-
-          <button
-            className={`organization-button ${
-              organization === "college"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setOrganization("college")
-            }
-          >
-            🎓 Education
-          </button>
-
-
-          <button
-            className={`organization-button ${
-              organization === "hospital"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setOrganization("hospital")
-            }
-          >
-            🏥 Hospital
-          </button>
-
-        </div>
-
-
-        {/* MODEL SELECTOR */}
-        <div className="sidebar-section">
-
-          <p className="sidebar-title">
-            LLM MODEL {!llmOnline && <span className="model-offline-tag">(offline)</span>}
-          </p>
-
-          <select
-            className="model-select"
-            value={selectedModel}
-            disabled={!llmOnline && availableModels.length <= 1}
-            onChange={(e) => {
-              const m = e.target.value;
-              setSelectedModel(m);
-              try {
-                localStorage.setItem(MODEL_STORAGE_KEY, m);
-              } catch (err) {}
-            }}
-          >
-            {availableModels.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-
-        </div>
-
-
-
-        <div className="sidebar-bottom">
-
-          <div className="status">
-            <span className="status-dot"></span>
-            System Online
-          </div>
-
-          <p>CogniCore AI v1.0</p>
-
-        </div>
-
-      </aside>
+      <DatabaseSidebar
+        sessionId={sessionId}
+        onNewChat={startNewChat}
+        organization={organization}
+        onSelectOrganization={setOrganization}
+        selectedModel={selectedModel}
+        availableModels={availableModels}
+        llmOnline={llmOnline}
+        onSelectModel={setSelectedModel}
+        onDatabaseActivated={handleDatabaseActivated}
+      />
 
 
       {/* MAIN CHAT AREA */}
