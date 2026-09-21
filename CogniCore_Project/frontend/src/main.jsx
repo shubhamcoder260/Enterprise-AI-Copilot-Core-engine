@@ -13,6 +13,7 @@ import {
 } from "./lib/api.js";
 import DatabaseSidebar from "./components/DatabaseSidebar.jsx";
 import SqlModal from "./components/SqlModal.jsx";
+import Visualizer from "./components/Visualizer.jsx";
 
 function App() {
 
@@ -382,32 +383,10 @@ function App() {
                         </div>
                       )}
 
-                      {message.result.data?.records &&
-                        message.result.data.records.length > 0 && (
-                          <details open className="table-wrapper">
-                            <summary>
-                              Matching records ({message.result.data.records.length})
-                            </summary>
-                            <table className="data-table">
-                              <thead>
-                                <tr>
-                                  {Object.keys(message.result.data.records[0]).map((col) => (
-                                    <th key={col}>{col}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {message.result.data.records.map((row, rIdx) => (
-                                  <tr key={rIdx}>
-                                    {Object.keys(message.result.data.records[0]).map((col) => (
-                                      <td key={col}>{String(row[col] ?? "")}</td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </details>
-                        )}
+                      <Visualizer
+                        result={message.result}
+                        onInspectSql={() => setInspectorTarget(message.result)}
+                      />
                     </div>
 
                   )}
