@@ -150,7 +150,7 @@ To ensure full honesty and prevent revisionist history, the following discrepanc
 
 With Part A reliability locked, Part B expands capabilities under strict safety invariants:
 
-1. **Step 5 (B1: Polymorphic Formatter Registry):** Implement `backend/src/kernel/formatter.registry.js` supporting `kpi`, `table`, `chartSpec` (Chart.js / Recharts JSON), `report`, and `csv`. Existing response contract remains untouched.
+1. **Step 5 (B1: Polymorphic Formatter Registry):** ✅ **COMPLETED** — Implemented `backend/src/kernel/formatter.registry.js` supporting `kpi`, `table`, `chartSpec` (Vega-Lite spec), `report`, and `csv` (with RFC 4180 formula injection neutralization). Wired via pure fail-safe `selectFormat()` in `ai.controller.js`. Fixed scalar prose in `llm.formatter.js` to emit `The result is <value>.` Existing response contract remains untouched and additive-only.
 2. **Step 6 (B2: Schema Extension Hook & Top-K Sub-Schema Pruner):** Implement `schemaExtensions` hook in `schema.reader.js` (business aliases `stus` → `students` closes S12). Implement Top-K table pruner to cut prompt size for 300+ table ERPs and resolve O2 latency wall.
 3. **Step 7 (B6: Generative Visualizer & Report Synthesis):** Teach prompt builder to assemble chart specifications and polymorphic payloads.
    - *Safety Invariants:* Render strictly from gate-validated data; no runtime `registerGate()`; no client-controlled pipeline fields.

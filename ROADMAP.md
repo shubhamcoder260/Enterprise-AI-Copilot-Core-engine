@@ -3,8 +3,10 @@
 ## Overview
 CogniCore is developed under an evidence-driven architecture where reliability, structural honesty, and deterministic guarantees precede expressiveness.
 
-- **Part A (Base Completion — The Bedrock):** Structural hygiene, honesty guards, AST gate, orphaned specimen resolution (S1–S11, S13–S15).
-- **Part B (Additions & Expressiveness):** Polymorphic formatters, schema extension hooks, generative visualization, and frontend componentization.
+- **Part A (Base Completion — The Bedrock):** Structural hygiene, honesty guards, AST gate, orphaned specimen resolution (S1–S11, S13–S15) — **LOCKED & CANONICAL**.
+- **Part B (Additions & Expressiveness):**
+  - **Step 5 (B1: Polymorphic Formatter Registry):** ✅ **COMPLETED** — `formatter.registry.js` closed-shape registry (`kpi`, `table`, `chartSpec`, `report`, `csv`), injection guards, pure functions, wired fail-safe in `ai.controller.js`, scalar phrasing corrected in `llm.formatter.js`.
+  - **Step 6 (B2: Schema Extension Hook & Sub-Schema Pruner):** In queue (closes S12).
 
 ---
 
