@@ -144,7 +144,8 @@ export function scoreTables(schema = {}, question = "") {
     const columns = tableData?.columns || [];
     for (const col of columns) {
       const colNorm = normalizeWord(col.name);
-      if (wordSet.has(colNorm)) {
+      const colWords = String(col.name).toLowerCase().split(/[_\s]+/).map(normalizeWord);
+      if (wordSet.has(colNorm) || colWords.some((w) => w.length > 2 && wordSet.has(w))) {
         score += 3;
       }
     }
@@ -153,8 +154,8 @@ export function scoreTables(schema = {}, question = "") {
     for (const col of columns) {
       if (Array.isArray(col.sampleValues)) {
         for (const sv of col.sampleValues) {
-          const svStr = String(sv).toLowerCase();
-          if (svStr.length > 2 && wordSet.has(normalizeWord(svStr))) {
+          const svStr = normalizeWord(String(sv));
+          if (svStr.length >= 3 && wordSet.has(svStr)) {
             score += 2;
             break; // Max 2 per column
           }
@@ -166,6 +167,17 @@ export function scoreTables(schema = {}, question = "") {
   }
 
   return scores;
+}
+
+const STOP_WORDS = new Set([
+  "a", "an", "the", "in", "on", "of", "for", "to", "at", "by", "from",
+  "is", "are", "was", "were", "what", "which", "how", "many", "show",
+  "give", "me", "all", "there", "be", "do", "does", "did", "and", "or"
+]);
+
+export function getInformativeTokens(question = "") {
+  const words = getWords(question).map(normalizeWord);
+  return words.filter((w) => w.length > 2 && !STOP_WORDS.has(w));
 }
 
 /**
@@ -182,8 +194,9 @@ export function pruneSchema(schema = {}, question = "", options = {}) {
   const { topK = 6 } = options;
   const tableNames = Object.keys(schema);
 
-  // If total tables <= topK, no pruning needed; return full schema
-  if (tableNames.length <= topK) {
+  // Vague-question fallback: < 2 informative tokens -> return full schema
+  const informativeTokens = getInformativeTokens(question);
+  if (informativeTokens.length < 2) {
     return { ...schema };
   }
 
@@ -195,7 +208,16 @@ export function pruneSchema(schema = {}, question = "", options = {}) {
     .sort((a, b) => scores.get(b) - scores.get(a));
 
   // Fallback: If no tables scored > 0, take the first topK tables from schema
-  const primarySelected = candidates.length > 0 ? candidates.slice(0, topK) : tableNames.slice(0, topK);
+  let primarySelected;
+  if (candidates.length === 0) {
+    primarySelected = tableNames.slice(0, topK);
+  } else {
+    // Relative-candidate threshold: keep only tables scoring >= 40% of top candidate's score
+    const topScore = scores.get(candidates[0]);
+    const threshold = Math.ceil(topScore * 0.4);
+    const filteredCandidates = candidates.filter((t) => scores.get(t) >= threshold);
+    primarySelected = filteredCandidates.slice(0, topK);
+  }
 
   // Build FK relationship graph
   const adj = buildRelationshipGraph(schema);
