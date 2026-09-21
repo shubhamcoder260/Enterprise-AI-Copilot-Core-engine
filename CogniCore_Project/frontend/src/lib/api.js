@@ -112,11 +112,11 @@ export async function fetchActiveDatabase() {
 /**
  * Switches the active database
  */
-export async function switchDatabase(dbName) {
+export async function switchDatabase(dbPath) {
   const res = await fetch(`${API_BASE}/api/database/switch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ database: dbName })
+    body: JSON.stringify({ databasePath: dbPath })
   });
   return await res.json();
 }
