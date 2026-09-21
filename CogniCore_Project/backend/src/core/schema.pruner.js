@@ -154,7 +154,7 @@ export function scoreTables(schema = {}, question = "") {
       if (Array.isArray(col.sampleValues)) {
         for (const sv of col.sampleValues) {
           const svStr = String(sv).toLowerCase();
-          if (question.toLowerCase().includes(svStr) && svStr.length > 2) {
+          if (svStr.length > 2 && wordSet.has(normalizeWord(svStr))) {
             score += 2;
             break; // Max 2 per column
           }
