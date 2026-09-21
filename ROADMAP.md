@@ -24,3 +24,11 @@ CogniCore is developed under an evidence-driven architecture where reliability, 
   - Ad-hoc regex aliases or fuzzy token matching in the core parsing engine introduce dangerous false positives, schema pollution, and potential security boundary bypasses.
   - Correct enterprise handling requires an explicit, structured `schemaExtensions` configuration hook in `schema.reader.js`, allowing administrators to supply authoritative synonym dictionaries and business entity mappings alongside top-K sub-schema pruning for 300+ table schemas.
   - S12 is tracked as an intentional architectural handoff to Part B Step 6, not an unaddressed defect.
+
+---
+
+## Architectural Decision Records
+
+### Decision O6 — Effective Local LLM Timeout Policy
+- **Policy:** `LOCAL_LLM_TIMEOUT_MS=75000` (75s).
+- **Justification:** Adopted to accommodate multi-table DDL schemas (Chinook 11 tables, orders year filtering) on CPU inference without prematurely aborting valid generation before retry cascades.
