@@ -12,6 +12,7 @@ import {
   sendQuery as apiSendQuery
 } from "./lib/api.js";
 import DatabaseSidebar from "./components/DatabaseSidebar.jsx";
+import SqlModal from "./components/SqlModal.jsx";
 
 function App() {
 
@@ -31,6 +32,7 @@ function App() {
   ]);
 
   const [loading, setLoading] = useState(false);
+  const [inspectorTarget, setInspectorTarget] = useState(null);
 
   useEffect(() => {
     async function loadModels() {
@@ -347,9 +349,36 @@ function App() {
                       </div>
 
                       {message.result.data?.sql && (
-                        <div className="sql-card">
-                          <span className="sql-label">Executed SQL</span>
+                        <div
+                          className="sql-card"
+                          onClick={() => setInspectorTarget(message.result)}
+                          style={{ cursor: "pointer" }}
+                          title="Click to open Pipeline & SQL Inspector"
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span className="sql-label">Executed SQL</span>
+                            <span style={{ fontSize: "11px", color: "#6366f1" }}>🔍 Inspect</span>
+                          </div>
                           <code>{message.result.data.sql}</code>
+                        </div>
+                      )}
+
+                      {(message.result.source === "fallback" || message.error) && (
+                        <div style={{ marginTop: "8px" }}>
+                          <button
+                            onClick={() => setInspectorTarget(message.result || { error: message.text })}
+                            style={{
+                              background: "rgba(244, 63, 94, 0.1)",
+                              color: "#e11d48",
+                              border: "1px solid rgba(244, 63, 94, 0.2)",
+                              borderRadius: "6px",
+                              padding: "4px 8px",
+                              fontSize: "11px",
+                              cursor: "pointer"
+                            }}
+                          >
+                            🔍 Inspect Fallback Trace
+                          </button>
                         </div>
                       )}
 
@@ -522,6 +551,15 @@ function App() {
         </div>
 
       </main>
+
+      <SqlModal
+        isOpen={Boolean(inspectorTarget)}
+        onClose={() => setInspectorTarget(null)}
+        sql={inspectorTarget?.data?.sql || inspectorTarget?.sql}
+        meta={inspectorTarget?.meta}
+        source={inspectorTarget?.source}
+        error={inspectorTarget?.error}
+      />
 
     </div>
   );
