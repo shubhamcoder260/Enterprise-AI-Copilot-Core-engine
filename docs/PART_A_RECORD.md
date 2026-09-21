@@ -44,7 +44,7 @@ The one-shot corrective retry mechanism (`llm.link.js`) activates strictly upon 
 | **Hospital Realm Full Battery (19Q)** | 13/19 (68%) | 13/19 (68%) | **15/19 (79%)** | +2 gain; stable baselines, zero drift beyond noise |
 | **SQL Security & Validator Matrix** | 37/37 | 37/37 | **37/37 (100%)** | Layer 1 frozen; ReDoS protected (<0.05ms on 10k chars) |
 | **College Attendance Suite** | 6/6 | 6/6 | **6/6 (100%)** | Q5 sentinel (*"lowest attendance top 5"*) green by name |
-| **S13 Categorical Precision** | Fail (5,800+) | 5,541 | **5,541 (Exact)** | Disambiguates `B` vs `B-` strictly |
+| **S13 Categorical Precision** | Fail (5,391 wrong answer) | 5,541 | **5,541 (Exact)** | Disambiguates `B` vs `B-` strictly |
 
 ---
 
@@ -78,9 +78,9 @@ The following edge cases remain open at the end of Part A, backstopped by physic
 | **S1-LLM** | Double-quoted category AVG | **CLOSED** | AST Gate CASE 3 rejects bare column projection. |
 | **S2** | Top 5 suppliers by count | **CLOSED** | `COUNT_BY_MARKER_REGEX` blocks false scalar plans. |
 | **S3** | Multi-attribute grouping | **CLOSED** | Preposition guards block single-row aggregation. |
-| **S4** | Filter dropping (VIP status) | **CLOSED** | b2(a) bind-or-decline rejects unbound filters across both tiers. |
+| **S4** | "completed" filter silently dropped (revenue summed over all orders) | **CLOSED** | b2(a) bind-or-decline rejects unbound filters across both tiers. |
 | **S5** | Chinook revenue per country | **CLOSED (Safety)** | Silent-wrong eliminated via AST Gate (`ast_column_not_in_schema:T1.Country`); recovery open (0/2). |
-| **S6** | Unhandled join relations | **OPEN** | Documented open edge; execution backstop prevents data corruption. |
+| **S6** | undisclosed entity substitution (students→customers) | **OPEN** | R2-lite routing exists; deterministic disclosure backstop recommended. |
 | **S9** | Non-sensical boolean SUM | **CLOSED** | `result.sanity.js` intercepts scalar aggregate over `{0, 1}` flag columns. |
 | **S10** | Semantic ranking without GROUP BY | **CLOSED** | A2 AST Gate provides structural check; M1 corrective retry provides recovery path. |
 | **S11** | Order cancellation percentage | **CLOSED** | `fastIntent.js` compiles single-table ratio `ROUND(COUNT(...) * 100.0 / COUNT(*), 2)`. |

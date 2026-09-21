@@ -1,7 +1,7 @@
 # COGNICORE — MASTER CONTEXT v2.0
 
 > **Canon Declaration:** Part A (reliability) complete; Part B (expressiveness) begins.  
-> **Changelog:** v1.0 (baseline) → v1.1 (Part 1 fast-intent & college acceptance) → **v2.0 (2026-09-21: Part A bedrock lock, honesty guards, AST gate, orphaned specimens, semantic profile migration)**.  
+> **Changelog:** v1.0 → v1.1 → v1.2 (Step 0 measured freeze) → v1.4 (base complete) → v2.0 (Part A lock).  
 > **How to use:** Read this file and treat it as canonical. Anything not stated here must be verified live — never invented.
 
 ---
