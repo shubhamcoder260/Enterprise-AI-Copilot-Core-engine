@@ -1,40 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import "./style.css";
-
-const SESSION_STORAGE_KEY = "cognicore_session_id";
-const MODEL_STORAGE_KEY = "cognicore_selected_model";
-
-function generateSessionId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return "session_" + Date.now().toString(36) + "_" + Math.random().toString(36).substring(2, 9);
-}
-
-function getInitialSessionId() {
-  try {
-    const saved = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (saved && saved.trim()) {
-      return saved.trim();
-    }
-    const created = generateSessionId();
-    localStorage.setItem(SESSION_STORAGE_KEY, created);
-    return created;
-  } catch (e) {
-    return generateSessionId();
-  }
-}
-
-function getInitialModel() {
-  try {
-    const saved = localStorage.getItem(MODEL_STORAGE_KEY);
-    if (saved && saved.trim()) {
-      return saved.trim();
-    }
-  } catch (e) {}
-  return "gemma3:4b";
-}
+import {
+  SESSION_STORAGE_KEY,
+  MODEL_STORAGE_KEY,
+  generateSessionId,
+  getInitialSessionId,
+  getInitialModel,
+  fetchModels as apiFetchModels,
+  fetchSessionHistory as apiFetchSessionHistory,
+  sendQuery as apiSendQuery,
+  uploadDatabase as apiUploadDatabase
+} from "./lib/api.js";
 
 function App() {
 
@@ -61,11 +38,9 @@ function App() {
   const [uploadStatus, setUploadStatus] = useState("");
 
   useEffect(() => {
-    async function fetchModels() {
+    async function loadModels() {
       try {
-        const res = await fetch("http://localhost:5000/api/llm/models");
-        if (!res.ok) throw new Error("Failed to fetch models");
-        const data = await res.json();
+        const data = await apiFetchModels();
         if (Array.isArray(data.models) && data.models.length > 0) {
           setAvailableModels(data.models);
           setLlmOnline(data.available !== false);
@@ -82,7 +57,7 @@ function App() {
         setLlmOnline(false);
       }
     }
-    fetchModels();
+    loadModels();
   }, []);
 
   // Hydrate conversation history on mount
@@ -91,9 +66,7 @@ function App() {
       const activeSession = getInitialSessionId();
       if (!activeSession) return;
       try {
-        const res = await fetch(`http://localhost:5000/api/history/${activeSession}`);
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await apiFetchSessionHistory(activeSession);
         const exchangeList = data.exchanges || data.history;
         if (Array.isArray(exchangeList) && exchangeList.length > 0) {
           const hydrated = [];
@@ -148,25 +121,12 @@ function App() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/ai/query",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Session-ID": sessionId
-          },
-          body: JSON.stringify({
-            query: question,
-            organization,
-            role: "admin",
-            sessionId,
-            model: selectedModel
-          })
-        }
-      );
-
-      const result = await response.json();
+      const result = await apiSendQuery({
+        query: question,
+        organization,
+        sessionId,
+        model: selectedModel
+      });
 
       const respSessionId = result.meta?.sessionId || result.sessionId;
       if (respSessionId && respSessionId !== sessionId) {
@@ -214,19 +174,7 @@ function App() {
     setUploadStatus("Uploading database...");
 
     try {
-      const formData = new FormData();
-
-      formData.append("database", selectedDatabase);
-
-      const response = await fetch(
-        "http://localhost:5000/api/database/upload",
-        {
-          method: "POST",
-          body: formData
-        }
-      );
-
-      const result = await response.json();
+      const result = await apiUploadDatabase(selectedDatabase);
 
       if (result.success) {
 
