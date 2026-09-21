@@ -4,6 +4,8 @@
 // identical rejection of GROUP BY / count-by / grouping queries.
 // ==========================================
 
+import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
+
 /**
  * Detects if a query contains a count-by ranking marker like:
  * "top 5 suppliers by number of products supplied" (S2)
@@ -59,7 +61,7 @@ export function checkGroupByRequired(query, table) {
   const byMatch = q.match(/\bby\s+([a-z0-9_]+(?:\s+id)?)\b/i);
   if (byMatch) {
     const targetWord = byMatch[1].toLowerCase().replace(/\s+/g, "_");
-    const isScalarIdOrder = /^(?:id|student_id|emp_id|patient_id|user_id)$/i.test(targetWord);
+    const isScalarIdOrder = SEMANTIC_PROFILE.scalarIdNames.includes(targetWord.toLowerCase());
     const hasOrderingPrefix = /\b(?:top|bottom|highest|lowest|order|sorted)\b/i.test(q);
 
     // If it's pure scalar ordering like "top 5 by student_id", allow through

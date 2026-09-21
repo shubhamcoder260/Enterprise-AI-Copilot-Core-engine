@@ -12,6 +12,7 @@
 "use strict";
 
 import { checkGroupByRequired } from "./guard-markers.js";
+import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
 const normVal = (s) => String(s ?? "").trim().toLowerCase();
@@ -455,23 +456,22 @@ export function tryRoute(question, deps) {
       if (absentCol) {
         act.aggCol = absentCol.name;
       } else {
-        // B2 Derivation-Trap: percentage word REQUIRED + quantity/threshold veto
-        // TODO: domain hardcode debt - move attendance/absent semantic profile by A4 (M4)
-        const hasPercentageWord = /\b(?:percentage|pct|rate)\b/i.test(question);
-        const hasQuantityThreshold = /\b(?:no\.?\s*of|number\s*of|more\s*than|less\s*than|days?|\d+)\b/i.test(question);
-
-        if (hasPercentageWord && !hasQuantityThreshold) {
-          const attendanceCol =
-            numCols.find((c) => /attend|present/i.test(c.name) && /percentage|pct|rate/i.test(c.name)) ||
-            numCols.find((c) => /attend|present/i.test(c.name));
-
-          if (attendanceCol) {
-            act.derivedExpr = `(100.0 - AVG("${attendanceCol.name}"))`;
-          } else {
-            return null;
+        let derived = false;
+        for (const rule of SEMANTIC_PROFILE.derivations) {
+          const matches = rule.match.test(question);
+          const vetoed = rule.veto && rule.veto.test(question);
+          if (matches && !vetoed) {
+            const baseCol =
+              numCols.find((c) => rule.base.test(c.name) && rule.baseRate && rule.baseRate.test(c.name)) ||
+              numCols.find((c) => rule.base.test(c.name));
+            if (baseCol) {
+              act.derivedExpr = rule.expr(baseCol.name);
+              derived = true;
+              break;
+            }
           }
-        } else {
-          // User asked for absent, but table has no absent numeric column and derivation vetoed / not applicable
+        }
+        if (!derived) {
           return null;
         }
       }

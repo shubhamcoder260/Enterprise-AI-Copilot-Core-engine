@@ -6,14 +6,14 @@
 
 import { findBestNumericColumn, isNumericColumn, findMatchingColumn } from "./schema.resolver.js";
 import { checkGroupByRequired } from "./guard-markers.js";
+import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
 
 export function quoteIdentifier(name) {
   return `"${String(name).replace(/"/g, '""')}"`;
 }
 
 function hasUnboundCriteria(q, tableName, getDistinct) {
-  const statusMarkers = /\b(?:where|enrolled|born|from|in the year|completed|pending|active|inactive|paid|unpaid|pregnant|radiology)\b/i;
-  if (statusMarkers.test(q)) return true;
+  if (SEMANTIC_PROFILE.statusMarkers.some((m) => m.test(q))) return true;
   if (typeof getDistinct === "function" && tableName) {
     const distinctVals = getDistinct(tableName) || [];
     const tokens = q.toLowerCase().split(/[^a-z0-9_]+/).filter(Boolean);
