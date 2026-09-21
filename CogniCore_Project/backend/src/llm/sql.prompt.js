@@ -8,6 +8,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
 import { pruneSchema } from "../core/schema.pruner.js";
+import { detectPresentationIntent } from "../core/presentation.intent.js";
+
 
 
 
@@ -197,6 +199,15 @@ For follow-up questions that refer to the previous exchanges:
 3. Output ONLY the raw SQLite SELECT statement for the resolved query.\n`;
   }
 
+  const pIntent = detectPresentationIntent(query);
+  let presentationHint = "";
+  if (pIntent.chart) {
+    presentationHint += "\n- Visualization shape: The user wants a visualization: return aggregated results (GROUP BY on the category/time column, aggregate the numeric column) suitable for charting.";
+  }
+  if (pIntent.report) {
+    presentationHint += "\n- Report shape: The user wants a report: return grouped aggregates and, if useful, a headline scalar.";
+  }
+
   return `You are a strict SQLite SQL generator.
 
 ### Database Schema:
@@ -217,7 +228,7 @@ ${relText}
 - Intermediate Tables: if the question asks to count or inspect items from a target table that does not directly link to the entity (e.g. counting tracks for artists), you MUST join through all intermediate linking tables (e.g. FROM artists JOIN albums ON artists.ArtistId = albums.ArtistId JOIN tracks ON albums.AlbumId = tracks.AlbumId) and aggregate the target table's items (e.g. COUNT(tracks.TrackId)).
 - Aggregates: when aggregating with COUNT, SUM, or AVG (such as 'most', 'highest', 'top'), you MUST ALWAYS include both the entity identifier/name AND the aggregate metric in the SELECT clause (e.g. SELECT artists.Name, COUNT(tracks.TrackId) AS track_count), never select only the name alone. Include GROUP BY.
 - Ordering & Limits: if the question asks for a specific count (e.g. "Which 5", "top 10", "first 3"), use that exact number in LIMIT (e.g. LIMIT 5). Use ORDER BY <metric> DESC for top/most. Only default to LIMIT 50 if no specific count was requested.
-- Column safety: use ONLY columns that appear in the schema lines above, and attach each column to the correct table. If a table directly contains the column you need, query that table alone instead of adding joins. Use explicit table names (e.g. tracks.TrackId, artists.Name) rather than ambiguous aliases like T1, T2 to ensure every column belongs to its true table.
+- Column safety: use ONLY columns that appear in the schema lines above, and attach each column to the correct table. If a table directly contains the column you need, query that table alone instead of adding joins. Use explicit table names (e.g. tracks.TrackId, artists.Name) rather than ambiguous aliases like T1, T2 to ensure every column belongs to its true table.${presentationHint}
 
 
 ### Few-Shot Examples (neutral reference schemas):
