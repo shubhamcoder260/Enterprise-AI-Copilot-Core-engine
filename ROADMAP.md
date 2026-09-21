@@ -6,7 +6,8 @@ CogniCore is developed under an evidence-driven architecture where reliability, 
 - **Part A (Base Completion — The Bedrock):** Structural hygiene, honesty guards, AST gate, orphaned specimen resolution (S1–S11, S13–S15) — **LOCKED & CANONICAL**.
 - **Part B (Additions & Expressiveness):**
   - **Step 5 (B1: Polymorphic Formatter Registry):** ✅ **COMPLETED** — `formatter.registry.js` closed-shape registry (`kpi`, `table`, `chartSpec`, `report`, `csv`), injection guards, pure functions, wired fail-safe in `ai.controller.js`, scalar phrasing corrected in `llm.formatter.js`.
-  - **Step 6 (B2: Schema Extension Hook & Sub-Schema Pruner):** In queue (closes S12).
+  - **Step 6 (B2: Schema Extension Hook & Sub-Schema Pruner):** ✅ **COMPLETED** — `schemaAliases` frozen dictionary in `semantic.profile.js`, exact-match resolver fallback, table notes in prompt, `schema.pruner.js` top-K sub-schema pruner with FK closure (preserves intermediate join tables like `albums` for `artists`+`tracks`). Closes S12 & O2.
+
 
 ---
 
