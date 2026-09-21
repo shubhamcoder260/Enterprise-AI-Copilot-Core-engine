@@ -6,6 +6,10 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
+import { pruneSchema } from "../core/schema.pruner.js";
+
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,7 +85,10 @@ export function formatSchemaForPrompt(schema = {}) {
         : "";
 
     lines.push(`Table: ${tableName}${rowCountInfo} (${colDefs.join(", ")})`);
-    if (notes[tableName]) {
+    const alias = SEMANTIC_PROFILE.schemaAliases?.[tableName];
+    if (alias) {
+      lines.push(`Note: ${tableName} — table represents "${alias}"`);
+    } else if (notes[tableName]) {
       lines.push(`Note: ${tableName} — ${notes[tableName]}`);
     }
   }
@@ -165,8 +172,9 @@ export function detectRelationships(schema = {}) {
  * @returns {string}
  */
 export function buildSqlPrompt({ query, schema = {}, history = [] }) {
-  const schemaText = formatSchemaForPrompt(schema);
-  const relationships = detectRelationships(schema);
+  const activeSchema = pruneSchema(schema, query, { topK: 6 });
+  const schemaText = formatSchemaForPrompt(activeSchema);
+  const relationships = detectRelationships(activeSchema);
   const relText =
     relationships.length > 0
       ? `\n### Key Relationships (Foreign Keys):\n${relationships.map((r) => `- ${r}`).join("\n")}\n`
