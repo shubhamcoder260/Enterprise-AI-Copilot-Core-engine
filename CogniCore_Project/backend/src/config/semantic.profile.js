@@ -36,5 +36,36 @@ export const SEMANTIC_PROFILE = Object.freeze({
     /\bpregnant\b/i,
     /\bradiology\b/i
   ],
-  scalarIdNames: ["id", "student_id", "emp_id", "patient_id", "user_id"]
+  scalarIdNames: ["id", "student_id", "emp_id", "patient_id", "user_id"],
+  schemaAliases: Object.freeze({
+    // U3_institute
+    stus: "students",
+    enrs: "enrollments",
+    depts: "departments",
+    crss: "courses",
+    profs: "instructors",
+    // I1_workshop
+    mcs: "machines",
+    prod: "products",
+    dfc: "defects",
+    // B1_community
+    accts: "accounts",
+    brs: "branches",
+    lns: "loans",
+    txns: "transactions",
+    // F1_quickbite
+    rst: "restaurants",
+    ords: "orders",
+    cst: "customers",
+    oi: "order_items",
+    cur: "couriers",
+    mnu: "menus",
+    // H2_legacymed
+    pts: "patients",
+    docs: "doctors",
+    vsts: "visits",
+    dx: "diagnoses",
+    rx: "prescriptions"
+  })
 });
+

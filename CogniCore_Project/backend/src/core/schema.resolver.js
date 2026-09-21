@@ -3,6 +3,8 @@
 // Resolves table and column matches from natural language queries
 // ==========================================
 
+import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
+
 export function normalizeWord(word) {
   const w = String(word)
     .toLowerCase()
@@ -69,11 +71,24 @@ export function isNumericColumn(column) {
 export function findMatchingTable(query, schema = {}) {
   const words = getWords(query).map(normalizeWord);
 
+  // Direct table name match
   for (const tableName of Object.keys(schema)) {
     const normalizedTable = normalizeWord(tableName);
     if (words.includes(normalizedTable)) {
       console.log("✅ MATCHED TABLE:", tableName);
       return tableName;
+    }
+  }
+
+  // Exact normalized alias match fallback (Decision S12)
+  const aliases = SEMANTIC_PROFILE.schemaAliases || {};
+  for (const [actualTable, friendlyAlias] of Object.entries(aliases)) {
+    if (schema[actualTable]) {
+      const normalizedAlias = normalizeWord(friendlyAlias);
+      if (words.includes(normalizedAlias)) {
+        console.log(`✅ MATCHED TABLE VIA ALIAS: ${actualTable} (alias: "${friendlyAlias}")`);
+        return actualTable;
+      }
     }
   }
 
