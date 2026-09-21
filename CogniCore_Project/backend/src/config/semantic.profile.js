@@ -11,11 +11,14 @@
 export const SEMANTIC_PROFILE = Object.freeze({
   derivations: [
     {
-      match: /absent\w*\s*(percentage|pct|rate)/i,
+      // NOTE: the absent-family gate lives in fastIntent's wantAbsent branch;
+      // this rule adds the rate-word requirement (ANYWHERE, as in A1 original)
+      // and the quantity/threshold veto (word boundaries RESTORED verbatim).
+      requiresRateWord: /\b(?:percentage|pct|rate)\b/i,
+      veto: /\b(?:no.?\sof|number\sof|more\sthan|less\sthan|days?|\d+)\b/i,
       base: /attend|present/i,
       baseRate: /percentage|pct|rate/i,
-      expr: (col) => `(100.0 - AVG("${col}"))`,
-      veto: /no\.?\s*of|number\s*of|more\s*than|less\s*than|days?|\d+/i
+      expr: (col) => `(100.0 - AVG("${col}"))`
     }
   ],
   statusMarkers: [

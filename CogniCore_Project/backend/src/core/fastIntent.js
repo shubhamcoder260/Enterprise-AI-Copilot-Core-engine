@@ -141,6 +141,9 @@ export function detectAction(q) {
   const isBottom = /\b(bottom|lowest|min(?:imum)?)\b/i.test(queryStr);
   const isTop = /\b(top|highest|max(?:imum)?)\b/i.test(queryStr);
 
+  if (/\b(average|avg|mean)\b/i.test(queryStr)) return { type: "aggregate", fn: "AVG" };
+  if (/\b(total|sum)\b/i.test(queryStr)) return { type: "aggregate", fn: "SUM" };
+
   if (/\bwhat\s+percentage\s+of\b/i.test(queryStr) || /\b(?:percentage|proportion|fraction)\s+of\b/i.test(queryStr)) {
     return { type: "percentage" };
   }
@@ -158,8 +161,6 @@ export function detectAction(q) {
     return { type: "topN", limit };
   }
 
-  if (/\b(average|avg|mean)\b/i.test(queryStr)) return { type: "aggregate", fn: "AVG" };
-  if (/\b(total|sum)\b/i.test(queryStr)) return { type: "aggregate", fn: "SUM" };
   if (/\b(how many|count|number of)\b/i.test(queryStr)) return { type: "count" };
   if (/\b(show|list|find|get|display)\b/i.test(queryStr)) return { type: "list" };
 
@@ -458,9 +459,9 @@ export function tryRoute(question, deps) {
       } else {
         let derived = false;
         for (const rule of SEMANTIC_PROFILE.derivations) {
-          const matches = rule.match.test(question);
+          const rateWord = rule.requiresRateWord && rule.requiresRateWord.test(question);
           const vetoed = rule.veto && rule.veto.test(question);
-          if (matches && !vetoed) {
+          if (rateWord && !vetoed) {
             const baseCol =
               numCols.find((c) => rule.base.test(c.name) && rule.baseRate && rule.baseRate.test(c.name)) ||
               numCols.find((c) => rule.base.test(c.name));
