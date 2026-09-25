@@ -114,9 +114,14 @@ async function runOracleBenchmarks() {
 
   console.log("  S16 Engine response source:", s16Res.source);
   console.log("  S16 Engine response data records:", JSON.stringify(s16Res.data?.records));
+  console.log("  S16 Engine response grounding:", JSON.stringify(s16Res.meta?.grounding));
   assert.strictEqual(s16Res.meta.source, "mariadb", "S16 must run against MariaDB");
   assert.ok(Array.isArray(s16Res.data?.records), "S16 must return records array");
-  console.log("  ✅ S16 Sentinel Baseline recorded successfully.");
+  assert.ok(s16Res.meta?.grounding, "S16 must have grounding metadata attached");
+  assert.strictEqual(s16Res.meta.grounding.partial, true, "S16 must report partial span");
+  assert.strictEqual(s16Res.meta.grounding.availableSpanYears, 2, "S16 must report 2 available years");
+  assert.ok(s16Res.answer.includes("Note:"), "S16 answer must contain honest notice caveat");
+  console.log("  ✅ S16 Sentinel Honesty Spine verified: partial data span caveat attached.");
 
   // 5. Hygiene Teardown: Reset orchestrator state
   resetOrchestratorState();

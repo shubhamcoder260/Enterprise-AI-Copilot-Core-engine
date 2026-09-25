@@ -1,0 +1,40 @@
+services:
+  mariadb:
+    image: mariadb:10.6
+    container_name: cognicore-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: mariadb_root_password
+      MARIADB_DATABASE: _4e5d6a7b8c9d0e1f
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      erpnext_bridge:
+        ipv4_address: 172.28.0.10
+
+  frappe:
+    image: node:20-alpine
+    container_name: cognicore-frappe
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./mock-frappe.js:/app/mock-frappe.js:ro
+    command: node mock-frappe.js
+    ports:
+      - "8000:8000"
+    networks:
+      erpnext_bridge:
+        ipv4_address: 172.28.0.20
+    depends_on:
+      - mariadb
+
+networks:
+  erpnext_bridge:
+    name: erpnext_bridge
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16

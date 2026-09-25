@@ -56,6 +56,7 @@ export function createMariaDbAdapter(config = {}) {
         connectionLimit: 10,
         queueLimit: 0,
         connectTimeout: 5000,
+        decimalNumbers: true,
         ...config
       });
 

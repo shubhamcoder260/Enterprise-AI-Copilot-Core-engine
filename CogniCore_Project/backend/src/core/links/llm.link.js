@@ -6,6 +6,8 @@ import { gateChainFor } from "../../kernel/gate.selector.js";
 import { DIALECTS } from "../../adapters/dialects/index.js";
 import { PASS, BUG, ANSWERED } from "../../kernel/handler-result.js";
 import { checkResultSanity } from "../result.sanity.js";
+import { parseIntentIR } from "../intent.ir.js";
+import { validateChartGrounding, enrichResultWithGrounding } from "../grounding.guard.js";
 
 const FAST_REFUSAL_CODES = [
   "table_missing",
@@ -77,6 +79,28 @@ export async function executeLlmLink(ctx) {
 
     // 1b. Recent history for context resolution (up to 3 turns)
     const history = sessionId ? await getRecentExchanges(sessionId, 3) : [];
+
+    // 1c. Fast Ambiguity Clarification Check (Intent-IR Ladder Rung 3)
+    const ir = parseIntentIR(query, { schema, dialect });
+    if (ir.confidence === "AMBIGUOUS" && ir.clarificationPrompt) {
+      console.log(`ℹ️ [LLM Link] Intent-IR flagged AMBIGUOUS: ${ir.clarificationPrompt}`);
+      return ANSWERED({
+        answer: ir.clarificationPrompt,
+        source: "llm",
+        meta: {
+          sessionId,
+          organization,
+          role,
+          processingMs: Date.now() - startTime,
+          source: dialect,
+          sourceId: capabilities?.source?.id || "sqlite_default",
+          database: capabilities?.source?.database,
+          intentIR: ir,
+          clarification: true
+        },
+        data: { type: "clarification", prompt: ir.clarificationPrompt }
+      });
+    }
 
     // 2. Build prompt
     const prompt = buildSqlPrompt({ query, schema, history, dialect });
@@ -275,10 +299,27 @@ export async function executeLlmLink(ctx) {
       extraMeta
     });
 
-    const outcome = ANSWERED(responsePayload);
+    let outcome = ANSWERED(responsePayload);
     if (didRetry) {
       outcome.reason = `corrective_retry:${retryReason}`;
     }
+
+    try {
+      const ir = parseIntentIR(query, { schema, dialect });
+      const grounding = await validateChartGrounding(ir, { schema, adapter: db });
+      if (grounding && grounding.action === "CLARIFY") {
+        return ANSWERED({
+          answer: grounding.reason,
+          source: "llm",
+          meta: { ...extraMeta, intentIR: ir, clarification: true },
+          data: { type: "clarification", prompt: grounding.reason }
+        });
+      }
+      outcome = enrichResultWithGrounding(outcome, grounding);
+    } catch (gErr) {
+      console.warn("⚠️ [LLM Link] Grounding check non-fatal error:", gErr.message);
+    }
+
     return outcome;
   } catch (err) {
     console.error("🚨 [LLM BUG] Local LLM execution threw unexpected error:", err);

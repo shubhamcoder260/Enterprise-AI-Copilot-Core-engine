@@ -13,6 +13,7 @@
 
 import { checkGroupByRequired } from "./guard-markers.js";
 import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
+import { getDialect } from "../adapters/dialects/index.js";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
 const normVal = (s) => String(s ?? "").trim().toLowerCase();
@@ -265,16 +266,51 @@ export function extractFilters(q, table, getDistinct) {
     }
   }
 
+  // 4. Temporal Filter: "in 2024", "for 2024", "during 2024", etc.
+  const yearM = queryStr.match(/\b(?:in|for|during)\s+(20\d\d|19\d\d)\b/i) ||
+                queryStr.match(/\b(20\d\d|19\d\d)\b/);
+  if (yearM) {
+    const yr = +yearM[1];
+    const dateCol = (table.columns || []).find((c) =>
+      /posting_date|transaction_date|invoice_date|creation|date/i.test(c.name) ||
+      /date|time|timestamp/i.test(c.type)
+    );
+    if (dateCol) {
+      filters.push({
+        column: dateCol.name,
+        op: ">=",
+        value: `${yr}-01-01`,
+        consumedNumbers: [yr]
+      });
+      filters.push({
+        column: dateCol.name,
+        op: "<",
+        value: `${yr + 1}-01-01`,
+        consumedNumbers: [yr]
+      });
+    }
+  }
+
+  // 5. Default docstatus filter for ERPNext tables
+  if (
+    table.columns.some((c) => c.name === "docstatus") &&
+    !filters.some((f) => f.column === "docstatus")
+  ) {
+    filters.push({ column: "docstatus", op: "=", value: 1 });
+  }
+
   return filters;
 }
 
-export function compile(act, table, filters) {
+export function compile(act, table, filters, dialect = "sqlite") {
+  const isMaria = dialect === "mariadb";
+  const quote = isMaria ? (d) => `\`${d}\`` : (d) => `"${d}"`;
   const where = filters.length ? filters : [];
   const wsql = where.length
-    ? " WHERE " + where.map((f) => `"${f.column}" ${f.op} ?`).join(" AND ")
+    ? " WHERE " + where.map((f) => `${quote(f.column)} ${f.op} ?`).join(" AND ")
     : "";
   const params = where.map((f) => f.value);
-  const qt = `"${table.name}"`;
+  const qt = quote(table.name);
 
   if (act.type === "percentage") {
     if (!filters.length) return null; // Unmatchable filter -> return null (cascade), never guess
@@ -293,7 +329,7 @@ export function compile(act, table, filters) {
     const col = act.orderCol;
     if (!col) return null;
     return {
-      sql: `SELECT * FROM ${qt}${wsql} ORDER BY "${col}" ${
+      sql: `SELECT * FROM ${qt}${wsql} ORDER BY ${quote(col)} ${
         act.type === "topN" ? "DESC" : "ASC"
       } LIMIT ?`,
       params: [...params, act.limit]
@@ -309,7 +345,7 @@ export function compile(act, table, filters) {
     const col = act.aggCol;
     if (!col) return null;
     return {
-      sql: `SELECT ${act.fn}("${col}") AS result FROM ${qt}${wsql}`,
+      sql: `SELECT ${act.fn}(${quote(col)}) AS result FROM ${qt}${wsql}`,
       params
     };
   }
@@ -427,11 +463,13 @@ export function tryRoute(question, deps) {
     }
   }
 
+  const dialect = (deps.dialect || deps.source?.dialect || "sqlite").toLowerCase();
+
   // NUMERIC COVERAGE GUARD: every number in the question must be consumed. Else refuse.
   const asked = (question.match(/\d+/g) || []).map(Number);
   const limitM = question.match(/\b(?:top|bottom|highest|lowest)\s*(\d+)/i);
   const used = filters
-    .map((f) => f.value)
+    .flatMap((f) => (f.consumedNumbers ? f.consumedNumbers : [f.value]))
     .concat(limitM ? [+limitM[1]] : [])
     .filter((n) => asked.includes(n)); // ignore bare LIMIT defaults
 
@@ -477,18 +515,24 @@ export function tryRoute(question, deps) {
         }
       }
     } else {
-      const col = table.columns.find(
-        (c) =>
-          /absent|miss|late|fail|due|fee|salary|mark|score|percentage|percent|pct|attendance|budget/.test(
-            norm(c.name)
-          ) && /int|real|num|float|double/i.test(c.type)
+      const numCols = (table.columns || []).filter((c) =>
+        /int|real|num|float|double|decimal/i.test(c.type)
       );
+      const grandTotalCol = numCols.find((c) => /grand_total|total_amount|total$/i.test(c.name));
+      const col =
+        grandTotalCol ||
+        table.columns.find(
+          (c) =>
+            /absent|miss|late|fail|due|fee|salary|mark|score|percentage|percent|pct|attendance|budget|total|amount|revenue|cost|price|sales/.test(
+              norm(c.name)
+            ) && /int|real|num|float|double|decimal/i.test(c.type)
+        );
       if (!col) return null;
       act.aggCol = col.name;
     }
   }
 
-  const out = compile(act, table, filters);
+  const out = compile(act, table, filters, dialect);
   return out
     ? {
         ...out,

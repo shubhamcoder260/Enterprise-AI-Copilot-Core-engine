@@ -186,9 +186,10 @@ export function seriesFromRecords(records) {
 
   for (const k of keys) {
     const val = firstRow[k];
-    if (valueCol === null && typeof val === "number" && !Number.isNaN(val)) {
+    const num = typeof val === "number" ? val : (!Number.isNaN(Number(val)) && typeof val === "string" && val.trim() !== "" ? Number(val) : NaN);
+    if (valueCol === null && !Number.isNaN(num) && !/year|date|time|id/i.test(k)) {
       valueCol = k;
-    } else if (labelCol === null && typeof val === "string") {
+    } else if (labelCol === null && (typeof val === "string" || /year|date|time|name|id/i.test(k))) {
       labelCol = k;
     }
   }
@@ -210,11 +211,12 @@ export function seriesFromRecords(records) {
   for (const row of records) {
     if (!row || typeof row !== "object") continue;
     const rawVal = row[valueCol];
-    if (typeof rawVal !== "number" || Number.isNaN(rawVal)) continue;
+    const numVal = typeof rawVal === "number" ? rawVal : Number(rawVal);
+    if (Number.isNaN(numVal)) continue;
     const rawLabel = labelCol !== null && row[labelCol] !== undefined ? String(row[labelCol]) : String(series.length + 1);
     series.push({
       label: rawLabel,
-      value: rawVal
+      value: numVal
     });
   }
 
