@@ -108,7 +108,7 @@ async function runOracleBenchmarks() {
   };
 
   const s16Res = await runCoreEngine(
-    { query: "Show our total sales for the last 5 years as a graph", sessionId: "oracle-s16-1" },
+    { query: "Show our total sales invoice for the last 5 years as a graph", sessionId: "oracle-s16-1" },
     { pipeline: realPipeline, capabilities: erpCapabilities }
   );
 
