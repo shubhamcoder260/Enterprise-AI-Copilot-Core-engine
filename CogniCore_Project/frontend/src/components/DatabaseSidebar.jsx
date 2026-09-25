@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { MODEL_STORAGE_KEY, fetchActiveDatabase, uploadDatabase as apiUploadDatabase } from "../lib/api.js";
+import {
+  MODEL_STORAGE_KEY,
+  fetchActiveDatabase,
+  uploadDatabase as apiUploadDatabase,
+  fetchSources,
+  switchSource
+} from "../lib/api.js";
 
 export default function DatabaseSidebar({
   sessionId,
@@ -17,8 +23,28 @@ export default function DatabaseSidebar({
   const [uploadStatus, setUploadStatus] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [activeDbName, setActiveDbName] = useState("");
+  const [sources, setSources] = useState([
+    { id: "sqlite_default", name: "SQLite (Local)", dialect: "sqlite" },
+    { id: "erpnext_prod", name: "ERPNext v15 (MariaDB)", dialect: "mariadb" }
+  ]);
+  const [activeSource, setActiveSource] = useState({ id: "sqlite_default", dialect: "sqlite" });
+  const [switchingSource, setSwitchingSource] = useState(false);
 
-  // Check active database on mount
+  async function loadSources() {
+    try {
+      const data = await fetchSources();
+      if (data && data.sources) {
+        setSources(data.sources);
+        if (data.activeSource) {
+          setActiveSource(data.activeSource);
+        }
+      }
+    } catch (e) {
+      // Non-critical
+    }
+  }
+
+  // Check active database and sources on mount
   useEffect(() => {
     async function loadActiveDb() {
       try {
@@ -32,7 +58,26 @@ export default function DatabaseSidebar({
       }
     }
     loadActiveDb();
+    loadSources();
   }, []);
+
+  async function handleSourceSwitch(sourceId) {
+    if (switchingSource || activeSource?.id === sourceId) return;
+    setSwitchingSource(true);
+    try {
+      const res = await switchSource(sourceId);
+      if (res && res.activeSource) {
+        setActiveSource(res.activeSource);
+        if (typeof onDatabaseActivated === "function") {
+          onDatabaseActivated(res.activeSource.name || sourceId);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to switch source:", err);
+    } finally {
+      setSwitchingSource(false);
+    }
+  }
 
   function handleFileSelection(file) {
     if (!file) return;
@@ -154,6 +199,60 @@ export default function DatabaseSidebar({
           <strong>{activeDbName}</strong>
         </div>
       )}
+
+      {/* DATA SOURCE SELECTOR (CAP v2.2 L7) */}
+      <div className="sidebar-section" style={{ marginBottom: "16px" }}>
+        <p className="sidebar-title">DATA SOURCE</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {sources.map((src) => {
+            const isActive = activeSource?.id === src.id;
+            const isMariaDb = src.dialect === "mariadb";
+            return (
+              <button
+                key={src.id}
+                disabled={switchingSource}
+                onClick={() => handleSourceSwitch(src.id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 10px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: isActive ? "600" : "400",
+                  background: isActive
+                    ? (isMariaDb ? "rgba(245, 158, 11, 0.15)" : "rgba(99, 102, 241, 0.15)")
+                    : "rgba(255, 255, 255, 0.03)",
+                  border: isActive
+                    ? (isMariaDb ? "1px solid rgba(245, 158, 11, 0.4)" : "1px solid rgba(99, 102, 241, 0.4)")
+                    : "1px solid rgba(255, 255, 255, 0.08)",
+                  color: isActive ? "#ffffff" : "#94a3b8",
+                  cursor: switchingSource ? "not-allowed" : "pointer",
+                  transition: "all 0.15s ease"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>{isMariaDb ? "🏢" : "📄"}</span>
+                  <span>{src.name}</span>
+                </div>
+                {isActive && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      background: isMariaDb ? "#f59e0b" : "#6366f1",
+                      color: "#ffffff"
+                    }}
+                  >
+                    Active
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* DATABASE UPLOAD (DRAG & DROP + FILE PICKER) */}
       <div

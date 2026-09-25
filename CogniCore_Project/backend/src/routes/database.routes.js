@@ -6,13 +6,17 @@ import { fileURLToPath } from "url";
 import {
   uploadDatabase,
   getActiveDatabase,
-  switchActiveDatabase
+  switchActiveDatabase,
+  listSources,
+  switchSource
 } from "../controllers/database.controller.js";
 
 const router = express.Router();
 
 router.get("/active", getActiveDatabase);
 router.post("/switch", switchActiveDatabase);
+router.get("/sources", listSources);
+router.post("/sources/switch", switchSource);
 
 
 const __filename = fileURLToPath(import.meta.url);

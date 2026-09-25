@@ -2,15 +2,21 @@ import { getTool } from "../tool.router.js";
 import { ANSWERED, PASS, BUG } from "../../kernel/handler-result.js";
 
 export async function executeToolLink({ query, organization, role, sessionId, intent, startTime, capabilities }) {
-const configuredIntents = [
+  const dialect = capabilities?.source?.dialect || "sqlite";
+  if (dialect !== "sqlite") {
+    console.log(`ℹ️ [Tool Link] Non-SQLite source dialect "${dialect}" — soft cascading to next link`);
+    return PASS(`tools_unsupported_for_source:${dialect}`);
+  }
+
+  const configuredIntents = [
     "education_cgpa_analytics",
     "education_foreign_students",
     "hospital_patient_analytics"
   ];
 
   if (!configuredIntents.includes(intent)) {
-
-    return PASS("intent_not_configured_for_tool");  }
+    return PASS("intent_not_configured_for_tool");
+  }
 
   const tool = getTool(intent);
   if (!tool) {

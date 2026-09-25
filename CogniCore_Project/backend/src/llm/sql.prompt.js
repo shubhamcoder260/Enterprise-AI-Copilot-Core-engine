@@ -173,7 +173,7 @@ export function detectRelationships(schema = {}) {
  * @param {object} params.schema - Cached database schema
  * @returns {string}
  */
-export function buildSqlPrompt({ query, schema = {}, history = [] }) {
+export function buildSqlPrompt({ query, schema = {}, history = [], dialect = "sqlite" }) {
   const activeSchema = pruneSchema(schema, query, { topK: 6 });
   const schemaText = formatSchemaForPrompt(activeSchema);
   const relationships = detectRelationships(activeSchema);
@@ -196,7 +196,7 @@ export function buildSqlPrompt({ query, schema = {}, history = [] }) {
 For follow-up questions that refer to the previous exchanges:
 1. Identify what the current question adds or changes relative to the most recent prior question (e.g. a different column, table, or filter).
 2. Resolve it into one self-contained question, retaining any ranking, ordering, or limits from the prior exchange.
-3. Output ONLY the raw SQLite SELECT statement for the resolved query.\n`;
+3. Output ONLY the raw SELECT statement for the resolved query.\n`;
   }
 
   const pIntent = detectPresentationIntent(query);
@@ -208,22 +208,34 @@ For follow-up questions that refer to the previous exchanges:
     presentationHint += "\n- Report shape: The user wants a report: return grouped aggregates and, if useful, a headline scalar.";
   }
 
-  return `You are a strict SQLite SQL generator.
+  const isMariaDb = String(dialect).toLowerCase() === "mariadb";
+  const header = isMariaDb
+    ? "You are a strict MariaDB SQL generator."
+    : "You are a strict SQLite SQL generator.";
+
+  const dialectSpecificRules = isMariaDb
+    ? `- Identifiers: Use backticks to enclose table and column names (e.g. \`tabSales Invoice\`, \`customer\`). Preserve spaces in ERPNext tab* names verbatim.
+- Docstatus: For ERPNext transactional tables with a docstatus column (e.g. \`tabSales Invoice\`), filter by \`docstatus\` = 1 for submitted documents.
+- Date Filtering: Prefer range predicates on date columns (e.g. \`posting_date\` >= 'YYYY-01-01' AND \`posting_date\` < 'YYYY+1-01-01') over YEAR() to preserve B-tree index eligibility.
+- Casing: MariaDB text searches are case-insensitive by default under utf8mb4_general_ci / utf8mb4_unicode_ci. Do not use COLLATE NOCASE.`
+    : `- Injected sample values: When filtering on a column where sample values are provided in the schema (e.g. status TEXT [values: 'Submitted', 'Late', 'Not Submitted']), you MUST use the EXACT casing from the sample values using string equality (e.g. status = 'Submitted' or status = 'Submitted' COLLATE NOCASE). Do not guess with arbitrary LIKE wildcards if the exact values are listed in the schema.
+- Unsampled text columns: For columns marked as [values: unknown/not sampled (large table)] or text columns without sample values, use COLLATE NOCASE (e.g. col = 'value' COLLATE NOCASE) or LIKE '%value%' or LOWER(col) = 'val' to ensure case-insensitive matching.
+- Identifiers: double-quote identifiers with spaces (e.g. "Column Name").`;
+
+  return `${header}
 
 ### Database Schema:
 ${schemaText || "No tables available in active database."}
 ${relText}
 ### Output Rules:
-1. Return ONLY one raw SQLite SELECT statement.
+1. Return ONLY one raw ${isMariaDb ? "MariaDB" : "SQLite"} SELECT statement.
 2. No markdown, no explanation, no trailing semicolon.
 3. If no table in the schema plausibly matches the main noun of the question (e.g. patients, students, employees), respond with a single line starting with -- rather than guessing a mapping.
 
 
 ### Dialect & Schema Rules:
-- Injected sample values: When filtering on a column where sample values are provided in the schema (e.g. status TEXT [values: 'Submitted', 'Late', 'Not Submitted']), you MUST use the EXACT casing from the sample values using string equality (e.g. status = 'Submitted' or status = 'Submitted' COLLATE NOCASE). Do not guess with arbitrary LIKE wildcards if the exact values are listed in the schema.
-- Unsampled text columns: For columns marked as [values: unknown/not sampled (large table)] or text columns without sample values, use COLLATE NOCASE (e.g. col = 'value' COLLATE NOCASE) or LIKE '%value%' or LOWER(col) = 'val' to ensure case-insensitive matching.
+${dialectSpecificRules}
 - Entity counting: when the question asks "how many <entity>" (e.g. "how many students", "how many customers"), count distinct entities using COUNT(DISTINCT entity_id) if the entity can have multiple records in the table.
-- Identifiers: double-quote identifiers with spaces (e.g. "Column Name").
 - Explicit JOINs: in the ON clause, ALWAYS join columns that have the exact same name (e.g. tableA.ColId = tableB.ColId). NEVER equate different column names (e.g. NEVER equate ArtistId = AlbumId).
 - Intermediate Tables: if the question asks to count or inspect items from a target table that does not directly link to the entity (e.g. counting tracks for artists), you MUST join through all intermediate linking tables (e.g. FROM artists JOIN albums ON artists.ArtistId = albums.ArtistId JOIN tracks ON albums.AlbumId = tracks.AlbumId) and aggregate the target table's items (e.g. COUNT(tracks.TrackId)).
 - Aggregates: when aggregating with COUNT, SUM, or AVG (such as 'most', 'highest', 'top'), you MUST ALWAYS include both the entity identifier/name AND the aggregate metric in the SELECT clause (e.g. SELECT artists.Name, COUNT(tracks.TrackId) AS track_count), never select only the name alone. Include GROUP BY.

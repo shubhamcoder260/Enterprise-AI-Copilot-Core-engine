@@ -5,6 +5,9 @@ import { formatFor } from "../kernel/formatter.registry.js";
 import { detectPresentationIntent } from "../core/presentation.intent.js";
 
 
+import { acquireQueryLease, getActiveSource } from "../kernel/switch.orchestrator.js";
+import { createCapabilitiesForSource } from "../kernel/capabilities.js";
+
 export async function handleQuery(req, res) {
   const startTime = Date.now();
   const sessionId =
@@ -15,6 +18,8 @@ export async function handleQuery(req, res) {
   const organization = req.body?.organization || "college";
   const role = req.body?.role || "admin";
   const model = req.body?.model;
+
+  const lease = await acquireQueryLease();
 
   try {
     const { query } = req.body || {};
@@ -34,7 +39,13 @@ export async function handleQuery(req, res) {
       });
     }
 
-    const result = await runCoreEngine({ query, organization, role, sessionId, model });
+    const activeSource = getActiveSource();
+    const capabilities = createCapabilitiesForSource(activeSource);
+
+    const result = await runCoreEngine(
+      { query, organization, role, sessionId, model },
+      { capabilities }
+    );
 
     // Step 2: Record exchange in persistent history store (fail-safe)
     try {
@@ -70,6 +81,8 @@ export async function handleQuery(req, res) {
         processingMs: Date.now() - startTime
       }
     });
+  } finally {
+    lease.release();
   }
 }
 

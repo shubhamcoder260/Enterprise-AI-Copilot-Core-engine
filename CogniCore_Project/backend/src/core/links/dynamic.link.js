@@ -2,7 +2,13 @@ import { runDynamicQuery } from "../dynamic.query.engine.js";
 import { ANSWERED, PASS, BUG } from "../../kernel/handler-result.js";
 
 
-export async function executeDynamicLink({ query, organization, role, sessionId, startTime }) {
+export async function executeDynamicLink({ query, organization, role, sessionId, startTime, capabilities }) {
+  const dialect = capabilities?.source?.dialect || "sqlite";
+  if (dialect !== "sqlite") {
+    console.log(`ℹ️ [Dynamic Link] Non-SQLite source dialect "${dialect}" — returning loud PASS to pipeline trace`);
+    return PASS(`source_dialect_unsupported:${dialect}`);
+  }
+
   try {
     console.log("🔥 Attempting Dynamic Query Engine Link");
     const dynamicResult = await runDynamicQuery(query);

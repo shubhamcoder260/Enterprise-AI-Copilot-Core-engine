@@ -3,6 +3,8 @@ import {
   switchDatabase,
   getActiveDatabasePath
 } from "../config/database.js";
+import { switchTo, getActiveSource } from "../kernel/switch.orchestrator.js";
+import { getRegisteredSources, getSourceById } from "../config/sources.js";
 
 export async function uploadDatabase(req, res) {
 
@@ -100,9 +102,53 @@ export async function switchActiveDatabase(req, res) {
       return res.status(400).json({ success: false, message: "Missing databasePath in request body." });
     }
     await switchDatabase(databasePath);
+    await switchTo({
+      id: "sqlite_default",
+      kind: "sqlite",
+      dialect: "sqlite",
+      path: databasePath
+    });
     return res.status(200).json({
       success: true,
       activeDatabase: getActiveDatabasePath()
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function listSources(req, res) {
+  try {
+    return res.status(200).json({
+      success: true,
+      activeSource: getActiveSource(),
+      sources: getRegisteredSources()
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function switchSource(req, res) {
+  try {
+    const { sourceId } = req.body || {};
+    if (!sourceId) {
+      return res.status(400).json({ success: false, message: "Missing sourceId in request body." });
+    }
+    const source = getSourceById(sourceId);
+    if (!source) {
+      return res.status(404).json({ success: false, message: `Source "${sourceId}" not found in registry.` });
+    }
+
+    if (source.dialect === "sqlite" && source.path) {
+      await switchDatabase(source.path);
+    }
+
+    const newActive = await switchTo(source);
+    return res.status(200).json({
+      success: true,
+      activeSource: newActive,
+      message: `Active source switched to ${source.name || sourceId}`
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });

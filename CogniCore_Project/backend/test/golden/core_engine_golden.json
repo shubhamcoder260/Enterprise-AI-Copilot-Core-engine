@@ -1,0 +1,67 @@
+[
+  {
+    "id": "CE-01",
+    "desc": "tool link traversal",
+    "query": "Students with CGPA above 8.5",
+    "expectedSource": "fallback",
+    "expectedAnswerPrefix": "I could not find an exact answ",
+    "traceLinks": [
+      "Configured Tools",
+      "Dynamic Query Engine",
+      "Local LLM",
+      "Helpful Fallback"
+    ]
+  },
+  {
+    "id": "CE-02",
+    "desc": "dynamic query engine path",
+    "query": "list all doctors",
+    "expectedSource": "dynamic",
+    "expectedAnswerPrefix": "Showing 25 record(s) from the ",
+    "traceLinks": [
+      "Configured Tools",
+      "Dynamic Query Engine"
+    ]
+  },
+  {
+    "id": "CE-03",
+    "desc": "custom pipeline override",
+    "query": "test query",
+    "expectedSource": "mock_deterministic",
+    "expectedAnswer": "Mock deterministic answer",
+    "traceLinks": [
+      "MockDeterministicLink"
+    ]
+  },
+  {
+    "id": "CE-04",
+    "desc": "helpful fallback path",
+    "query": "xyz123 unresolvable nonsensical query ???",
+    "expectedSource": "fallback",
+    "expectedAnswerPrefix": "I could not find an exact answ",
+    "traceLinks": [
+      "Configured Tools",
+      "Dynamic Query Engine",
+      "Local LLM",
+      "Helpful Fallback"
+    ]
+  },
+  {
+    "id": "CE-05",
+    "desc": "legacy signature call without options parameter",
+    "query": "total patients",
+    "expectedSource": "dynamic",
+    "traceLength": 2
+  },
+  {
+    "id": "CE-06",
+    "desc": "empty options object call",
+    "expectedSource": "dynamic",
+    "traceLength": 2
+  },
+  {
+    "id": "CE-07",
+    "desc": "legacy gateChainFor(undefined) equivalence invariant",
+    "target": "GATE_CHAIN identity"
+  }
+]

@@ -1,14 +1,6 @@
 // ============================================================
-// CAPABILITIES — the only seam for infra services.
-// Handlers receive these as parameters; they never import
-// drivers/clients directly. Second DB dialect or LLM backend
-// = a second entry here, zero handler changes.
+// CAPABILITIES — Re-export shim for backward compatibility (Tier-2 Re-pin #1)
+// Extracted to capabilities.core.js to allow source-specific capability instantiation.
 // ============================================================
 
-import * as databaseModule from "../config/database.js";
-import * as llmClientModule from "../llm/llm.client.js";
-
-export const capabilities = {
-  db: databaseModule,
-  llm: llmClientModule
-};
+export { capabilities, createDefaultCapabilities, createCapabilitiesForSource } from "./capabilities.core.js";

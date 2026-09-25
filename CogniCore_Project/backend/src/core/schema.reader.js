@@ -215,9 +215,19 @@ export async function getEnrichedSchema(dbInstance, options = {}) {
   return schema;
 }
 
+import { getActiveSource } from "../kernel/switch.orchestrator.js";
+import { getMariaDbEnrichedSchema, clearMariaDbSchemaCache } from "./mariadb.schema.reader.js";
+
+export { getMariaDbEnrichedSchema, clearMariaDbSchemaCache };
+
 /**
- * Standard reader wrapper maintaining backward compatibility across core engine & tests
+ * Standard reader wrapper maintaining backward compatibility across core engine & tests.
+ * Dispatches to MariaDB information_schema reader when active source dialect is 'mariadb'.
  */
-export async function readDatabaseSchema(forceRefresh = false) {
-  return await getEnrichedSchema(null, { forceRefresh });
+export async function readDatabaseSchema(forceRefresh = false, options = {}) {
+  const activeSource = options.source || getActiveSource();
+  if (activeSource?.dialect === "mariadb") {
+    return await getMariaDbEnrichedSchema(options.adapter, { forceRefresh, ...options });
+  }
+  return await getEnrichedSchema(null, { forceRefresh, ...options });
 }

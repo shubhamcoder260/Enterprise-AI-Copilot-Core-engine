@@ -1,0 +1,23 @@
+{
+  "keys": [
+    "db",
+    "llm"
+  ],
+  "dbMethods": [
+    "closeDatabase",
+    "connectDatabase",
+    "ensureInitialized",
+    "executeReadOnlySql",
+    "getActiveDatabasePath",
+    "getReadOnlyDatabase",
+    "registerDatabaseSwitchHook",
+    "switchDatabase"
+  ],
+  "llmMethods": [
+    "cleanLlmSql",
+    "generateSql"
+  ],
+  "hasGetDb": false,
+  "hasExecuteReadOnlySql": true,
+  "hasQueryLLM": false
+}

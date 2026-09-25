@@ -11,8 +11,9 @@ import { capabilities } from "../kernel/capabilities.js";
 
 export async function runCoreEngine(
   { query, organization = "college", role = "admin", sessionId, model },
-  { pipeline } = {}
+  { pipeline, capabilities: customCapabilities } = {}
 ) {
+  const activeCaps = customCapabilities || capabilities;
   const startTime = Date.now();
 
   console.log("\n==============================");
@@ -38,7 +39,7 @@ export async function runCoreEngine(
   for (const link of chain) {
     const linkStart = Date.now();
     console.log(`🔗 Evaluating chain link: [${link.name}]`);
-    const outcome = await link.execute({ ...ctx, capabilities });
+    const outcome = await link.execute({ ...ctx, capabilities: activeCaps });
 
     if (outcome == null) {
       console.error(`🚨 [ENGINE] Link [${link.name}] returned undefined/null — treating as BUG`);

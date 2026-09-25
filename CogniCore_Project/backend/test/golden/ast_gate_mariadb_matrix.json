@@ -1,0 +1,60 @@
+[
+  {
+    "id": "MARIA-01",
+    "description": "Standard SELECT with backtick table and columns",
+    "sql": "SELECT `name`, `customer_name` FROM `tabCustomer`",
+    "expectedValid": true
+  },
+  {
+    "id": "MARIA-02",
+    "description": "Backtick table name containing space and docstatus filter",
+    "sql": "SELECT `grand_total` FROM `tabSales Invoice` WHERE `docstatus` = 1",
+    "expectedValid": true
+  },
+  {
+    "id": "MARIA-03",
+    "description": "Allowed MariaDB date extraction function DATE_FORMAT",
+    "sql": "SELECT DATE_FORMAT(`posting_date`, '%Y-%m') AS month_str FROM `tabSales Invoice`",
+    "expectedValid": true
+  },
+  {
+    "id": "MARIA-04",
+    "description": "Allowed MariaDB string concatenation CONCAT",
+    "sql": "SELECT CONCAT(`first_name`, ' ', `last_name`) AS full_name FROM `tabUser`",
+    "expectedValid": true
+  },
+  {
+    "id": "MARIA-05",
+    "description": "Range date predicates for B-tree index eligibility",
+    "sql": "SELECT `name` FROM `tabSales Invoice` WHERE `posting_date` >= '2024-01-01' AND `posting_date` < '2025-01-01'",
+    "expectedValid": true
+  },
+  {
+    "id": "MARIA-06",
+    "description": "Strict rejection of INTO OUTFILE data exfiltration",
+    "sql": "SELECT * FROM `tabCustomer` INTO OUTFILE '/tmp/dump.txt'",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_clause:into_outfile"
+  },
+  {
+    "id": "MARIA-07",
+    "description": "Strict rejection of INTO DUMPFILE binary exfiltration",
+    "sql": "SELECT * FROM `tabCustomer` INTO DUMPFILE '/tmp/dump.bin'",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_clause:into_outfile"
+  },
+  {
+    "id": "MARIA-08",
+    "description": "Strict rejection of unwhitelisted system function BENCHMARK",
+    "sql": "SELECT BENCHMARK(1000000, MD5(1)) FROM `tabCustomer`",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_function"
+  },
+  {
+    "id": "MARIA-09",
+    "description": "Bare non-aggregated column without GROUP BY rejected",
+    "sql": "SELECT `customer_name`, SUM(`grand_total`) FROM `tabSales Invoice`",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_bare_column_without_group_by"
+  }
+]

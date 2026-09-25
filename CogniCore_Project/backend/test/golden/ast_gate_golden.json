@@ -1,0 +1,322 @@
+[
+  {
+    "id": "AST-G-01",
+    "sql": "SELECT COUNT(*) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-02",
+    "sql": "SELECT SUM(price) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-03",
+    "sql": "SELECT AVG(price) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-04",
+    "sql": "SELECT MIN(price) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-05",
+    "sql": "SELECT MAX(price) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-06",
+    "sql": "SELECT ROUND(price, 2) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-07",
+    "sql": "SELECT LOWER(name) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-08",
+    "sql": "SELECT UPPER(name) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-09",
+    "sql": "SELECT COUNT(DISTINCT category) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-10",
+    "sql": "SELECT ROUND(AVG(price), 1) FROM products",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-11",
+    "sql": "SELECT load_extension('evil')",
+    "expected": {
+      "valid": false,
+      "reason": "ast_disallowed_function:load_extension"
+    }
+  },
+  {
+    "id": "AST-G-12",
+    "sql": "SELECT hex(name) FROM products",
+    "expected": {
+      "valid": false,
+      "reason": "ast_disallowed_function:hex"
+    }
+  },
+  {
+    "id": "AST-G-13",
+    "sql": "SELECT randomblob(16) FROM products",
+    "expected": {
+      "valid": false,
+      "reason": "ast_disallowed_function:randomblob"
+    }
+  },
+  {
+    "id": "AST-G-14",
+    "sql": "SELECT char(65) FROM products",
+    "expected": {
+      "valid": false,
+      "reason": "ast_disallowed_function:char"
+    }
+  },
+  {
+    "id": "AST-G-15",
+    "sql": "SELECT typeof(price) FROM products",
+    "expected": {
+      "valid": false,
+      "reason": "ast_disallowed_function:typeof"
+    }
+  },
+  {
+    "id": "AST-G-16",
+    "sql": "SELECT zeroblob(10) FROM products",
+    "expected": {
+      "valid": false,
+      "reason": "ast_disallowed_function:zeroblob"
+    }
+  },
+  {
+    "id": "AST-G-17",
+    "sql": "SELECT name, price FROM products WHERE price > 10",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-18",
+    "sql": "SELECT artist_id, name, country FROM artists",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-19",
+    "sql": "SELECT order_id, total_amount FROM orders WHERE order_date >= '2024-01-01'",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-20",
+    "sql": "SELECT emp_id, project_id, role_on_project FROM assignments",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-21",
+    "sql": "SELECT * FROM ghost_table",
+    "expected": {
+      "valid": false,
+      "reason": "ast_table_not_in_schema:ghost_table"
+    }
+  },
+  {
+    "id": "AST-G-22",
+    "sql": "SELECT fake_column FROM products",
+    "expected": {
+      "valid": false,
+      "reason": "ast_column_not_in_schema:fake_column"
+    }
+  },
+  {
+    "id": "AST-G-23",
+    "sql": "SELECT missing_col FROM artists WHERE artist_id = 1",
+    "expected": {
+      "valid": false,
+      "reason": "ast_column_not_in_schema:missing_col"
+    }
+  },
+  {
+    "id": "AST-G-24",
+    "sql": "SELECT product_id, non_existent FROM products",
+    "expected": {
+      "valid": false,
+      "reason": "ast_column_not_in_schema:non_existent"
+    }
+  },
+  {
+    "id": "AST-G-25",
+    "sql": "SELECT * FROM phantom_schema_table",
+    "expected": {
+      "valid": false,
+      "reason": "ast_table_not_in_schema:phantom_schema_table"
+    }
+  },
+  {
+    "id": "AST-G-26",
+    "sql": "SELECT name, COUNT(*) FROM artists GROUP BY artist_id",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-27",
+    "sql": "SELECT category, AVG(price) FROM products GROUP BY category",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-28",
+    "sql": "SELECT artists.name, COUNT(*) FROM artists GROUP BY artists.artist_id",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-29",
+    "sql": "SELECT emp_id, project_id, SUM(hours_allocated) FROM assignments GROUP BY emp_id, project_id",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-30",
+    "sql": "SELECT PlaylistId, TrackId, COUNT(*) FROM playlist_track GROUP BY PlaylistId, TrackId",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-31",
+    "sql": "SELECT \"category\", AVG(\"price\") AS average_price FROM \"products\" ORDER BY \"price\" DESC LIMIT 50",
+    "expected": {
+      "valid": false,
+      "reason": "ast_bare_column_without_group_by:category"
+    }
+  },
+  {
+    "id": "AST-G-32",
+    "sql": "SELECT name, COUNT(*) FROM artists GROUP BY country",
+    "expected": {
+      "valid": false,
+      "reason": "ast_bare_column_without_group_by:name"
+    }
+  },
+  {
+    "id": "AST-G-33",
+    "sql": "SELECT role_on_project, SUM(hours_allocated) FROM assignments GROUP BY emp_id",
+    "expected": {
+      "valid": false,
+      "reason": "ast_bare_column_without_group_by:role_on_project"
+    }
+  },
+  {
+    "id": "AST-G-34",
+    "sql": "SELECT TrackId, COUNT(*) FROM playlist_track GROUP BY PlaylistId",
+    "expected": {
+      "valid": false,
+      "reason": "ast_bare_column_without_group_by:TrackId"
+    }
+  },
+  {
+    "id": "AST-G-35",
+    "sql": "SELECT name, AVG(price) FROM products",
+    "expected": {
+      "valid": false,
+      "reason": "ast_bare_column_without_group_by:name"
+    }
+  },
+  {
+    "id": "AST-G-36",
+    "sql": "SELECT category, name, COUNT(*) FROM products GROUP BY category",
+    "expected": {
+      "valid": false,
+      "reason": "ast_bare_column_without_group_by:name"
+    }
+  },
+  {
+    "id": "AST-G-37",
+    "sql": "SELECT p.name, p.price FROM products p WHERE p.price > 100",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-38",
+    "sql": "SELECT a.name, count(al.album_id) FROM artists a LEFT JOIN albums al ON a.artist_id = al.artist_id GROUP BY a.artist_id",
+    "expected": {
+      "valid": false,
+      "reason": "ast_table_not_in_schema:albums"
+    }
+  },
+  {
+    "id": "AST-G-39",
+    "sql": "SELECT * FROM (SELECT product_id, price FROM products) sub WHERE sub.price > 50",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  },
+  {
+    "id": "AST-G-40",
+    "sql": "SELECT category, sum(price) FROM products WHERE category IN ('Electronics', 'Books') GROUP BY 1",
+    "expected": {
+      "valid": true,
+      "reason": "none"
+    }
+  }
+]

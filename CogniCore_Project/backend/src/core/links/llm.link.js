@@ -2,7 +2,8 @@ import { readDatabaseSchema } from "../schema.reader.js";
 import { buildSqlPrompt } from "../../llm/sql.prompt.js";
 import { formatLlmResponse } from "../../llm/llm.formatter.js";
 import { getRecentExchanges } from "../../store/history.store.js";
-import { GATE_CHAIN } from "../../kernel/gate.chain.js";
+import { gateChainFor } from "../../kernel/gate.selector.js";
+import { DIALECTS } from "../../adapters/dialects/index.js";
 import { PASS, BUG, ANSWERED } from "../../kernel/handler-result.js";
 import { checkResultSanity } from "../result.sanity.js";
 
@@ -68,13 +69,17 @@ export async function executeLlmLink(ctx) {
     console.log("🤖 Attempting Local LLM Link");
 
     // 1. Cached schema read (zero PRAGMA calls)
-    const schema = await readDatabaseSchema();
+    const dialect = capabilities?.source?.dialect || "sqlite";
+    const schema = await readDatabaseSchema(false, {
+      source: capabilities?.source,
+      adapter: capabilities?.db
+    });
 
     // 1b. Recent history for context resolution (up to 3 turns)
     const history = sessionId ? await getRecentExchanges(sessionId, 3) : [];
 
     // 2. Build prompt
-    const prompt = buildSqlPrompt({ query, schema, history });
+    const prompt = buildSqlPrompt({ query, schema, history, dialect });
 
     // 3. Client generation — via capability seam (llm)
     const clientResult = await llm.generateSql({ prompt, model });
@@ -96,7 +101,9 @@ export async function executeLlmLink(ctx) {
     let initialValidationFailed = false;
     let initialValidationReason = "";
 
-    for (const gate of GATE_CHAIN) {
+    const activeChain = gateChainFor(capabilities?.source);
+
+    for (const gate of activeChain) {
       if (gate.type === "validate") {
         const validation = await gate.run(finalSql || clientResult.sql, { schema });
         if (!validation.valid) {
@@ -109,7 +116,7 @@ export async function executeLlmLink(ctx) {
         console.log("📝 [LLM Link] Validated SQL:", finalSql);
       } else if (gate.type === "execute") {
         try {
-          rows = await gate.run(finalSql);
+          rows = await gate.run(finalSql, { capabilities });
         } catch (dbErr) {
           console.log(`ℹ️ [LLM Cascade] SQL execution error: ${dbErr.message}`);
           return PASS("llm_execution_error");
@@ -149,7 +156,7 @@ export async function executeLlmLink(ctx) {
       let retryValidationFailed = false;
       let retryValidationReason = "";
 
-      for (const gate of GATE_CHAIN) {
+      for (const gate of activeChain) {
         if (gate.type === "validate") {
           const v = await gate.run(retryFinalSql || retryResult.sql, { schema });
           if (!v.valid) {
@@ -165,7 +172,7 @@ export async function executeLlmLink(ctx) {
             return BUG("llm_gate_chain_missing_validator");
           }
           try {
-            retryRows = await gate.run(retryFinalSql);
+            retryRows = await gate.run(retryFinalSql, { capabilities });
           } catch (dbErr) {
             console.log(`ℹ️ [LLM Corrective Retry] Retry SQL execution error: ${dbErr.message}`);
             return PASS("corrective_retry_exhausted:llm_execution_error");
@@ -189,7 +196,7 @@ export async function executeLlmLink(ctx) {
       return BUG("llm_gate_chain_missing_validator");
     }
 
-    // 5b. Case-sensitivity recovery: retry with COLLATE NOCASE on zero results.
+    // 5b. Case-sensitivity recovery: retry with COLLATE NOCASE on zero results (SQLite only).
     // Retry goes through the db capability (same read-only guarantee).
     const isZeroCount =
       Array.isArray(rows) &&
@@ -199,8 +206,9 @@ export async function executeLlmLink(ctx) {
       (rows[0][Object.keys(rows[0])[0]] === 0 || rows[0][Object.keys(rows[0])[0]] === "0");
 
     const isZeroResults = !Array.isArray(rows) || rows.length === 0 || isZeroCount;
+    const shouldTryCollateNoCase = DIALECTS[dialect]?.collateNOCASE ?? true;
 
-    if (isZeroResults) {
+    if (isZeroResults && shouldTryCollateNoCase) {
       const enhancedSql = finalSql.replace(
         /((?:=|\!=|<>)\s*'(?:''|[^'])*')(?!\s+COLLATE\b)/gi,
         "$1 COLLATE NOCASE"
@@ -243,7 +251,15 @@ export async function executeLlmLink(ctx) {
 
     // 6. Formatter
     const processingMs = Date.now() - startTime;
-    const extraMeta = { sessionId, organization, role, processingMs };
+    const extraMeta = {
+      sessionId,
+      organization,
+      role,
+      processingMs,
+      source: dialect,
+      sourceId: capabilities?.source?.id || "sqlite_default",
+      database: capabilities?.source?.database
+    };
     if (history && history.length > 0) {
       extraMeta.contextTurns = history.length;
     }

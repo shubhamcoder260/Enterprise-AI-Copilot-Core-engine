@@ -120,3 +120,25 @@ export async function switchDatabase(dbPath) {
   });
   return await res.json();
 }
+
+/**
+ * Fetches all registered data sources and current active source
+ */
+export async function fetchSources() {
+  const res = await fetch(`${API_BASE}/api/database/sources`);
+  if (!res.ok) throw new Error("Failed to fetch sources");
+  return await res.json();
+}
+
+/**
+ * Switches the active source via orchestrator
+ */
+export async function switchSource(sourceId) {
+  const res = await fetch(`${API_BASE}/api/database/sources/switch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sourceId })
+  });
+  if (!res.ok) throw new Error("Failed to switch source");
+  return await res.json();
+}
