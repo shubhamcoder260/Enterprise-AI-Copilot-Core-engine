@@ -87,6 +87,45 @@ export function verifyEmployeeScopeAuthorization({ identity, targetEmployeeId, t
   };
 }
 
+export const OPEN_TABLES_ALLOWLIST = deepFreeze(new Set([
+  // ERPNext (MariaDB) standard transactional and catalog DocTypes
+  "tabcustomer",
+  "tabsales invoice",
+  "tabsales order",
+  "tabitem",
+  "tabemployee",
+  "tabgl entry",
+
+  // PostgreSQL standard tables
+  "customers",
+  "items",
+  "orders",
+
+  // SQLite College realm
+  "students",
+  "departments",
+  "faculty",
+  "fees",
+  "marks",
+  "attendance",
+  "subjects",
+
+  // SQLite Hospital realm
+  "appointments",
+  "diagnoses",
+  "doctors",
+  "lab_tests",
+  "patients",
+  "prescriptions",
+  "visits",
+  "wards",
+
+  // SQLite Food Delivery realm
+  "order_items",
+  "restaurants",
+  "drivers"
+]));
+
 /**
  * Evaluates an incoming table reference and user identity against the enterprise RLS policy.
  *
@@ -98,13 +137,14 @@ export function verifyEmployeeScopeAuthorization({ identity, targetEmployeeId, t
  * @returns {object} { verdict, injectedPredicate, reason, error }
  */
 export function evaluateRlsPolicy({ tableName, identity, queryIntent = {}, dialect = 'mariadb' }) {
-  const cleanTable = String(tableName || '').replace(/[`"]/g, '');
+  const cleanTable = String(tableName || '').replace(/[`"]/g, '').trim();
+  const lowerTable = cleanTable.toLowerCase();
 
   const empCol = quoteIdentifier('employee', dialect);
   const docstatusCol = quoteIdentifier('docstatus', dialect);
 
   // 1. HR SALARY SLIP POLICY (CEO-Salary Sentinel)
-  if (cleanTable === 'tabSalary Slip' || cleanTable.toLowerCase() === 'salary_slips') {
+  if (lowerTable === 'tabsalary slip' || lowerTable === 'salary_slips') {
     // Fail-closed if no identity or roles provided for protected salary tables
     if (!identity || !Array.isArray(identity.roles) || identity.roles.length === 0) {
       return {
@@ -151,11 +191,21 @@ export function evaluateRlsPolicy({ tableName, identity, queryIntent = {}, diale
     };
   }
 
-  // 2. DEFAULT POLICY FOR TRANSACTIONAL ERP TABLES
+  // 2. EXPLICIT OPEN TABLE ALLOWLIST
+  if (OPEN_TABLES_ALLOWLIST.has(lowerTable)) {
+    return {
+      verdict: RLS_VERDICT.ALLOW,
+      injectedPredicate: null,
+      reason: `Table '${cleanTable}' is registered in the enterprise open table allowlist.`
+    };
+  }
+
+  // 3. FAIL-CLOSED DEFAULT FOR UNREGISTERED / UNPOLICIED TABLES
   return {
-    verdict: RLS_VERDICT.ALLOW,
+    verdict: RLS_VERDICT.REJECT_FORBIDDEN,
     injectedPredicate: null,
-    reason: 'Standard access permitted.'
+    error: 'rls_forbidden:unpolicied_table',
+    reason: `Access to table '${cleanTable}' is refused: table has no registered RLS policy or explicit open allowlist entry (fail-closed default).`
   };
 }
 
