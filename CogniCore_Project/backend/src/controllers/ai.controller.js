@@ -44,8 +44,21 @@ export async function handleQuery(req, res) {
     const activeSource = requestedSourceId ? (getSourceById(requestedSourceId) || getActiveSource()) : getActiveSource();
     const capabilities = createCapabilitiesForSource(activeSource);
 
+    const rawIdentity = req.body?.identity;
+    const identity = rawIdentity ? {
+      userId: rawIdentity.userId || null,
+      employeeId: rawIdentity.employeeId || null,
+      roles: Array.isArray(rawIdentity.roles) ? rawIdentity.roles : (rawIdentity.role ? [rawIdentity.role] : []),
+      company: rawIdentity.company || null
+    } : {
+      userId: null,
+      employeeId: null,
+      roles: [],
+      company: null
+    };
+
     const result = await runCoreEngine(
-      { query, organization, role, sessionId, model },
+      { query, organization, role, sessionId, model, identity },
       { capabilities }
     );
 

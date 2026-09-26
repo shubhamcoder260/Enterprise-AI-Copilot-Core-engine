@@ -67,20 +67,30 @@ export async function runDynamicQuery(query, options = {}) {
     if (fastPlan) {
       console.log("⚡ [FAST INTENT] Matched:", fastPlan.shape, "→", fastPlan.sql, "params:", fastPlan.params);
 
-      // Invariant 1: Gate validation via gateChainFor or sql.validator.js
+      // Invariant 1: Gate validation via gateChainFor
       let isValid = true;
       let rejectReason = null;
+      let validatedSql = fastPlan.sql;
+      const identity = options.identity !== undefined ? options.identity : capabilities?.identity;
+      const chain = gateChainFor(capabilities?.source);
 
-      if (dialect === "sqlite") {
-        const validation = validateAndSanitizeSql(fastPlan.sql);
-        isValid = validation.valid;
-        rejectReason = validation.reason;
-      } else {
-        const chain = gateChainFor(capabilities?.source);
-        if (chain && chain.validator) {
-          const vRes = chain.validator(fastPlan.sql);
-          isValid = vRes.valid;
-          rejectReason = vRes.reason;
+      for (const gate of chain) {
+        if (gate.type === "validate") {
+          const vRes = await gate.run(validatedSql, { schema, identity });
+          if (!vRes.valid) {
+            isValid = false;
+            rejectReason = vRes.reason;
+            if (vRes.reason?.startsWith("ast_rls_") || vRes.reason?.startsWith("rls_")) {
+              return {
+                success: false,
+                code: vRes.reason,
+                rlsBlocked: true,
+                answer: vRes.message || "Access to salary records of other employees is restricted by enterprise policy."
+              };
+            }
+            break;
+          }
+          if (vRes.sql) validatedSql = vRes.sql;
         }
       }
 
@@ -89,7 +99,7 @@ export async function runDynamicQuery(query, options = {}) {
       } else {
         const plan = {
           operation: fastPlan.shape,
-          sql: fastPlan.sql,
+          sql: validatedSql,
           params: fastPlan.params,
           tableName: fastPlan.table,
           columnName: fastPlan.orderCol || fastPlan.aggCol || null,

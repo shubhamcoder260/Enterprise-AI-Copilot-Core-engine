@@ -1,0 +1,180 @@
+[
+  {
+    "id": "RLS-01",
+    "description": "Executive role querying tabSalary Slip has company-wide access",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_exec", "employeeId": "EMP-001", "roles": ["Executive"], "company": "CogniCore" },
+    "queryIntent": {},
+    "expectedVerdict": "ALLOW",
+    "expectedError": null
+  },
+  {
+    "id": "RLS-02",
+    "description": "HR Manager role querying tabSalary Slip has company-wide access",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_hr", "employeeId": "EMP-005", "roles": ["HR Manager"], "company": "CogniCore" },
+    "queryIntent": {},
+    "expectedVerdict": "ALLOW",
+    "expectedError": null
+  },
+  {
+    "id": "RLS-03",
+    "description": "Employee role querying own salary receives predicate injection",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_devon", "employeeId": "EMP-002", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": { "targetEmployeeId": "EMP-002" },
+    "expectedVerdict": "INJECT_PREDICATE",
+    "expectedError": null
+  },
+  {
+    "id": "RLS-04",
+    "description": "Employee role probing CEO Victoria Stirling by name is forbidden",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_devon", "employeeId": "EMP-002", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": { "targetEmployeeName": "Victoria Stirling" },
+    "expectedVerdict": "REJECT_FORBIDDEN",
+    "expectedError": "rls_forbidden:unauthorized_salary_access"
+  },
+  {
+    "id": "RLS-05",
+    "description": "Employee role probing CEO by ID EMP-001 is forbidden",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_devon", "employeeId": "EMP-002", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": { "targetEmployeeId": "EMP-001" },
+    "expectedVerdict": "REJECT_FORBIDDEN",
+    "expectedError": "rls_forbidden:unauthorized_salary_access"
+  },
+  {
+    "id": "RLS-06",
+    "description": "Employee role probing peer employee EMP-003 is forbidden",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_devon", "employeeId": "EMP-002", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": { "targetEmployeeId": "EMP-003" },
+    "expectedVerdict": "REJECT_FORBIDDEN",
+    "expectedError": "rls_forbidden:unauthorized_salary_access"
+  },
+  {
+    "id": "RLS-07",
+    "description": "Employee role with null employeeId fails closed",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_broken", "employeeId": null, "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": {},
+    "expectedVerdict": "REJECT_FORBIDDEN",
+    "expectedError": "rls_forbidden:missing_employee_id"
+  },
+  {
+    "id": "RLS-08",
+    "description": "Employee role with empty string employeeId fails closed",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_empty", "employeeId": "", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": {},
+    "expectedVerdict": "REJECT_FORBIDDEN",
+    "expectedError": "rls_forbidden:missing_employee_id"
+  },
+  {
+    "id": "RLS-09",
+    "description": "Anonymous request with empty roles array rejected unauthenticated",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": null, "employeeId": null, "roles": [], "company": null },
+    "queryIntent": {},
+    "expectedVerdict": "REJECT_UNAUTHENTICATED",
+    "expectedError": "rls_unauthenticated:missing_identity_context"
+  },
+  {
+    "id": "RLS-10",
+    "description": "Missing identity object completely rejected unauthenticated",
+    "tableName": "tabSalary Slip",
+    "identity": null,
+    "queryIntent": {},
+    "expectedVerdict": "REJECT_UNAUTHENTICATED",
+    "expectedError": "rls_unauthenticated:missing_identity_context"
+  },
+  {
+    "id": "RLS-11",
+    "description": "User with unauthorized Guest role rejected forbidden",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_guest", "roles": ["Guest"], "company": "CogniCore" },
+    "queryIntent": {},
+    "expectedVerdict": "REJECT_FORBIDDEN",
+    "expectedError": "rls_forbidden:role_unauthorized"
+  },
+  {
+    "id": "RLS-12",
+    "description": "Multi-role Employee/Auditor probing CEO is forbidden",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_auditor", "employeeId": "EMP-004", "roles": ["Employee", "Auditor"], "company": "CogniCore" },
+    "queryIntent": { "targetEmployeeName": "CEO" },
+    "expectedVerdict": "REJECT_FORBIDDEN",
+    "expectedError": "rls_forbidden:unauthorized_salary_access"
+  },
+  {
+    "id": "RLS-13",
+    "description": "Multi-role Employee/Executive gets Executive precedence (ALLOW)",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_dual", "employeeId": "EMP-001", "roles": ["Employee", "Executive"], "company": "CogniCore" },
+    "queryIntent": {},
+    "expectedVerdict": "ALLOW",
+    "expectedError": null
+  },
+  {
+    "id": "RLS-14",
+    "description": "Standard user querying unrestricted table tabCustomer is allowed",
+    "tableName": "tabCustomer",
+    "identity": { "userId": "usr_devon", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": {},
+    "expectedVerdict": "ALLOW",
+    "expectedError": null
+  },
+  {
+    "id": "RLS-15",
+    "description": "Standard user querying tabSales Invoice is allowed",
+    "tableName": "tabSales Invoice",
+    "identity": { "userId": "usr_devon", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": {},
+    "expectedVerdict": "ALLOW",
+    "expectedError": null
+  },
+  {
+    "id": "RLS-16",
+    "description": "Predicate injection into SQL with existing WHERE clause",
+    "testType": "sql_injection",
+    "sql": "SELECT * FROM `tabSalary Slip` WHERE `posting_date` >= '2024-01-01'",
+    "predicate": "`employee` = 'EMP-002' AND `docstatus` = 1",
+    "expectedSql": "SELECT * FROM `tabSalary Slip` WHERE `employee` = 'EMP-002' AND `docstatus` = 1 AND `posting_date` >= '2024-01-01'"
+  },
+  {
+    "id": "RLS-17",
+    "description": "Predicate injection into SQL with GROUP BY and no WHERE",
+    "testType": "sql_injection",
+    "sql": "SELECT `employee`, SUM(`gross_pay`) FROM `tabSalary Slip` GROUP BY `employee`",
+    "predicate": "`docstatus` = 1",
+    "expectedSql": "SELECT `employee`, SUM(`gross_pay`) FROM `tabSalary Slip` WHERE `docstatus` = 1 GROUP BY `employee`"
+  },
+  {
+    "id": "RLS-18",
+    "description": "Predicate injection into SQL with ORDER BY LIMIT and no WHERE",
+    "testType": "sql_injection",
+    "sql": "SELECT * FROM `tabSalary Slip` ORDER BY `creation` DESC LIMIT 10",
+    "predicate": "`employee` = 'EMP-002' AND `docstatus` = 1",
+    "expectedSql": "SELECT * FROM `tabSalary Slip` WHERE `employee` = 'EMP-002' AND `docstatus` = 1 ORDER BY `creation` DESC LIMIT 10"
+  },
+  {
+    "id": "RLS-19",
+    "description": "PostgreSQL dialect quoting predicate injection with double quotes",
+    "tableName": "tabSalary Slip",
+    "identity": { "userId": "usr_devon", "employeeId": "EMP-002", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": {},
+    "dialect": "postgres",
+    "expectedVerdict": "INJECT_PREDICATE",
+    "expectedPredicatePattern": "\"employee\" = 'EMP-002'"
+  },
+  {
+    "id": "RLS-20",
+    "description": "AST multi-table query touching tabSalary Slip with probe on CEO EMP-001 is rejected",
+    "tables": ["tabSalary Slip", "tabEmployee"],
+    "identity": { "userId": "usr_devon", "employeeId": "EMP-002", "roles": ["Employee"], "company": "CogniCore" },
+    "queryIntent": { "targetEmployeeId": "EMP-001" },
+    "expectedVerdict": "REJECT_FORBIDDEN",
+    "expectedError": "rls_forbidden:unauthorized_salary_access"
+  }
+]

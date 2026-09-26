@@ -389,5 +389,126 @@ Live execution via HTTP API (`POST /api/ai/query`) across all three supported da
 }
 ```
 
+---
+
+## 8. Phase D4 — Verification Chain, Self-Consistency & Live RLS Enforcement
+
+| Step | Milestone / Receipt | Target / Assertion | Status |
+|---|---|---|---|
+| **D4a** | RLS Golden Policy Corpus | `test/golden/rls_policy_golden.json` (20 cases) & `test/verifyRlsPolicyGolden.js` | ✅ **PASSED** (20/20 cases 100% green across Executive, Employee, peer probe, unauth, dialects) |
+| **D4b** | Universal AST Gate RLS Integration | `src/kernel/ast.gate.core.js` calls `enforceRlsOnAst`; `ai.controller.js` fail-closed identity ingress; short-circuit `ANSWERED` in links | ✅ **PASSED** (Single shared engine, zero code duplication between MariaDB/SQLite/Postgres) |
+| **D4c** | Verification Chain Implementation | `src/kernel/verify.chain.js` implementing `verifyGrounding`, `verifyArithmetic`, `verifySelfConsistency`, `runVerificationChain` | ✅ **PASSED** (Wired into `dynamic.link.js` and `llm.link.js` return path) |
+| **D4d** | End-to-End RLS & CEO-Salary Battery | `test/verify_rls_live_pipeline.js` with uniform query spy (`queryReadOnly` / `executeReadOnlySql`) | ✅ **PASSED** (6/6 green; `callCount === 0` on CEO probe across MariaDB, SQLite, and Postgres) |
+| **D4e** | Lie-Catching & Grounding Battery | `test/verify_grounding_lie_detector.js` asserting ungrounded claim interception and arithmetic hallucination trapping | ✅ **PASSED** (10/10 tests green; math hallucinations & phantom bonus trapped) |
+| **D4f** | Audit Freeze & Full Regression Battery | 10/10 Tier-1 freeze clean; 8/8 master regression green; zero Core Engine mutations | ✅ **PASSED** (10/10 Tier-1 untouched; 8/8 regression suites green) |
+
+### 8.1 Universal Query Spy & RLS Invariant Receipt (D4d)
+
+Under CAP v2.2 §217 / §282, enterprise RLS is enforced at the AST Gate before query execution, guaranteeing that unauthorized requests result in **zero physical SQL** against the database interface:
+
+```
+==================================================
+   STEP D4d — END-TO-END RLS & CEO-SALARY BATTERY 
+==================================================
+   🛡️ Zero-SQL Refusal Verified (spy.callCount = 0)
+✅ [PASS] PROBE 1: Devon Vance probing Victoria Stirling's salary -> 0 SQL executed
+   🛡️ Company-wide probe securely scoped: Devon sees only own salary ($14,000.00), CEO excluded
+✅ [PASS] PROBE 2: Devon Vance company-wide salary probe -> Scoped strictly to Devon
+   🛡️ Self-service salary returned: Gross $14,000.00, Net $11,000.00
+✅ [PASS] PROBE 3: Devon Vance self-service salary query -> Returns $14,000.00
+   🛡️ Executive full payroll access authorized: Total = $85,000.00
+✅ [PASS] PROBE 4: Victoria Stirling executive total payroll query -> Returns $85,000.00
+   🛡️ Anonymous request rejected fail-closed (spy.callCount = 0)
+✅ [PASS] PROBE 5: Anonymous probe on tabSalary Slip -> Refused fail-closed with 0 SQL
+   🛡️ SQLite uniform spy invariant verified: callCount === 0
+   🛡️ Postgres uniform spy invariant verified: callCount === 0
+✅ [PASS] PROBE 6: Uniform Query Spy invariant holds across SQLite & Postgres
+==================================================
+RLS LIVE PIPELINE RESULTS: 6/6 PASSED
+🏆 ALL RLS LIVE PIPELINE & CEO-SALARY TESTS GREEN (100%)
+==================================================
+```
+
+### 8.2 Grounding & Arithmetic Lie Detector Receipt (D4e)
+
+```
+==================================================
+   STEP D4e — LIE-CATCHING & GROUNDING BATTERY    
+==================================================
+✅ [PASS] Token Extraction: captures currency, percentages, floats, integers
+   🛡️ Trapped ungrounded claim: ungrounded_numeric_claims: [$15,000.00]
+✅ [PASS] Grounding Lie Detector: catches ungrounded phantom bonus ($15,000)
+✅ [PASS] Grounding Verification: honest response with record values passes
+✅ [PASS] Grounding Verification: query temporal anchor (2024) and limit (5) recognized
+   🛡️ Trapped math hallucination: arithmetic_sum_mismatch: expected 85000, answer claimed 98500
+✅ [PASS] Arithmetic Lie Detector: catches hallucinated total sum
+✅ [PASS] Arithmetic Verification: accurate sum matches physical records
+✅ [PASS] Arithmetic Lie Detector: catches fake average
+✅ [PASS] Self-Consistency Sampling: catches conflicting samples (split vote)
+✅ [PASS] Self-Consistency Sampling: passes on high consensus (agreement ratio >= 0.66)
+✅ [PASS] Full Verification Chain: attaches honest warning notice on ungrounded assertion
+==================================================
+LIE DETECTOR BATTERY RESULTS: 10/10 PASSED
+🏆 ALL GROUNDING & ARITHMETIC LIE DETECTOR TESTS GREEN
+==================================================
+```
+
+### 8.3 RLS Policy Golden Corpus Receipt (D4a)
+
+```
+==================================================
+    VERIFYING RLS POLICY GOLDEN CORPUS (D4)       
+==================================================
+✅ [RLS-01] PASS: Executive role querying tabSalary Slip has company-wide access
+✅ [RLS-02] PASS: HR Manager role querying tabSalary Slip has company-wide access
+✅ [RLS-03] PASS: Employee role querying own salary receives predicate injection
+✅ [RLS-04] PASS: Employee role probing CEO Victoria Stirling by name is forbidden
+✅ [RLS-05] PASS: Employee role probing CEO by ID EMP-001 is forbidden
+✅ [RLS-06] PASS: Employee role probing peer employee EMP-003 is forbidden
+✅ [RLS-07] PASS: Employee role with null employeeId fails closed
+✅ [RLS-08] PASS: Employee role with empty string employeeId fails closed
+✅ [RLS-09] PASS: Anonymous request with empty roles array rejected unauthenticated
+✅ [RLS-10] PASS: Missing identity object completely rejected unauthenticated
+✅ [RLS-11] PASS: User with unauthorized Guest role rejected forbidden
+✅ [RLS-12] PASS: Multi-role Employee/Auditor probing CEO is forbidden
+✅ [RLS-13] PASS: Multi-role Employee/Executive gets Executive precedence (ALLOW)
+✅ [RLS-14] PASS: Standard user querying unrestricted table tabCustomer is allowed
+✅ [RLS-15] PASS: Standard user querying tabSales Invoice is allowed
+✅ [RLS-16] PASS: Predicate injection into SQL with existing WHERE clause
+✅ [RLS-17] PASS: Predicate injection into SQL with GROUP BY and no WHERE
+✅ [RLS-18] PASS: Predicate injection into SQL with ORDER BY LIMIT and no WHERE
+✅ [RLS-19] PASS: PostgreSQL dialect quoting predicate injection with double quotes
+✅ [RLS-20] PASS: AST multi-table query touching tabSalary Slip with probe on CEO EMP-001 is rejected
+==================================================
+Summary: 20 passed, 0 failed (Total: 20)
+==================================================
+🏆 ALL 20 RLS POLICY GOLDEN CASES PASSED (100% GREEN)!
+==================================================
+```
+
+### 8.4 Audit Freeze Verification Receipt (10/10 Tier-1 Pristine)
+
+```
+==================================================
+   STEP 1 (D0a) — AUDIT FREEZE GATE (10 TIER-1)   
+==================================================
+✅ MATCH [SHA256]: src/llm/sql.validator.js
+✅ MATCH [SHA256]: src/kernel/gate.chain.js
+✅ MATCH [SHA256]: src/kernel/pipeline.config.js
+✅ MATCH [SHA256]: src/kernel/handler-result.js
+✅ MATCH [SHA256]: src/kernel/formatter.registry.js
+✅ MATCH [SHA256]: src/core/result.sanity.js
+✅ MATCH [SHA256]: src/core/guard-markers.js
+✅ MATCH [SHA256]: src/llm/llm.client.js
+✅ MATCH [SHA256]: src/config/semantic.profile.js
+✅ MATCH [SHA256]: src/config/database.js
+✅ GIT DIFF: 0 diffs across all 10 Tier-1 frozen files
+==================================================
+TIER-1 AUDIT: 10/10 files verified clean
+🏆 FREEZE GATE PASSED — ALL TIER-1 FILES UNTOUCHED
+==================================================
+```
+
+
 
 

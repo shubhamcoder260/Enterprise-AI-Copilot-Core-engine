@@ -8,6 +8,7 @@ import { PASS, BUG, ANSWERED } from "../../kernel/handler-result.js";
 import { checkResultSanity } from "../result.sanity.js";
 import { parseIntentIR } from "../intent.ir.js";
 import { validateChartGrounding, enrichResultWithGrounding } from "../grounding.guard.js";
+import { runVerificationChain } from "../../kernel/verify.chain.js";
 
 const FAST_REFUSAL_CODES = [
   "table_missing",
@@ -129,8 +130,28 @@ export async function executeLlmLink(ctx) {
 
     for (const gate of activeChain) {
       if (gate.type === "validate") {
-        const validation = await gate.run(finalSql || clientResult.sql, { schema });
+        const validation = await gate.run(finalSql || clientResult.sql, {
+          schema,
+          identity: ctx.identity,
+          queryIntent: ir
+        });
         if (!validation.valid) {
+          if (validation.reason?.startsWith("ast_rls_") || validation.reason?.startsWith("rls_")) {
+            console.log(`🛡️ [LLM Link RLS Block] Refusing execution: ${validation.reason}`);
+            return ANSWERED({
+              answer: validation.message || "Access to salary records of other employees is restricted by enterprise policy.",
+              source: "rls_gate",
+              data: { error: validation.reason, sql: null },
+              meta: {
+                sessionId,
+                organization,
+                role,
+                rlsBlocked: true,
+                sqlExecuted: false,
+                processingMs: Date.now() - startTime
+              }
+            });
+          }
           initialValidationFailed = true;
           initialValidationReason = validation.reason;
           break;
@@ -318,6 +339,27 @@ export async function executeLlmLink(ctx) {
       outcome = enrichResultWithGrounding(outcome, grounding);
     } catch (gErr) {
       console.warn("⚠️ [LLM Link] Grounding check non-fatal error:", gErr.message);
+    }
+
+    try {
+      const records = rows || outcome.payload?.data?.records || [];
+      const vResult = runVerificationChain({
+        answer: outcome.payload?.answer,
+        records,
+        query,
+        operation: "AUTO"
+      });
+      if (outcome.payload && outcome.payload.meta) {
+        outcome.payload.meta.verification = vResult;
+      }
+      if (!vResult.verified) {
+        console.warn(`⚠️ [Verification Chain] Assertions ungrounded or arithmetic mismatched: ${vResult.failures.join(", ")}`);
+        if (vResult.honestNotice && outcome.payload) {
+          outcome.payload.answer = `${outcome.payload.answer}\n\n${vResult.honestNotice}`;
+        }
+      }
+    } catch (vErr) {
+      console.warn("⚠️ [LLM Link] Verification chain non-fatal error:", vErr.message);
     }
 
     return outcome;

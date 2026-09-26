@@ -5,6 +5,7 @@
 
 import pkg from "node-sql-parser";
 const { Parser } = pkg;
+import { enforceRlsOnAst } from "../security/rls.policy.js";
 
 const parser = new Parser();
 
@@ -103,7 +104,7 @@ export function validateAstCore(sql, options = {}) {
     return { valid: false, reason: "ast_empty_input" };
   }
 
-  const cleanSql = sql.trim().replace(/;+$/, "").trim();
+  let cleanSql = sql.trim().replace(/;+$/, "").trim();
   const dialect = (options.dialect || "sqlite").toLowerCase();
   const isPg = dialect === "postgres" || dialect === "postgresql";
   const parserDb = dialect === "mariadb" ? "mariadb" : (isPg ? "postgresql" : "sqlite");
@@ -194,15 +195,37 @@ export function validateAstCore(sql, options = {}) {
     }
   }
 
-  if (schemaTables.length > 0) {
-    let allQueryTables = [];
-    try {
-      const tableList = parser.tableList(cleanSql, { database: parserDb }) || [];
-      allQueryTables = tableList.map((t) => t.split("::")[2]).filter(Boolean);
-    } catch {
-      allQueryTables = fromTables.map((f) => f.name);
-    }
+  let allQueryTables = [];
+  try {
+    const tableList = parser.tableList(cleanSql, { database: parserDb }) || [];
+    allQueryTables = tableList.map((t) => t.split("::")[2]).filter(Boolean);
+  } catch {
+    allQueryTables = fromTables.map((f) => f.name);
+  }
 
+  // 2. ROW-LEVEL SECURITY (RLS) POLICY ENFORCEMENT
+  const rlsCheck = enforceRlsOnAst({
+    tables: allQueryTables,
+    sql: cleanSql,
+    identity: options.identity !== undefined ? options.identity : null,
+    dialect,
+    queryIntent: options.queryIntent || {}
+  });
+
+  if (!rlsCheck.allowed) {
+    return {
+      valid: false,
+      reason: rlsCheck.error || "ast_rls_forbidden",
+      message: rlsCheck.reason,
+      verdict: rlsCheck.verdict
+    };
+  }
+
+  if (rlsCheck.transformedSql && rlsCheck.transformedSql !== cleanSql) {
+    cleanSql = rlsCheck.transformedSql;
+  }
+
+  if (schemaTables.length > 0) {
     for (const tbl of allQueryTables) {
       const isCte = cteNames.has(norm(tbl));
       const exists = isCte || schemaTables.some((st) => norm(st.name) === norm(tbl));
