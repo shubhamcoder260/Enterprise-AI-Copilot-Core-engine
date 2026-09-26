@@ -1,7 +1,7 @@
 # CogniCore Connectivity Architecture: Ground-Truth Engineering Report (Phases D0–D5)
 
 **Document Date:** 2026-09-26  
-**Repository State Commit Hash:** `f91055d15deae7f24e5f03f3a0156ff52030084c`  
+**Repository State Commit Hash:** `a7aa47b89f0b8bf80369cdf216586877b64b69f3`  
 **Working Tree Cleanliness:** Clean (All changes committed to branch `main`, tracking `myrepo/main`)  
 **Scope:** Phases D0 through D5  
 **Governing Standard:** Ground truth verified against actual repository files, live running containers, and fresh test executions. Zero reliance on prior summaries or memory.
@@ -25,7 +25,7 @@
   Adds `postgres.adapter.js`, `postgres.validator.js`, `ast.gate.postgres.js`, and `postgres.schema.reader.js`. Establishes dual-layer read-only protection in Postgres: a physical server-level role (`cognicore_ro`) with `REVOKE INSERT, UPDATE, DELETE, TRUNCATE` (SQLSTATE `42501`), backed by connection parameter `default_transaction_read_only=on` (SQLSTATE `25006`). Demonstrates that adding a third production dialect requires 7.72 minutes elapsed execution time against the governed kernel architecture.
 
 - **Phase D4 (Universal RLS Enforcement & Grounding Lie-Detector):**  
-  Integrates deterministic Row-Level Security directly into the AST gate execution path (`ast.gate.core.js` $\rightarrow$ `rls.policy.js`), prior to any SQL reaching database drivers. Blocks cross-employee payroll probes (e.g. employee probing CEO salary) with zero physical SQL executed (`callCount === 0` on adapters). Automatically injects ownership predicates (`WHERE employee = 'EMP-002' AND docstatus = 1`) into self-service payroll queries. Deploys `verify.chain.js` covering grounding, arithmetic recalculation, and self-consistency.
+  Integrates deterministic Row-Level Security directly into the AST gate execution path (`ast.gate.core.js` $\rightarrow$ `rls.policy.js`), prior to any SQL reaching database drivers. Blocks cross-employee payroll probes (e.g. employee probing CEO salary) with zero physical SQL executed (`callCount === 0` on adapters). Automatically injects ownership predicates (`WHERE employee = 'EMP-002' AND docstatus = 1`) into self-service payroll queries. Deploys `verify.chain.js` covering grounding, arithmetic recalculation, and self-consistency. Inverts authorization default to fail-closed (`rls_forbidden:unpolicied_table`) on any table not enumerated in `OPEN_TABLES_ALLOWLIST`.
 
 - **Phase D5 (The Action Gateway & Governed Write Pathway):**  
   Constructs an isolated, independent write pathway that leaves the read-only pipeline untouched. Disallows freeform AI SQL for mutations, enforcing writes exclusively through hand-authored, immutable, parameterized templates (`write.templates.js`). Employs a dedicated `cognicore_write` credential with DBMS table grants restricted strictly to target write tables (`tabEmployee`, `tabCustomer`, `tabSales Order`). Implements a state-machine lifecycle (propose $\rightarrow$ approve $\rightarrow$ execute) with mandatory separation of duties (requester cannot approve own action unless `selfApproveEligible: true`) and an append-only cryptographic audit log with SHA-256 forward hash chaining.
@@ -40,7 +40,7 @@
 | **D1** | Intent-IR parsing for count, list, aggregate, ratio, temporal; grounding guard catches ungrounded numbers. | Adversarial prompt injections attempting to fool the token parser with mixed alphanumeric strings. | Ratio recognizer only handles single-table ratios; multi-table joined ratios fall through to LLM. |
 | **D2** | Schema introspection across 5 ERPNext DocTypes; column and relationship resolution; schema pruning. | Schema introspection on full ERPNext schemas exceeding 200 DocTypes. | Virtual DocTypes, child tables (e.g. `tabSales Invoice Item`), and custom fields are not mapped. |
 | **D3** | Postgres connection pool; `$n` parameter translation; server-level write refusal (`42501`); session read-only (`25006`). | Postgres SSL/TLS connections; Unix socket connections; replication standby connections. | Postgres enum types and composite types are not parsed by schema reader. |
-| **D4** | AST-gate RLS enforcement on `tabSalary Slip`; zero-SQL query suppression; predicate injection; grounding verification. | Concurrent queries under mixed identities (Devon and Victoria querying concurrently in the same Node.js tick). | RLS only has an explicit policy defined for `tabSalary Slip`. All other schema tables fail open to `ALLOW`. |
+| **D4** | AST-gate RLS enforcement on `tabSalary Slip`; fail-closed rejection on unpolicied tables (`rls_forbidden:unpolicied_table`); explicit `OPEN_TABLES_ALLOWLIST`; zero-SQL query suppression; predicate injection; grounding verification. | Concurrent queries under mixed identities (Devon and Victoria querying concurrently in the same Node.js tick). | Tables must be explicitly enumerated in `OPEN_TABLES_ALLOWLIST` or protected policies; any table not in the allowlist is refused. |
 | **D5** | 3 write templates; parameter binding; separation of duties; SHA-256 audit log; MariaDB server-level rejection on payroll. | Long-term rollover/rotation of audit log; Postgres write adapter live end-to-end HTTP integration test. | Only 3 write templates exist. No dynamic template registration mechanism. No multi-row batch mutations. |
 
 ---
@@ -188,7 +188,7 @@ TIER-1 AUDIT: 10/10 files verified clean
 - **Golden Corpus Location:** `test/golden/fast_intent_golden.json` (captured during Re-Pin #4) & `test/verifyFastIntentMultiDialect.js`.
 - **Fresh Live Test Run:**
   - `node test/verifyFastIntentMultiDialect.js` $\rightarrow$ **4/4 PASSED** (100% green).
-  - `node test/verifyFastIntentGolden.js` $\rightarrow$ **15/18 PASSED, 3 FAILED** (FI-03, FI-09, FI-15 expect `LIMIT ?` with `params: [N]`, whereas the code now outputs `LIMIT N` with `params: []`). *See Part 6 for complete disclosure.*
+  - `node test/verifyFastIntentGolden.js` $\rightarrow$ **18/18 PASSED** (100% green; golden snapshot synchronized with validated unparameterized integer literal `LIMIT`).
 
 ---
 
@@ -626,7 +626,7 @@ Configured in [`src/kernel/gate.selector.js`](file:///home/shubh/Documents/proje
 2. **MariaDB Matrix Golden Corpus:**
    - Corpus file: `test/golden/ast_gate_mariadb_matrix.json` (9 cases)
    - Tested in: `test/verifyGateSelector.js` lines 98–117.
-   - Fresh run status: Cases 1–9 pass against AST gate, but runner file fails on stale D0 Postgres expectation (*see Part 6*).
+   - Fresh run status: `🏆 ALL GATE SELECTOR & MATRIX TESTS PASSED CLEANLY!` (All 9 matrix cases passed; dialect selector verified for SQLite, MariaDB, and Postgres).
 3. **PostgreSQL AST Gate Golden Corpus:**
    - Corpus file: `test/golden/ast_gate_postgres_golden.json` (15 cases)
    - Fresh test run: `node test/verifyAstGatePostgresGolden.js`
@@ -721,7 +721,7 @@ Grep execution across the entire codebase (`git grep -n "verifyEmployeeScopeAuth
 
 ---
 
-### Protection Scope: Protected vs Unprotected Tables
+### Protection Scope: Protected vs Unpolicied Tables
 
 #### Protected Tables & Fields
 - **Target Table:** `tabSalary Slip` (MariaDB) / `salary_slips` (Postgres/SQLite).
@@ -730,16 +730,58 @@ Grep execution across the entire codebase (`git grep -n "verifyEmployeeScopeAuth
   - Roles `['Executive']` or `['HR Manager']`: Verdict `ALLOW`, injected predicate `docstatus = 1`.
   - Role `['Employee']`: Requires valid `identity.employeeId`. Cross-employee access (or probes targeting CEO Victoria Stirling) returns `REJECT_FORBIDDEN`. Self-service queries return `INJECT_PREDICATE` injecting `employee = '<callerEmpId>' AND docstatus = 1`.
 
-#### Behavior on Unpolicied Tables (Live Test Receipt)
-What happens if a query targets a table with no policy defined (e.g. `tabCustomer`, `tabSales Order`, `students`)?
-
-Tested live in Node.js against [`src/security/rls.policy.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/security/rls.policy.js#L154-L160):
+#### Explicitly Allowlisted Open Tables (`OPEN_TABLES_ALLOWLIST`)
+To prevent unpolicied sensitive tables from being exposed, open access requires explicit registration in [`src/security/rls.policy.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/security/rls.policy.js#L90-L127):
 ```javascript
-import { evaluateRlsPolicy } from "./src/security/rls.policy.js";
+export const OPEN_TABLES_ALLOWLIST = deepFreeze(new Set([
+  // ERPNext (MariaDB) standard transactional and catalog DocTypes
+  "tabcustomer",
+  "tabsales invoice",
+  "tabsales order",
+  "tabitem",
+  "tabemployee",
+  "tabgl entry",
+  "tabuser",
+
+  // PostgreSQL standard tables
+  "customers",
+  "items",
+  "orders",
+
+  // SQLite College realm
+  "students",
+  "departments",
+  "faculty",
+  "fees",
+  "marks",
+  "attendance",
+  "subjects",
+
+  // SQLite Hospital realm
+  "appointments",
+  "diagnoses",
+  "doctors",
+  "lab_tests",
+  "patients",
+  "prescriptions",
+  "visits",
+  "wards",
+
+  // SQLite Food Delivery realm
+  "order_items",
+  "restaurants",
+  "drivers"
+]));
+```
+
+#### Fail-Closed Default on Unpolicied Tables (Live Test Receipt)
+What happens if a query targets a table with no policy defined and not in `OPEN_TABLES_ALLOWLIST` (e.g. `tabBank Account`, `secret_legal_archive_2026`, or arbitrary unlisted tables)?
+
+Tested live against [`src/security/rls.policy.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/security/rls.policy.js#L209-L215) via `test/verify_unpolicied_table_rls.js`:
+```javascript
 const res = evaluateRlsPolicy({
-  tableName: "tabCustomer",
-  identity: null,
-  queryIntent: {},
+  tableName: "tabBank Account",
+  identity: { userId: "devon", roles: ["Employee"] },
   dialect: "mariadb"
 });
 console.log(res);
@@ -747,12 +789,34 @@ console.log(res);
 **Actual Output:**
 ```json
 {
-  "verdict": "ALLOW",
+  "verdict": "REJECT_FORBIDDEN",
   "injectedPredicate": null,
-  "reason": "Standard access permitted."
+  "error": "rls_forbidden:unpolicied_table",
+  "reason": "Access to table 'tabBank Account' is refused: table has no registered RLS policy or explicit open allowlist entry (fail-closed default)."
 }
 ```
-**Conclusion:** RLS currently **fails open** (`ALLOW`) for all tables in the schema other than `tabSalary Slip` / `salary_slips`. Unauthenticated callers can read standard business tables unless guarded by another layer.
+
+**Dedicated Test Suite Output (`node test/verify_unpolicied_table_rls.js`):**
+```text
+==================================================
+   VERIFYING RLS FAIL-CLOSED ON UNPOLICIED TABLES 
+==================================================
+✅ [PASS] evaluateRlsPolicy rejects unpolicied ERPNext table (tabBank Account)
+✅ [PASS] evaluateRlsPolicy rejects arbitrary made-up table (secret_legal_archive_2026)
+✅ [PASS] evaluateRlsPolicy rejects unpolicied table even with null/anonymous identity
+✅ [PASS] evaluateRlsPolicy permits explicitly allowlisted table (tabCustomer)
+✅ [PASS] evaluateRlsPolicy permits explicitly allowlisted table (students)
+✅ [PASS] enforceRlsOnAst rejects query touching unpolicied table
+✅ [PASS] enforceRlsOnAst rejects multi-table query touching both allowlisted and unpolicied tables
+✅ [PASS] validateAstCore (MariaDB) rejects query on unpolicied table with zero execution
+✅ [PASS] validateAstCore (PostgreSQL) rejects query on unpolicied table
+✅ [PASS] validateAstCore (SQLite) rejects query on unpolicied table
+==================================================
+RESULTS: 10/10 PASSED
+🏆 ALL RLS FAIL-CLOSED UNPOLICIED TABLE TESTS GREEN
+==================================================
+```
+**Conclusion:** RLS now **fails closed** (`REJECT_FORBIDDEN`, error `rls_forbidden:unpolicied_table`) for all tables not explicitly registered. Zero physical SQL is executed against unauthorized or unlisted tables.
 
 ---
 
@@ -933,17 +997,25 @@ Queried live from the running backend process at `http://localhost:5000/api/acti
 - **Bridge Subnet:** In `docker/docker-compose.yml`, the IP subnet `172.28.0.0/16` and IP address `172.28.0.1` are statically defined.
 - **Target Write Tables:** In `src/security/write.templates.js`, table names (`tabEmployee`, `tabCustomer`, `tabSales Order`) are static strings.
 
-### 4. Discrepancies Found Between Tests and Current Repository Code
-During fresh verification in this session, two test discrepancies were uncovered:
+### 4. Resolution of Initial Audit Findings & Test Discrepancies
+During the initial ground-truth verification pass of this session, one critical security finding and two test discrepancies were uncovered and subsequently resolved:
 
-1. **`test/verifyFastIntentGolden.js` (3 Failures out of 18):**
-   - *Failure Detail:* Cases FI-03, FI-09, and FI-15 failed.
-   - *Root Cause:* In Phase D5, `fastIntent.js` was modified to emit validated integer literals (`LIMIT 5`) instead of parameterized placeholders (`LIMIT ?`) because `node-sql-parser` threw AST syntax errors on parameterized limits in SQLite queries. The golden snapshot file `test/golden/fast_intent_golden.json` was created in Re-Pin #4 before this fix and still expects `LIMIT ?` with parameter array `[5]`. The test runner was never updated to reflect the D5 parameter change.
-2. **`test/verifyGateSelector.js` (Failure on Line 65):**
-   - *Failure Detail:* Threw `AssertionError: Missing expected exception: Postgres must throw in D0`.
-   - *Root Cause:* In Phase D0, `gateChainFor({ dialect: "postgres" })` threw an unsupported dialect error. In Phase D3, Postgres was formally implemented and supported in `gate.selector.js`. However, `test/verifyGateSelector.js` retained the obsolete D0 assertion expecting Postgres to throw, causing this test script to fail when executed in the current repository.
+1. **RLS Fail-Open Default Inversion (Critical Security Gap — Resolved):**
+   - *Initial State:* Queries referencing any table outside `tabSalary Slip` / `salary_slips` bypassed authorization and returned `ALLOW` with `injectedPredicate: null`.
+   - *Resolution:* In commit `e2c1e0a`, the default was inverted to fail-closed. Any table queried must either match a protected policy or be explicitly registered in `OPEN_TABLES_ALLOWLIST`. Unregistered tables are refused immediately with `REJECT_FORBIDDEN` and error `rls_forbidden:unpolicied_table`.
+   - *Verification:* Verified by dedicated test suite `test/verify_unpolicied_table_rls.js` (10/10 passed).
+2. **`test/verifyFastIntentGolden.js` (Resolved — 18/18 Passed):**
+   - *Initial State:* 15/18 passed, 3 failed because `fastIntent.js` was modified in Phase D5 to emit validated integer literals (`LIMIT 5`) instead of parameterized placeholders (`LIMIT ?`), but the Re-Pin #4 golden snapshot file still expected `LIMIT ?` with params `[5]`.
+   - *Resolution:* In commit `a7aa47b`, `test/golden/fast_intent_golden.json` was updated to match the validated unparameterized integer literal `LIMIT`. Fresh run: 18/18 passed (100% green).
+3. **`test/verifyGateSelector.js` (Resolved — Passed Cleanly):**
+   - *Initial State:* Failed on line 65 because it retained an obsolete D0 assertion expecting `gateChainFor({ dialect: "postgres" })` to throw an unsupported dialect exception.
+   - *Resolution:* In commit `a7aa47b`, the obsolete D0 assertion was updated to assert that Postgres resolves to its 3-slot gate chain (`[postgresValidator, astGatePostgres, readonlyExecutorPostgres]`). Fresh run: Passed cleanly (9/9 MariaDB matrix + selector green).
 
-### 5. Multi-Tenancy Absence
+### 5. Why the Test Discrepancies Were Not Caught by the Master Regression Battery
+A key operational finding: `test/verifyFullRegression.sh` runs the 8 canonical litmus base tests defined in Phase D-minus-1 / D0 (`verify_college_attendance`, `verifyLlm1ValidatorSecurity`, `verifyConnLifecycle`, `verifyPipelineOverride`, `verifyGateIntegrity`, `verifyBypass`, `verifyLitmusNewTool`, `verifyTraceEvidence`).  
+Phase-specific golden tests (`verifyFastIntentGolden.js`, `verifyGateSelector.js`, `verifyRlsPolicyGolden.js`) were created as standalone verification scripts for their respective phase milestones and were never added to `verifyFullRegression.sh`. Consequently, a green run of `verifyFullRegression.sh` proves that the *frozen base* holds, but does not exercise phase-specific golden corpora. Standing up a unified CI runner that executes all phase golden suites alongside `verifyFullRegression.sh` is an identified operational enhancement.
+
+### 6. Multi-Tenancy Absence
 - CogniCore currently has **no multi-tenancy architecture**.
 - The database connections, credentials, and source registries are single-tenant global singletons.
 - If two enterprise customers were to access the API simultaneously, queries would execute against the same database instance with zero tenant isolation at the schema or database level.
