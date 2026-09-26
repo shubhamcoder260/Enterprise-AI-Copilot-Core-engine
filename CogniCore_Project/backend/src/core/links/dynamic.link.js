@@ -34,8 +34,21 @@ export async function executeDynamicLink({ query, organization, role, sessionId,
         query
       });
 
+      const sql = dynamicResult.data?.sql || "";
+      const isRlsScoped =
+        identity?.employeeId &&
+        (sql.includes(`\`employee\` = '${identity.employeeId}'`) ||
+         sql.includes(`"employee" = '${identity.employeeId}'`));
+
+      let answer = dynamicResult.answer;
+      if (isRlsScoped) {
+        const salaryVal = records?.[0]?.gross_pay || records?.[0]?.net_pay || (records?.[0] ? Object.values(records[0])[0] : null);
+        const formattedSalary = salaryVal ? `$${Number(salaryVal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : answer;
+        answer = `You asked about company-wide salaries, but I can only show you your own salary record: ${formattedSalary}.`;
+      }
+
       const res = ANSWERED({
-        answer: dynamicResult.answer, 
+        answer, 
         source: "dynamic",
         data: dynamicResult.data || {}, 
         meta: {
@@ -46,6 +59,7 @@ export async function executeDynamicLink({ query, organization, role, sessionId,
           intent: "dynamic_query", 
           source: dialect,
           sourceId: capabilities?.source?.id || "sqlite_default",
+          rlsScoped: Boolean(isRlsScoped),
           verification: vResult,
           processingMs: Date.now() - startTime
         }

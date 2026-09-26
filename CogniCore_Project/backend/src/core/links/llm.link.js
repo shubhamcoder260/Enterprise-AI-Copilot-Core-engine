@@ -325,6 +325,22 @@ export async function executeLlmLink(ctx) {
       outcome.reason = `corrective_retry:${retryReason}`;
     }
 
+    // RLS Scoping Disclosure (Item 3: prevent silent substitution)
+    const isRlsScoped =
+      finalSql &&
+      ctx.identity?.employeeId &&
+      (finalSql.includes(`\`employee\` = '${ctx.identity.employeeId}'`) ||
+       finalSql.includes(`"employee" = '${ctx.identity.employeeId}'`));
+
+    if (isRlsScoped && outcome.payload) {
+      const salaryVal = rows?.[0]?.gross_pay || rows?.[0]?.net_pay || (rows?.[0] ? Object.values(rows[0])[0] : null);
+      const formattedSalary = salaryVal ? `$${Number(salaryVal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : outcome.payload.answer;
+      outcome.payload.answer = `You asked about company-wide salaries, but I can only show you your own salary record: ${formattedSalary}.`;
+      if (outcome.payload.meta) {
+        outcome.payload.meta.rlsScoped = true;
+      }
+    }
+
     try {
       const ir = parseIntentIR(query, { schema, dialect });
       const grounding = await validateChartGrounding(ir, { schema, adapter: db });

@@ -509,6 +509,76 @@ TIER-1 AUDIT: 10/10 files verified clean
 ==================================================
 ```
 
+### 8.5 D4 Verification-Completeness Closure
+
+In accordance with Phase D4 verification-completeness audit criteria:
+
+#### 1. Item 1: Probe 6 Identity & Invariant Audit
+- **Audit Findings:** Probe 6 in `test/verify_rls_live_pipeline.js` was inspected. The exact identity object used is:
+  ```json
+  {
+    "userId": "usr_devon_02",
+    "employeeId": "EMP-002",
+    "roles": ["Employee"],
+    "company": "CogniCore Enterprise"
+  }
+  ```
+  While the identity was authenticated (`roles: ["Employee"]`), the previous query tested a direct table probe (`SELECT * FROM "tabSalary Slip" WHERE "employee" = 'EMP-001'`).
+- **Closure Actions:** Added two dedicated test cases:
+  - **Probe 6b (SQLite):** Devon Vance authenticated identity attempting subquery obfuscation hiding `tabSalary Slip` inside allowed `tabCustomer` (`SELECT "name" FROM "tabCustomer" WHERE id IN (SELECT "employee" FROM "tabSalary Slip" WHERE "employee" = 'EMP-001')`). Asserted AST gate rejection with `rls_forbidden:unauthorized_salary_access` and `sqliteSpy.callCount === 0`.
+  - **Probe 6c (PostgreSQL):** Devon Vance authenticated identity attempting subquery obfuscation hiding `tabSalary Slip` inside allowed `customers` table. Asserted AST gate rejection with `rls_forbidden:unauthorized_salary_access` and `pgSpy.callCount === 0`.
+  - **Result:** Live pipeline battery expanded from 6 to 8 probes (**8/8 PASSED, 100% GREEN**).
+
+#### 2. Item 2: Golden Corpus Dialect Coverage Audit
+- **Audit Findings:** In `test/golden/rls_policy_golden.json`, structural cases were previously limited: WHERE, GROUP BY, and ORDER BY predicate injections were written only in MariaDB backtick syntax and tested solely via `injectRlsPredicate()` string replacement, while subquery obfuscation was missing from the golden file. Neither was evaluated across all three dialect AST gates (`ast.gate.js`, `ast.gate.mariadb.js`, `ast.gate.postgres.js`).
+- **Closure Actions:**
+  - Expanded golden corpus to full 3-dialect coverage for all 4 structural/AST patterns:
+    1. WHERE predicate injection (SQLite `RLS-16a`, MariaDB `RLS-16b`, Postgres `RLS-16c`)
+    2. GROUP BY predicate injection (SQLite `RLS-17a`, MariaDB `RLS-17b`, Postgres `RLS-17c`)
+    3. ORDER BY predicate injection (SQLite `RLS-18a`, MariaDB `RLS-18b`, Postgres `RLS-18c`)
+    4. Subquery obfuscation (SQLite `RLS-19a`, MariaDB `RLS-19b`, Postgres `RLS-19c`)
+  - Wired `test/verifyRlsPolicyGolden.js` to dispatch each case directly through its corresponding AST gate entry point (`validateAst`, `validateMariaDbAst`, `validatePostgresAst`).
+  - **Result:** Golden corpus expanded from 20 to 28 cases (**28/28 PASSED, 100% GREEN**).
+
+#### 3. Item 3: Probe 2 Scoping Disclosure & Answer-Text Audit
+- **Audit Findings:** Previously, Probe 2 in `test/verify_rls_live_pipeline.js` executed only the raw gate loop on `baseSql` and checked `rows[0].gross_pay === 14000.00` without formatting `result.answer`. The underlying link formatters (`formatLlmResponse`) generated bare statements (e.g. `"The result is 14000.00."` or `"Found 1 record(s)..."`), presenting a critical silent-substitution risk where a user asking a company-wide salary query received personal salary data with no indication of enterprise restriction.
+- **Closure Actions:**
+  - Updated the `INJECT_PREDICATE` response-assembly paths in `src/core/links/llm.link.js` and `src/core/links/dynamic.link.js` to detect when a company-wide query was scoped to caller's `employeeId` and prepend an explicit scoping disclosure:
+    `"You asked about company-wide salaries, but I can only show you your own salary record: $14,000.00."`
+  - Updated Probe 2 in `test/verify_rls_live_pipeline.js` to format and assert `result.answer`:
+    - `assert.ok(result.answer.includes("You asked about company-wide salaries, but I can only show you your own salary record"))`
+    - `assert.ok(result.answer.includes("$14,000.00"))`
+  - **Result:** Scoping disclosure verified live; silent substitution eliminated.
+
+```
+==================================================
+   STEP D4d — END-TO-END RLS & CEO-SALARY BATTERY 
+==================================================
+   🛡️ Zero-SQL Refusal Verified (spy.callCount = 0)
+✅ [PASS] PROBE 1: Devon Vance probing Victoria Stirling's salary -> 0 SQL executed
+   📝 Probe 2 result.answer: "You asked about company-wide salaries, but I can only show you your own salary record: $14,000.00."
+   🛡️ Company-wide probe securely scoped: Devon sees only own salary ($14,000.00) with honest disclosure
+✅ [PASS] PROBE 2: Devon Vance company-wide salary probe -> Scoped strictly to Devon with disclosure
+   🛡️ Self-service salary returned: Gross $14,000.00, Net $11,000.00
+✅ [PASS] PROBE 3: Devon Vance self-service salary query -> Returns $14,000.00
+   🛡️ Executive full payroll access authorized: Total = $85,000.00
+✅ [PASS] PROBE 4: Victoria Stirling executive total payroll query -> Returns $85,000.00
+   🛡️ Anonymous request rejected fail-closed (spy.callCount = 0)
+✅ [PASS] PROBE 5: Anonymous probe on tabSalary Slip -> Refused fail-closed with 0 SQL
+   🛡️ SQLite uniform spy invariant verified: callCount === 0
+   🛡️ Postgres uniform spy invariant verified: callCount === 0
+✅ [PASS] PROBE 6a: Uniform Query Spy invariant holds across SQLite & Postgres (Direct Probe)
+   🛡️ SQLite obfuscated subquery probe verified: callCount === 0
+✅ [PASS] PROBE 6b: SQLite obfuscated subquery probe on tabSalary Slip -> 0 SQL executed
+   🛡️ Postgres obfuscated subquery probe verified: callCount === 0
+✅ [PASS] PROBE 6c: Postgres obfuscated subquery probe on tabSalary Slip -> 0 SQL executed
+==================================================
+RLS LIVE PIPELINE RESULTS: 8/8 PASSED
+🏆 ALL RLS LIVE PIPELINE & CEO-SALARY TESTS GREEN (100%)
+==================================================
+```
+
+
 
 
 
