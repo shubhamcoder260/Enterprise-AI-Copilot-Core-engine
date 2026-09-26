@@ -61,11 +61,14 @@ assert.throws(() => {
 }, /Unsupported dialect: "unknown_engine_xyz"\. Refusing execution \(fail-closed\)/, "Unknown dialect must throw and refuse execution");
 console.log("  ✅ Rejects unrecognized dialect 'unknown_engine_xyz' (fail-closed confirmed)");
 
-// 3e. Postgres (deferred to D3)
-assert.throws(() => {
-  gateChainFor({ dialect: "postgres" });
-}, /Unsupported dialect: "postgres"\. Refusing execution \(fail-closed\)/, "Postgres must throw in D0");
-console.log("  ✅ Rejects currently-unconfigured dialect 'postgres' (fail-closed confirmed)");
+// 3e. Postgres gate chain resolution (Implemented in D3)
+const pgChain = gateChainFor({ dialect: "postgres" });
+assert.strictEqual(pgChain.length, 3, "Postgres gate chain must have 3 slots");
+assert.strictEqual(pgChain[0].name, "validator");
+assert.strictEqual(pgChain[0].dialect, "postgres");
+assert.strictEqual(pgChain[1].name, "ast");
+assert.strictEqual(pgChain[2].name, "readonly-executor");
+console.log("  ✅ Postgres gate chain resolved with validator, ast, readonly-executor slots");
 
 // 4. Verification of MariaDB Validator & AST rules
 console.log("\n[4] Verifying MariaDB specific gate rules...");

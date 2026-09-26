@@ -95,6 +95,7 @@ export const OPEN_TABLES_ALLOWLIST = deepFreeze(new Set([
   "tabitem",
   "tabemployee",
   "tabgl entry",
+  "tabuser",
 
   // PostgreSQL standard tables
   "customers",

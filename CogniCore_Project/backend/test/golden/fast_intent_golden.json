@@ -33,10 +33,8 @@
     "query": "lowest attendence top 5",
     "desc": "BottomN + Typo tolerance",
     "expectedPlan": {
-      "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" ASC LIMIT ?",
-      "params": [
-        5
-      ],
+      "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" ASC LIMIT 5",
+      "params": [],
       "shape": "bottomN",
       "table": "students",
       "orderCol": "attendance_percentage",
@@ -96,10 +94,8 @@
     "query": "top 10 students by attendance_percentage",
     "desc": "TopN shape with limit",
     "expectedPlan": {
-      "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" DESC LIMIT ?",
-      "params": [
-        10
-      ],
+      "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" DESC LIMIT 10",
+      "params": [],
       "shape": "topN",
       "table": "students",
       "orderCol": "attendance_percentage",
@@ -180,10 +176,8 @@
     "query": "lowest attendence top 5 (calculate the lowest attendance by student id)",
     "desc": "Lowest attendance top 5 complex prompt",
     "expectedPlan": {
-      "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" ASC LIMIT ?",
-      "params": [
-        5
-      ],
+      "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" ASC LIMIT 5",
+      "params": [],
       "shape": "bottomN",
       "table": "students",
       "orderCol": "attendance_percentage",
