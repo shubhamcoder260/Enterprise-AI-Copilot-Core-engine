@@ -98,6 +98,14 @@ export function createPostgresWriteAdapter(config = {}) {
       }
     },
 
+    async proposeWrite(template, params = {}, dryRun = true) {
+      return this.executeWrite(template, params, dryRun);
+    },
+
+    async executeApprovedWrite(template, params = {}) {
+      return this.executeWrite(template, params, false);
+    },
+
     async close() {
       if (pool) {
         await pool.end();

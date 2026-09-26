@@ -13,9 +13,29 @@
 
 import { deepFreeze } from "../adapters/dialects/index.js";
 
+export function validateTemplateDefinition(template) {
+  if (!template || typeof template !== "object") {
+    throw new Error("Template definition must be a non-null object.");
+  }
+  const requiredFields = ["templateId", "sql", "allowedTable", "requiredRole", "requiredParams", "selfApproveEligible"];
+  for (const field of requiredFields) {
+    if (template[field] === undefined) {
+      throw new Error(`Template definition missing mandatory field: '${field}'`);
+    }
+  }
+  if (typeof template.selfApproveEligible !== "boolean") {
+    throw new Error(`Template '${template.templateId}' selfApproveEligible must be an explicit boolean, got ${typeof template.selfApproveEligible}`);
+  }
+  if (!Array.isArray(template.requiredParams) || template.requiredParams.length === 0) {
+    throw new Error(`Template '${template.templateId}' requiredParams must be a non-empty array.`);
+  }
+  return true;
+}
+
 const WRITE_TEMPLATES = {
   UPDATE_OWN_CONTACT: {
     id: "UPDATE_OWN_CONTACT",
+    templateId: "UPDATE_OWN_CONTACT",
     description: "Update own contact phone number and email address",
     allowedTable: "tabEmployee",
     targetTables: ["tabEmployee", "employees"],
@@ -33,6 +53,7 @@ const WRITE_TEMPLATES = {
 
   CREATE_CUSTOMER: {
     id: "CREATE_CUSTOMER",
+    templateId: "CREATE_CUSTOMER",
     description: "Create a new verified customer record",
     allowedTable: "tabCustomer",
     targetTables: ["tabCustomer", "customers"],
@@ -50,6 +71,7 @@ const WRITE_TEMPLATES = {
 
   UPDATE_ORDER_STATUS: {
     id: "UPDATE_ORDER_STATUS",
+    templateId: "UPDATE_ORDER_STATUS",
     description: "Update the workflow status of an existing Sales Order",
     allowedTable: "tabSales Order",
     targetTables: ["tabSales Order", "orders"],
@@ -65,6 +87,9 @@ const WRITE_TEMPLATES = {
     estimatedRows: 1
   }
 };
+
+// Validate every template against the strict schema before freezing
+Object.values(WRITE_TEMPLATES).forEach(validateTemplateDefinition);
 
 export const TEMPLATES = deepFreeze(WRITE_TEMPLATES);
 

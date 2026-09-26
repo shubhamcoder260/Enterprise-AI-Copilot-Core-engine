@@ -71,6 +71,14 @@ export function createSqliteWriteAdapter(config = {}) {
       };
     },
 
+    async proposeWrite(template, params = {}, dryRun = true) {
+      return this.executeWrite(template, params, dryRun);
+    },
+
+    async executeApprovedWrite(template, params = {}) {
+      return this.executeWrite(template, params, false);
+    },
+
     async close() {
       if (db) {
         await db.close();

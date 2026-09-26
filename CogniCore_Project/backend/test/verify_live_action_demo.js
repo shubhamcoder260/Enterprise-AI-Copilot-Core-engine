@@ -51,14 +51,16 @@ async function runLiveActionDemo() {
 
   // STEP 1: Query initial state
   let beforeRow = null;
+  let baselineTimestamp = null;
   await test("Baseline: query initial employee record using read-only adapter", async () => {
+    baselineTimestamp = new Date().toISOString();
     const rows = await roAdapter.queryReadOnly(
       "SELECT name, employee_name, cell_number, personal_email FROM `tabEmployee` WHERE name = ?",
       ["EMP-002"]
     );
     assert.strictEqual(rows.length, 1);
     beforeRow = rows[0];
-    console.log(`   Initial State: [${beforeRow.name}] ${beforeRow.employee_name} | cell: ${beforeRow.cell_number} | email: ${beforeRow.personal_email}`);
+    console.log(`   [Live Query Captured at ${baselineTimestamp}] Initial State: [${beforeRow.name}] ${beforeRow.employee_name} | cell: ${beforeRow.cell_number} | email: ${beforeRow.personal_email}`);
   });
 
   // STEP 2: Dry Run Mode
@@ -128,6 +130,7 @@ async function runLiveActionDemo() {
 
   // STEP 5: Verification of DB Update
   await test("Row Verification: read-only adapter confirms row values updated in live database", async () => {
+    const afterTimestamp = new Date().toISOString();
     const afterRows = await roAdapter.queryReadOnly(
       "SELECT name, employee_name, cell_number, personal_email FROM `tabEmployee` WHERE name = ?",
       ["EMP-002"]
@@ -137,7 +140,7 @@ async function runLiveActionDemo() {
     const afterRow = afterRows[0];
     assert.strictEqual(afterRow.cell_number, newCell);
     assert.strictEqual(afterRow.personal_email, newEmail);
-    console.log(`   Updated State: [${afterRow.name}] ${afterRow.employee_name} | cell: ${afterRow.cell_number} | email: ${afterRow.personal_email}`);
+    console.log(`   [Live Query Captured at ${afterTimestamp}] Updated State: [${afterRow.name}] ${afterRow.employee_name} | cell: ${afterRow.cell_number} | email: ${afterRow.personal_email}`);
   });
 
   // STEP 6: RLS Write Protection (Devon attempting to update CEO Victoria Stirling)
@@ -164,9 +167,33 @@ async function runLiveActionDemo() {
     console.log("   Cross-employee write attempt successfully refused by RLS write policy.");
   });
 
-  // STEP 7: Audit Log Cryptographic Integrity
+  // STEP 7: Server-Level Write Rejection on Non-Allowlisted Table (Exit Criterion 9)
+  await test("Server-Level Rejection: DBMS rejects cognicore_write attempt on tabSalary Slip", async () => {
+    const mysql = (await import("mysql2/promise")).default;
+    const writeConn = await mysql.createConnection({
+      host: process.env.ERPNEXT_WRITE_DB_HOST || "127.0.0.1",
+      port: Number(process.env.ERPNEXT_WRITE_DB_PORT || 3306),
+      user: process.env.ERPNEXT_WRITE_DB_USER || "cognicore_write",
+      password: process.env.ERPNEXT_WRITE_DB_PASSWORD || "cognicore_write_password",
+      database: process.env.ERPNEXT_WRITE_DB_NAME || "_4e5d6a7b8c9d0e1f"
+    });
+
+    try {
+      await writeConn.execute("UPDATE `tabSalary Slip` SET gross_pay = 999999 WHERE name = 'SAL-001'");
+      assert.fail("Server must reject write on tabSalary Slip");
+    } catch (err) {
+      assert.strictEqual(err.code, "ER_TABLEACCESS_DENIED_ERROR");
+      assert.strictEqual(err.errno, 1142);
+      assert.ok(err.message.includes("UPDATE command denied to user 'cognicore_write'"));
+      console.log(`   DBMS Server Error: [${err.code} / ${err.errno}] ${err.message}`);
+    } finally {
+      await writeConn.end();
+    }
+  });
+
+  // STEP 8: Audit Log Cryptographic Integrity
   await test("Audit Trail: verify SHA-256 forward hash-chain integrity across all actions", () => {
-    const integrity = actionAuditLog.verifyIntegrity();
+    const integrity = actionAuditLog.verifyAuditChainIntegrity();
     assert.ok(integrity.valid, `Audit log integrity failed: ${integrity.error}`);
     assert.ok(integrity.verifiedCount >= 4, "Expected at least 4 audit records in chain");
     console.log(`   Audit Log Intact: ${integrity.verifiedCount} cryptographic entries verified cleanly.`);

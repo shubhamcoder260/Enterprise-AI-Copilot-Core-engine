@@ -71,9 +71,15 @@ class ActionAuditLog {
         employeeId: record.identity.employeeId || null,
         roles: Array.isArray(record.identity.roles) ? [...record.identity.roles] : []
       } : null,
+      approverIdentity: record.approverIdentity ? {
+        userId: record.approverIdentity.userId || "anonymous",
+        employeeId: record.approverIdentity.employeeId || null,
+        roles: Array.isArray(record.approverIdentity.roles) ? [...record.approverIdentity.roles] : []
+      } : null,
       templateId: record.templateId || null,
       targetTable: record.targetTable || null,
       parameters: record.parameters ? { ...record.parameters } : {},
+      exactExecutedSql: record.exactExecutedSql || record.sql || null,
       dryRun: Boolean(record.dryRun),
       executionResult: record.executionResult ? { ...record.executionResult } : null,
       previousHash
@@ -185,6 +191,13 @@ class ActionAuditLog {
       verifiedCount: this._entries.length,
       error: null
     };
+  }
+
+  /**
+   * Canonical alias for verifyIntegrity (Requirement 5).
+   */
+  verifyAuditChainIntegrity() {
+    return this.verifyIntegrity();
   }
 
   // Explicitly prevent mutation or deletion methods

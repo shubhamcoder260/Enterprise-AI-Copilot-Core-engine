@@ -110,7 +110,8 @@ async function verifyActionAuditLog() {
     // Directly corrupt entry 0
     fakeLog._entries[0] = { ...fakeLog._entries[0], phase: "CORRUPTED" };
 
-    const check = fakeLog.verifyIntegrity();
+    // Test both verifyIntegrity() and canonical alias verifyAuditChainIntegrity()
+    const check = fakeLog.verifyAuditChainIntegrity();
     assert.strictEqual(check.valid, false, "Integrity check must fail when record content is altered");
     assert.ok(/Tamper detected at sequence 0/i.test(check.error));
   });

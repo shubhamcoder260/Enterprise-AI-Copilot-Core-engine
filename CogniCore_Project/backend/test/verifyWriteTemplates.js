@@ -10,7 +10,7 @@
 // ============================================================================
 
 import assert from "node:assert/strict";
-import { TEMPLATES, getTemplate, listTemplates, renderTemplate } from "../src/security/write.templates.js";
+import { TEMPLATES, getTemplate, listTemplates, renderTemplate, validateTemplateDefinition } from "../src/security/write.templates.js";
 
 async function verifyWriteTemplates() {
   console.log("==================================================");
@@ -113,6 +113,31 @@ async function verifyWriteTemplates() {
     assert.throws(() => {
       renderTemplate(t, { customerName: "ACME Corp" }, "mariadb");
     }, /Missing required parameter: 'customerType'/i);
+  });
+
+  // TEST 6: Schema strictness (rejects missing selfApproveEligible rather than assuming false)
+  test("Schema Strictness: validateTemplateDefinition rejects template omitting selfApproveEligible", () => {
+    assert.throws(() => {
+      validateTemplateDefinition({
+        templateId: "TEST_INCOMPLETE",
+        sql: "UPDATE foo SET bar = :bar",
+        allowedTable: "foo",
+        requiredRole: "Admin",
+        requiredParams: ["bar"]
+        // selfApproveEligible intentionally omitted
+      });
+    }, /missing mandatory field: 'selfApproveEligible'/i);
+
+    assert.throws(() => {
+      validateTemplateDefinition({
+        templateId: "TEST_NON_BOOL",
+        sql: "UPDATE foo SET bar = :bar",
+        allowedTable: "foo",
+        requiredRole: "Admin",
+        requiredParams: ["bar"],
+        selfApproveEligible: "false" // String instead of boolean
+      });
+    }, /selfApproveEligible must be an explicit boolean/i);
   });
 
   console.log("==================================================");

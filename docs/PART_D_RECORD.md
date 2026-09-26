@@ -709,22 +709,24 @@ ACTION GATEWAY RESULTS: 8/8 PASSED
 ==================================================
    STEP D5 — VERIFY LIVE ACTION GATEWAY DEMO      
 ==================================================
-   Initial State: [EMP-002] Devon Vance | cell: +1-555-8350 | email: devon.vance.1790411748619@enterprise.corp
+   [Live Query Captured at 2026-09-26T09:02:03.647Z] Initial State: [EMP-002] Devon Vance | cell: +1-555-1899 | email: devon.vance.1790412749860@enterprise.corp
 ✅ [PASS] Baseline: query initial employee record using read-only adapter
    Dry run verified: Zero row modifications occurred in database.
 ✅ [PASS] Dry Run: proposeAction with dryRun: true generates preview without DB mutation
-   Action Created: ID = 34b6cc2a-f034-4801-8625-38d213ba2471 (Status: PENDING)
+   Action Created: ID = 0045c00c-41de-4d6d-88db-288f3e78a930 (Status: PENDING)
 ✅ [PASS] Proposal: proposeAction with dryRun: false creates PENDING action
-   Execution Succeeded: affectedRows = 1, duration = 25ms
+   Execution Succeeded: affectedRows = 1, duration = 38ms
 ✅ [PASS] Approval & Execution: self-approval triggers live write via cognicore_write
-   Updated State: [EMP-002] Devon Vance | cell: +1-555-8789 | email: devon.vance.1790412400030@enterprise.corp
+   [Live Query Captured at 2026-09-26T09:02:03.747Z] Updated State: [EMP-002] Devon Vance | cell: +1-555-3867 | email: devon.vance.1790413323646@enterprise.corp
 ✅ [PASS] Row Verification: read-only adapter confirms row values updated in live database
    Cross-employee write attempt successfully refused by RLS write policy.
 ✅ [PASS] RLS Write Guard: Devon Vance (EMP-002) attempting to update CEO (EMP-001) blocked
-   Audit Log Intact: 28 cryptographic entries verified cleanly.
+   DBMS Server Error: [ER_TABLEACCESS_DENIED_ERROR / 1142] UPDATE command denied to user 'cognicore_write'@'172.28.0.1' for table `_4e5d6a7b8c9d0e1f`.`tabSalary Slip`
+✅ [PASS] Server-Level Rejection: DBMS rejects cognicore_write attempt on tabSalary Slip
+   Audit Log Intact: 44 cryptographic entries verified cleanly.
 ✅ [PASS] Audit Trail: verify SHA-256 forward hash-chain integrity across all actions
 ==================================================
-LIVE ACTION DEMO RESULTS: 7/7 PASSED
+LIVE ACTION DEMO RESULTS: 8/8 PASSED
 🏆 ALL LIVE ACTION GATEWAY DEMO TESTS GREEN
 ==================================================
 
