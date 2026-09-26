@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 
 import aiRoutes from "./routes/ai.routes.js";
 import databaseRoutes from "./routes/database.routes.js";
+import actionRoutes from "./routes/action.routes.js";
 
 dotenv.config();
 
@@ -33,6 +34,9 @@ app.use("/api", aiRoutes);
 
 // Database Upload Routes
 app.use("/api/database", databaseRoutes);
+
+// Action Gateway Routes (Phase D5 Write Pipeline)
+app.use("/api/actions", actionRoutes);
 
 // Global Error Handler Middleware (ensures JSON response on unexpected errors)
 app.use((err, req, res, next) => {

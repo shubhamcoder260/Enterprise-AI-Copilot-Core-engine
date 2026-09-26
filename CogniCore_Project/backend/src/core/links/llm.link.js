@@ -365,13 +365,14 @@ export async function executeLlmLink(ctx) {
         query,
         operation: "AUTO"
       });
-      if (outcome.payload && outcome.payload.meta) {
-        outcome.payload.meta.verification = vResult;
+      const targetResp = outcome.response || outcome.payload;
+      if (targetResp && targetResp.meta) {
+        targetResp.meta.verification = vResult;
       }
       if (!vResult.verified) {
         console.warn(`⚠️ [Verification Chain] Assertions ungrounded or arithmetic mismatched: ${vResult.failures.join(", ")}`);
-        if (vResult.honestNotice && outcome.payload) {
-          outcome.payload.answer = `${outcome.payload.answer}\n\n${vResult.honestNotice}`;
+        if (vResult.honestNotice && targetResp) {
+          targetResp.answer = `${targetResp.answer}\n\n${vResult.honestNotice}`;
         }
       }
     } catch (vErr) {

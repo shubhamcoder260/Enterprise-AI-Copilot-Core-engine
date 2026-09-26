@@ -1,0 +1,427 @@
+[
+  {
+    "id": 1,
+    "description": "Unauthenticated: null identity context rejected fail-closed",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": null,
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0102",
+        "personalEmail": "devon@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_UNAUTHENTICATED",
+      "error": "rls_write_unauthenticated:missing_identity"
+    }
+  },
+  {
+    "id": 2,
+    "description": "Unauthenticated: identity with empty roles array rejected fail-closed",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "anon",
+        "roles": []
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0102",
+        "personalEmail": "devon@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_UNAUTHENTICATED",
+      "error": "rls_write_unauthenticated:missing_identity"
+    }
+  },
+  {
+    "id": 3,
+    "description": "Invalid template: unregistered template ID rejected",
+    "input": {
+      "templateId": "DROP_ALL_TABLES",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {}
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:invalid_template"
+    }
+  },
+  {
+    "id": 4,
+    "description": "Disallowed table: attempt to write to payroll table tabSalary Slip rejected",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabSalary Slip",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0102",
+        "personalEmail": "devon@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:table_not_in_write_allowlist"
+    }
+  },
+  {
+    "id": 5,
+    "description": "Disallowed table: attempt to write to arbitrary unauthorized table rejected",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabUser",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0102",
+        "personalEmail": "devon@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:table_not_in_write_allowlist"
+    }
+  },
+  {
+    "id": 6,
+    "description": "Table mismatch: template target table mismatch (e.g. UPDATE_OWN_CONTACT on tabCustomer) rejected",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabCustomer",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0102",
+        "personalEmail": "devon@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:table_not_in_write_allowlist"
+    }
+  },
+  {
+    "id": 7,
+    "description": "Missing employee ID: employee identity lacks employeeId context",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "devon.vance",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0102",
+        "personalEmail": "devon@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:missing_employee_id"
+    }
+  },
+  {
+    "id": 8,
+    "description": "Cross-employee write: Devon Vance (EMP-002) attempting to update CEO Victoria Stirling (EMP-001) rejected",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "employeeId": "EMP-001",
+        "cellNumber": "+1-555-9999",
+        "personalEmail": "hacked@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:cross_employee_write"
+    }
+  },
+  {
+    "id": 9,
+    "description": "Cross-employee write: Devon Vance (EMP-002) attempting to update peer (EMP-003) rejected",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "employeeId": "EMP-003",
+        "cellNumber": "+1-555-0103",
+        "personalEmail": "peer@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:cross_employee_write"
+    }
+  },
+  {
+    "id": 10,
+    "description": "HR Manager: permitted to update contact for employee EMP-002",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "hr.admin",
+        "employeeId": "EMP-009",
+        "roles": ["HR Manager"]
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0102",
+        "personalEmail": "devon.vance@enterprise.corp"
+      }
+    },
+    "expected": {
+      "verdict": "ALLOW",
+      "error": null
+    }
+  },
+  {
+    "id": 11,
+    "description": "Executive: permitted company-wide employee contact updates",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "ceo.stirling",
+        "employeeId": "EMP-001",
+        "roles": ["Executive"]
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0102",
+        "personalEmail": "devon.vance@enterprise.corp"
+      }
+    },
+    "expected": {
+      "verdict": "ALLOW",
+      "error": null
+    }
+  },
+  {
+    "id": 12,
+    "description": "Self-service employee update: Devon Vance updating Devon Vance own contact allowed",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "cellNumber": "+1-555-0199",
+        "personalEmail": "devon.vance@enterprise.corp"
+      }
+    },
+    "expected": {
+      "verdict": "ALLOW",
+      "error": null
+    }
+  },
+  {
+    "id": 13,
+    "description": "Sales User: authorized to create customer",
+    "input": {
+      "templateId": "CREATE_CUSTOMER",
+      "targetTable": "tabCustomer",
+      "identity": {
+        "userId": "sales.rep1",
+        "roles": ["Sales User"]
+      },
+      "params": {
+        "customerName": "Nexus Global Logistics",
+        "customerType": "Company",
+        "customerGroup": "Commercial",
+        "territory": "All Territories"
+      }
+    },
+    "expected": {
+      "verdict": "ALLOW",
+      "error": null
+    }
+  },
+  {
+    "id": 14,
+    "description": "Accounts User: authorized to create customer",
+    "input": {
+      "templateId": "CREATE_CUSTOMER",
+      "targetTable": "tabCustomer",
+      "identity": {
+        "userId": "acct.clerk",
+        "roles": ["Accounts User"]
+      },
+      "params": {
+        "customerName": "Apex Technologies LLC",
+        "customerType": "Company",
+        "customerGroup": "Commercial",
+        "territory": "North America"
+      }
+    },
+    "expected": {
+      "verdict": "ALLOW",
+      "error": null
+    }
+  },
+  {
+    "id": 15,
+    "description": "Unauthorized role for customer creation: Employee role rejected",
+    "input": {
+      "templateId": "CREATE_CUSTOMER",
+      "targetTable": "tabCustomer",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "customerName": "Rogue Customer Inc",
+        "customerType": "Individual",
+        "customerGroup": "Commercial",
+        "territory": "All Territories"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:role_unauthorized"
+    }
+  },
+  {
+    "id": 16,
+    "description": "Sales Manager: authorized to update order status",
+    "input": {
+      "templateId": "UPDATE_ORDER_STATUS",
+      "targetTable": "tabSales Order",
+      "identity": {
+        "userId": "sales.mgr",
+        "roles": ["Sales Manager"]
+      },
+      "params": {
+        "orderId": "SO-2026-0001",
+        "status": "Completed"
+      }
+    },
+    "expected": {
+      "verdict": "ALLOW",
+      "error": null
+    }
+  },
+  {
+    "id": 17,
+    "description": "Sales User: authorized to update order status",
+    "input": {
+      "templateId": "UPDATE_ORDER_STATUS",
+      "targetTable": "tabSales Order",
+      "identity": {
+        "userId": "sales.rep",
+        "roles": ["Sales User"]
+      },
+      "params": {
+        "orderId": "SO-2026-0002",
+        "status": "To Deliver"
+      }
+    },
+    "expected": {
+      "verdict": "ALLOW",
+      "error": null
+    }
+  },
+  {
+    "id": 18,
+    "description": "Unauthorized role for order status update: Employee role rejected",
+    "input": {
+      "templateId": "UPDATE_ORDER_STATUS",
+      "targetTable": "tabSales Order",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "orderId": "SO-2026-0001",
+        "status": "Completed"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:role_unauthorized"
+    }
+  },
+  {
+    "id": 19,
+    "description": "Missing required parameter: UPDATE_OWN_CONTACT missing cellNumber rejected",
+    "input": {
+      "templateId": "UPDATE_OWN_CONTACT",
+      "targetTable": "tabEmployee",
+      "identity": {
+        "userId": "devon.vance",
+        "employeeId": "EMP-002",
+        "roles": ["Employee"]
+      },
+      "params": {
+        "employeeId": "EMP-002",
+        "personalEmail": "devon@example.com"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:missing_parameters"
+    }
+  },
+  {
+    "id": 20,
+    "description": "Empty parameter value: CREATE_CUSTOMER with empty customerName rejected",
+    "input": {
+      "templateId": "CREATE_CUSTOMER",
+      "targetTable": "tabCustomer",
+      "identity": {
+        "userId": "sales.rep1",
+        "roles": ["Sales User"]
+      },
+      "params": {
+        "customerName": "",
+        "customerType": "Company",
+        "customerGroup": "Commercial",
+        "territory": "All Territories"
+      }
+    },
+    "expected": {
+      "verdict": "REJECT_FORBIDDEN",
+      "error": "rls_write_forbidden:missing_parameters"
+    }
+  }
+]

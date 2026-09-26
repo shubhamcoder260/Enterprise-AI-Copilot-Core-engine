@@ -7,6 +7,7 @@
 
 import { deepFreeze, getDialect } from '../adapters/dialects/index.js';
 import { quoteIdentifier } from '../core/sql.builder.js';
+import { getTemplate } from './write.templates.js';
 
 export const RLS_VERDICT = deepFreeze({
   ALLOW: 'ALLOW',
@@ -26,18 +27,8 @@ export const RLS_VERDICT = deepFreeze({
  * @returns {object} { verdict, injectedPredicate, reason, error }
  */
 export function evaluateRlsPolicy({ tableName, identity, queryIntent = {}, dialect = 'mariadb' }) {
-  // Fail-closed if no identity or roles provided
-  if (!identity || !Array.isArray(identity.roles) || identity.roles.length === 0) {
-    return {
-      verdict: RLS_VERDICT.REJECT_UNAUTHENTICATED,
-      injectedPredicate: null,
-      error: 'rls_unauthenticated:missing_identity_context',
-      reason: 'No authenticated user identity provided in query context.'
-    };
-  }
-
   const cleanTable = String(tableName || '').replace(/[`"]/g, '');
-  const roles = new Set(identity.roles);
+  const roles = new Set(identity?.roles || []);
   const isExecutiveOrHr = roles.has('Executive') || roles.has('HR Manager');
 
   const empCol = quoteIdentifier('employee', dialect);
@@ -45,6 +36,16 @@ export function evaluateRlsPolicy({ tableName, identity, queryIntent = {}, diale
 
   // 1. HR SALARY SLIP POLICY (CEO-Salary Sentinel)
   if (cleanTable === 'tabSalary Slip' || cleanTable.toLowerCase() === 'salary_slips') {
+    // Fail-closed if no identity or roles provided for protected salary tables
+    if (!identity || !Array.isArray(identity.roles) || identity.roles.length === 0) {
+      return {
+        verdict: RLS_VERDICT.REJECT_UNAUTHENTICATED,
+        injectedPredicate: null,
+        error: 'rls_unauthenticated:missing_identity_context',
+        reason: 'No authenticated user identity provided in query context.'
+      };
+    }
+
     // Executive / HR Manager: permitted company-wide salary reporting
     if (isExecutiveOrHr) {
       return {
@@ -190,5 +191,131 @@ export function enforceRlsOnAst({ tables = [], sql = '', identity = null, dialec
     transformedSql: activeSql,
     error: null,
     reason: 'RLS policies evaluated successfully.'
+  };
+}
+
+/**
+ * Evaluates an incoming write action proposal against enterprise write RLS policies.
+ *
+ * @param {object} params
+ * @param {string} params.templateId - ID of the registered write template
+ * @param {string} params.targetTable - Target table for write
+ * @param {object} params.identity - Caller identity context { userId, employeeId, roles, company }
+ * @param {object} [params.params] - Bound parameter values for the template
+ * @returns {object} { verdict: string, error: string|null, reason: string }
+ */
+export function evaluateRlsWritePolicy({ templateId, targetTable, identity, params = {} }) {
+  // 1. Fail closed on unauthenticated or empty roles
+  if (!identity || !Array.isArray(identity.roles) || identity.roles.length === 0) {
+    return {
+      verdict: RLS_VERDICT.REJECT_UNAUTHENTICATED,
+      error: 'rls_write_unauthenticated:missing_identity',
+      reason: 'Unauthenticated writes are strictly forbidden.'
+    };
+  }
+
+  // 2. Validate template
+  const template = getTemplate(templateId);
+  if (!template) {
+    return {
+      verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+      error: 'rls_write_forbidden:invalid_template',
+      reason: `Template '${templateId}' does not exist in write registry.`
+    };
+  }
+
+  // 3. Table allowlist check
+  const cleanTable = String(targetTable || '').replace(/[`"]/g, '').trim();
+  if (!cleanTable) {
+    return {
+      verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+      error: 'rls_write_forbidden:missing_target_table',
+      reason: 'Target table is required for write operation.'
+    };
+  }
+
+  // Absolute hard block on salary/payroll tables
+  if (cleanTable.toLowerCase().includes('salary') || cleanTable.toLowerCase().includes('payroll')) {
+    return {
+      verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+      error: 'rls_write_forbidden:table_not_in_write_allowlist',
+      reason: 'Writes to payroll or protected tables are strictly forbidden.'
+    };
+  }
+
+  // Check if targetTable is allowlisted in the template
+  const allowedTables = new Set([
+    ...(template.targetTables || []),
+    template.allowedTable
+  ].filter(Boolean).map(t => t.toLowerCase()));
+
+  if (!allowedTables.has(cleanTable.toLowerCase())) {
+    return {
+      verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+      error: 'rls_write_forbidden:table_not_in_write_allowlist',
+      reason: `Table '${cleanTable}' is not in the write allowlist for template '${templateId}'.`
+    };
+  }
+
+  // 4. Parameter presence and validation
+  const requiredParams = template.requiredParams || [];
+  for (const p of requiredParams) {
+    if (params[p] === undefined || params[p] === null || params[p] === '') {
+      return {
+        verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+        error: 'rls_write_forbidden:missing_parameters',
+        reason: `Missing required parameter '${p}' for template '${templateId}'.`
+      };
+    }
+  }
+
+  // 5. Role authorization check
+  const userRoles = new Set(identity.roles);
+  const isExecutiveOrHr = userRoles.has('Executive') || userRoles.has('HR Manager');
+
+  // Permissible roles per template (CAP v2.2 requirements)
+  const roleAllowlist = {
+    UPDATE_OWN_CONTACT: ['Employee', 'HR Manager', 'Executive'],
+    CREATE_CUSTOMER: ['Sales User', 'Accounts User', 'Sales Manager', 'Executive'],
+    UPDATE_ORDER_STATUS: ['Sales Manager', 'Sales User', 'Executive']
+  };
+
+  const allowedRoles = roleAllowlist[templateId] || (template.requiredRole ? [template.requiredRole, 'Executive'] : ['Executive']);
+  const hasRole = allowedRoles.some(r => userRoles.has(r));
+
+  if (!hasRole) {
+    return {
+      verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+      error: 'rls_write_forbidden:role_unauthorized',
+      reason: `User roles [${identity.roles.join(', ')}] do not have permission for template '${templateId}'.`
+    };
+  }
+
+  // 6. Cross-employee write enforcement
+  if (templateId === 'UPDATE_OWN_CONTACT') {
+    const callerEmpId = identity.employeeId;
+    const targetEmpId = params.employeeId;
+
+    if (!callerEmpId && !isExecutiveOrHr) {
+      return {
+        verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+        error: 'rls_write_forbidden:missing_employee_id',
+        reason: 'Authenticated user has Employee role but lacks employeeId.'
+      };
+    }
+
+    if (callerEmpId && targetEmpId && callerEmpId !== targetEmpId && !isExecutiveOrHr) {
+      return {
+        verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+        error: 'rls_write_forbidden:cross_employee_write',
+        reason: `Employee '${callerEmpId}' cannot modify contact details of employee '${targetEmpId}'.`
+      };
+    }
+  }
+
+  return {
+    verdict: RLS_VERDICT.ALLOW,
+    error: null,
+    reason: `Write proposal authorized under template '${templateId}'.`
   };
 }

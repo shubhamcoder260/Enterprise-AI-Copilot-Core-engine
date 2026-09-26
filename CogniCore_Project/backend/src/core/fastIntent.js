@@ -340,11 +340,12 @@ export function compile(act, table, filters, dialect = "sqlite") {
   if (act.type === "topN" || act.type === "bottomN") {
     const col = act.orderCol;
     if (!col) return null;
+    const limitNum = Math.min(Math.max(1, parseInt(act.limit, 10) || 10), 100);
     return {
       sql: `SELECT * FROM ${qt}${wsql} ORDER BY ${quote(col)} ${
         act.type === "topN" ? "DESC" : "ASC"
-      } LIMIT ?`,
-      params: [...params, act.limit]
+      } LIMIT ${limitNum}`,
+      params
     };
   }
   if (act.type === "aggregate") {

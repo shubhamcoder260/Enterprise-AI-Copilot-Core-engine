@@ -124,7 +124,8 @@ export function validateAstCore(sql, options = {}) {
 
   let ast;
   try {
-    ast = parser.astify(cleanSql, { database: parserDb });
+    const parseSql = cleanSql.replace(/\bLIMIT\s+(\?|\$[0-9]+)/gi, "LIMIT 1");
+    ast = parser.astify(parseSql, { database: parserDb });
   } catch (err) {
     return { valid: false, reason: `ast_parse_error: ${err.message}` };
   }
@@ -197,7 +198,8 @@ export function validateAstCore(sql, options = {}) {
 
   let allQueryTables = [];
   try {
-    const tableList = parser.tableList(cleanSql, { database: parserDb }) || [];
+    const parseSql = cleanSql.replace(/\bLIMIT\s+(\?|\$[0-9]+)/gi, "LIMIT 1");
+    const tableList = parser.tableList(parseSql, { database: parserDb }) || [];
     allQueryTables = tableList.map((t) => t.split("::")[2]).filter(Boolean);
   } catch {
     allQueryTables = fromTables.map((f) => f.name);

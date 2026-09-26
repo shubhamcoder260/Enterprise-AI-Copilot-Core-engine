@@ -578,6 +578,197 @@ RLS LIVE PIPELINE RESULTS: 8/8 PASSED
 ==================================================
 ```
 
+---
+
+## 9. Phase D5 — The Action Gateway (Propose / Approve / Execute Write Pipeline)
+
+### 9.1 Governing Principle: The Read-Only Heart is Not Weakened
+Phase D5 introduces the system's first ability to modify external databases, but with an uncompromising safety constraint: the existing read-only query pipeline (`ai.controller.js` → `core.engine.js` → links → gate chain → read-only adapters) remains **100% read-only and physically unaltered**. Writes travel through a completely independent, newly-engineered pathway with dedicated write credentials, pre-registered immutable templates, row-level security write enforcement, a proposal/approval state machine enforcing separation of duties, and a tamper-evident append-only cryptographic audit log.
+
+---
+
+### 9.2 Key Architectural Mechanisms
+
+#### 1. Dedicated Write Credentials & Isolated Write Adapters
+- Existing `cognicore_ro` credentials and read-only adapters cannot write and have no write methods.
+- Created `cognicore_write` credentials in MariaDB (`GRANT SELECT, UPDATE ON tabEmployee`, `GRANT SELECT, INSERT ON tabCustomer`, `GRANT SELECT, UPDATE ON tabSales Order`) and PostgreSQL (`GRANT SELECT, INSERT ON customers`, `GRANT SELECT, UPDATE ON orders`).
+- Strict deny: zero `DELETE`, `DROP`, `ALTER`, or `TRUNCATE` grants on any table; zero grants on `tabSalary Slip`.
+- Write adapters created in `src/adapters/write/`:
+  - `mariadb.write-adapter.js`
+  - `postgres.write-adapter.js`
+  - `sqlite.write-adapter.js`
+- Write adapters expose **ONLY** `executeWrite(template, params, dryRun = false)`. They physically refuse raw SQL strings and accept only pre-registered template objects.
+
+#### 2. Fixed Template Registry (Zero Freeform AI SQL)
+- File: `src/security/write.templates.js`
+- Contains hand-authored, pre-registered templates deepFrozen at module load:
+  1. `UPDATE_OWN_CONTACT`: Self-service employee contact updates (`tabEmployee` / `employees`).
+  2. `CREATE_CUSTOMER`: Verified customer record creation (`tabCustomer` / `customers`).
+  3. `UPDATE_ORDER_STATUS`: Workflow order status updates (`tabSales Order` / `orders`).
+- Parameterization: Templates use strictly named placeholders (`:paramName`), rendered to bind tokens (`?` for MariaDB/SQLite, `$1..$n` for PostgreSQL). Zero string concatenation.
+
+#### 3. Enterprise RLS Write Policy
+- Function: `evaluateRlsWritePolicy({ templateId, targetTable, identity, params })` in `src/security/rls.policy.js`.
+- Rules enforced:
+  - **Fail-Closed Unauthenticated:** Rejects any proposal lacking an authenticated identity and roles (`REJECT_UNAUTHENTICATED`).
+  - **Table Allowlist:** Rejects attempts to write to unlisted tables or payroll tables (`tabSalary Slip`).
+  - **Cross-Employee Write Block:** Employees can only update their own record (`params.employeeId === identity.employeeId`), unless caller holds `HR Manager` or `Executive` role.
+  - **Role Requirements:** `UPDATE_ORDER_STATUS` requires `Sales Manager` or `Sales User`; `CREATE_CUSTOMER` requires `Sales User` or `Accounts User`.
+- Golden Corpus: `test/golden/rls_write_policy_golden.json` (20 test cases, 100% green).
+
+#### 4. Proposal / Approval State Machine & Separation of Duties
+- File: `src/security/action.gateway.js`
+- State Lifecycle:
+  - `DRY_RUN`: Propose with `dryRun: true` returns SQL preview and estimated row count without storing pending state.
+  - `PENDING`: Non-dry-run proposal stored with 15-minute expiration.
+  - `APPROVED`: Transitioned by authorized approver. Strictly enforces **Separation of Duties** (`approver.userId !== requester.userId`), unless the template declares `selfApproveEligible: true`.
+  - `REJECTED`: Terminal state recording rejecter identity and reason.
+  - `EXECUTED`: Dispatches write through the dedicated write adapter.
+  - `EXPIRED`: Actions not approved within TTL cannot be executed.
+
+#### 5. Append-Only Cryptographic Audit Log
+- File: `src/store/action.audit.log.js`
+- Blockchain-style forward SHA-256 hash chain: each entry computes `contentHash = SHA256(entryData + previousHash)`.
+- Immutability: Exposes **zero** update, delete, or truncate methods. Returned entries are `Object.freeze`'d.
+- Self-verifying: `actionAuditLog.verifyIntegrity()` verifies sequence numbers and SHA-256 chaining.
+
+---
+
+### 9.3 Verification Receipts
+
+```
+==================================================
+   STEP D5 — VERIFY WRITE TEMPLATES REGISTRY      
+==================================================
+✅ [PASS] Template Registry: minimum 3 real templates defined with required metadata
+✅ [PASS] deepFreeze Immutability: attempts to modify registry or templates are rejected
+✅ [PASS] Placeholder Safety: template SQL uses ONLY named placeholders (:param)
+✅ [PASS] Driver Binding: renderTemplate produces '?' for MariaDB/SQLite and '$n' for Postgres
+✅ [PASS] Parameter Enforcement: throws error if required parameter is missing or empty
+==================================================
+WRITE TEMPLATES RESULTS: 5/5 PASSED
+🏆 ALL WRITE TEMPLATES VERIFICATION TESTS GREEN
+==================================================
+
+==================================================
+   STEP D5 — VERIFY RLS WRITE POLICY GOLDEN       
+==================================================
+✅ [PASS] Case 1: Unauthenticated: null identity context rejected fail-closed
+✅ [PASS] Case 2: Unauthenticated: identity with empty roles array rejected fail-closed
+✅ [PASS] Case 3: Invalid template: unregistered template ID rejected
+✅ [PASS] Case 4: Disallowed table: attempt to write to payroll table tabSalary Slip rejected
+✅ [PASS] Case 5: Disallowed table: attempt to write to arbitrary unauthorized table rejected
+✅ [PASS] Case 6: Table mismatch: template target table mismatch (e.g. UPDATE_OWN_CONTACT on tabCustomer) rejected
+✅ [PASS] Case 7: Missing employee ID: employee identity lacks employeeId context
+✅ [PASS] Case 8: Cross-employee write: Devon Vance (EMP-002) attempting to update CEO Victoria Stirling (EMP-001) rejected
+✅ [PASS] Case 9: Cross-employee write: Devon Vance (EMP-002) attempting to update peer (EMP-003) rejected
+✅ [PASS] Case 10: HR Manager: permitted to update contact for employee EMP-002
+✅ [PASS] Case 11: Executive: permitted company-wide employee contact updates
+✅ [PASS] Case 12: Self-service employee update: Devon Vance updating Devon Vance own contact allowed
+✅ [PASS] Case 13: Sales User: authorized to create customer
+✅ [PASS] Case 14: Accounts User: authorized to create customer
+✅ [PASS] Case 15: Unauthorized role for customer creation: Employee role rejected
+✅ [PASS] Case 16: Sales Manager: authorized to update order status
+✅ [PASS] Case 17: Sales User: authorized to update order status
+✅ [PASS] Case 18: Unauthorized role for order status update: Employee role rejected
+✅ [PASS] Case 19: Missing required parameter: UPDATE_OWN_CONTACT missing cellNumber rejected
+✅ [PASS] Case 20: Empty parameter value: CREATE_CUSTOMER with empty customerName rejected
+==================================================
+RLS WRITE GOLDEN RESULTS: 20/20 PASSED
+🏆 ALL RLS WRITE POLICY GOLDEN CORPUS TESTS GREEN
+==================================================
+
+==================================================
+   STEP D5 — VERIFY ACTION AUDIT LOG INTEGRITY    
+==================================================
+✅ [PASS] Append-only property: update/delete/truncate access throws errors
+✅ [PASS] Hash-chain generation: sequential entries chain SHA-256 contentHash
+✅ [PASS] Immutability: entries returned by getEntries are frozen
+✅ [PASS] Tamper detection: deliberate corruption of hash chain fails verifyIntegrity()
+==================================================
+ACTION AUDIT LOG RESULTS: 4/4 PASSED
+🏆 ALL ACTION AUDIT LOG INTEGRITY TESTS GREEN
+==================================================
+
+==================================================
+   STEP D5 — VERIFY ACTION GATEWAY LIFECYCLE      
+==================================================
+✅ [PASS] Dry-Run Mode: returns preview SQL, does NOT store PENDING action
+✅ [PASS] Proposal: non-dryRun stores action in PENDING state with expiration
+✅ [PASS] Separation of Duties: requester cannot approve own non-eligible proposal
+✅ [PASS] Role Authorization: approver lacking required role is rejected
+✅ [PASS] Authorized Approval: Sales Manager approves PENDING -> APPROVED
+✅ [PASS] Self-Approval Eligibility: employee can self-approve UPDATE_OWN_CONTACT
+✅ [PASS] Rejection: rejectAction transitions PENDING -> REJECTED with audit reason
+✅ [PASS] TTL Expiration: action past TTL cannot be approved
+==================================================
+ACTION GATEWAY RESULTS: 8/8 PASSED
+🏆 ALL ACTION GATEWAY LIFECYCLE TESTS GREEN
+==================================================
+
+==================================================
+   STEP D5 — VERIFY LIVE ACTION GATEWAY DEMO      
+==================================================
+   Initial State: [EMP-002] Devon Vance | cell: +1-555-8350 | email: devon.vance.1790411748619@enterprise.corp
+✅ [PASS] Baseline: query initial employee record using read-only adapter
+   Dry run verified: Zero row modifications occurred in database.
+✅ [PASS] Dry Run: proposeAction with dryRun: true generates preview without DB mutation
+   Action Created: ID = 34b6cc2a-f034-4801-8625-38d213ba2471 (Status: PENDING)
+✅ [PASS] Proposal: proposeAction with dryRun: false creates PENDING action
+   Execution Succeeded: affectedRows = 1, duration = 25ms
+✅ [PASS] Approval & Execution: self-approval triggers live write via cognicore_write
+   Updated State: [EMP-002] Devon Vance | cell: +1-555-8789 | email: devon.vance.1790412400030@enterprise.corp
+✅ [PASS] Row Verification: read-only adapter confirms row values updated in live database
+   Cross-employee write attempt successfully refused by RLS write policy.
+✅ [PASS] RLS Write Guard: Devon Vance (EMP-002) attempting to update CEO (EMP-001) blocked
+   Audit Log Intact: 28 cryptographic entries verified cleanly.
+✅ [PASS] Audit Trail: verify SHA-256 forward hash-chain integrity across all actions
+==================================================
+LIVE ACTION DEMO RESULTS: 7/7 PASSED
+🏆 ALL LIVE ACTION GATEWAY DEMO TESTS GREEN
+==================================================
+
+==================================================
+   STEP 1 (D0a) — AUDIT FREEZE GATE (10 TIER-1)   
+==================================================
+✅ MATCH [SHA256]: src/llm/sql.validator.js
+✅ MATCH [SHA256]: src/kernel/gate.chain.js
+✅ MATCH [SHA256]: src/kernel/pipeline.config.js
+✅ MATCH [SHA256]: src/kernel/handler-result.js
+✅ MATCH [SHA256]: src/kernel/formatter.registry.js
+✅ MATCH [SHA256]: src/core/result.sanity.js
+✅ MATCH [SHA256]: src/core/guard-markers.js
+✅ MATCH [SHA256]: src/llm/llm.client.js
+✅ MATCH [SHA256]: src/config/semantic.profile.js
+✅ MATCH [SHA256]: src/config/database.js
+✅ GIT DIFF: 0 diffs across all 10 Tier-1 frozen files
+==================================================
+TIER-1 AUDIT: 10/10 files verified clean
+🏆 FREEZE GATE PASSED — ALL TIER-1 FILES UNTOUCHED
+==================================================
+
+════ verify_college_attendance
+  ✅
+════ verifyLlm1ValidatorSecurity
+  ✅
+════ verifyConnLifecycle
+  ✅
+════ verifyPipelineOverride
+  ✅
+════ verifyGateIntegrity
+  ✅
+════ verifyBypass
+  ✅
+════ verifyLitmusNewTool
+  ✅
+════ verifyTraceEvidence
+  ✅
+══════════════════════════
+REGRESSION: 8 passed, 0 failed
+🏆 FULL REGRESSION GREEN — BASE HOLDS
+```
+
+
 
 
 

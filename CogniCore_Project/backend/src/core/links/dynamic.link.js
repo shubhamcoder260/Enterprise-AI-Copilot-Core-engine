@@ -47,6 +47,10 @@ export async function executeDynamicLink({ query, organization, role, sessionId,
         answer = `You asked about company-wide salaries, but I can only show you your own salary record: ${formattedSalary}.`;
       }
 
+      if (!vResult.verified && vResult.honestNotice) {
+        answer = `${answer}\n\n${vResult.honestNotice}`;
+      }
+
       const res = ANSWERED({
         answer, 
         source: "dynamic",
@@ -64,9 +68,6 @@ export async function executeDynamicLink({ query, organization, role, sessionId,
           processingMs: Date.now() - startTime
         }
       });
-      if (!vResult.verified && vResult.honestNotice) {
-        res.payload.answer = `${res.payload.answer}\n\n${vResult.honestNotice}`;
-      }
       return res;
     }
 
