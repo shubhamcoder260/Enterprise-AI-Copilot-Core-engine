@@ -208,9 +208,13 @@ For follow-up questions that refer to the previous exchanges:
     presentationHint += "\n- Report shape: The user wants a report: return grouped aggregates and, if useful, a headline scalar.";
   }
 
-  const isMariaDb = String(dialect).toLowerCase() === "mariadb";
+  const d = String(dialect).toLowerCase();
+  const isMariaDb = d === "mariadb";
+  const isPostgres = d === "postgres" || d === "postgresql";
   const header = isMariaDb
     ? "You are a strict MariaDB SQL generator."
+    : isPostgres
+    ? "You are a strict PostgreSQL SQL generator."
     : "You are a strict SQLite SQL generator.";
 
   const dialectSpecificRules = isMariaDb
@@ -218,9 +222,16 @@ For follow-up questions that refer to the previous exchanges:
 - Docstatus: For ERPNext transactional tables with a docstatus column (e.g. \`tabSales Invoice\`), filter by \`docstatus\` = 1 for submitted documents.
 - Date Filtering: Prefer range predicates on date columns (e.g. \`posting_date\` >= 'YYYY-01-01' AND \`posting_date\` < 'YYYY+1-01-01') over YEAR() to preserve B-tree index eligibility.
 - Casing: MariaDB text searches are case-insensitive by default under utf8mb4_general_ci / utf8mb4_unicode_ci. Do not use COLLATE NOCASE.`
+    : isPostgres
+    ? `- Identifiers: Use double quotes to enclose table and column names (e.g. "customers", "order_date").
+- Date Functions: Safe date operations are DATE_TRUNC('month', col), EXTRACT(YEAR FROM col), and TO_CHAR(col, 'YYYY-MM').
+- Date Filtering: Prefer range predicates on date columns (e.g. "order_date" >= 'YYYY-01-01' AND "order_date" < 'YYYY+1-01-01') to preserve index eligibility.
+- Casing: PostgreSQL text comparisons are case-sensitive by default. Use ILIKE for case-insensitive matching or LOWER(col) = LOWER('val'). Do not use COLLATE NOCASE.`
     : `- Injected sample values: When filtering on a column where sample values are provided in the schema (e.g. status TEXT [values: 'Submitted', 'Late', 'Not Submitted']), you MUST use the EXACT casing from the sample values using string equality (e.g. status = 'Submitted' or status = 'Submitted' COLLATE NOCASE). Do not guess with arbitrary LIKE wildcards if the exact values are listed in the schema.
 - Unsampled text columns: For columns marked as [values: unknown/not sampled (large table)] or text columns without sample values, use COLLATE NOCASE (e.g. col = 'value' COLLATE NOCASE) or LIKE '%value%' or LOWER(col) = 'val' to ensure case-insensitive matching.
 - Identifiers: double-quote identifiers with spaces (e.g. "Column Name").`;
+
+  const dialectLabel = isMariaDb ? "MariaDB" : (isPostgres ? "PostgreSQL" : "SQLite");
 
   return `${header}
 
@@ -228,10 +239,9 @@ For follow-up questions that refer to the previous exchanges:
 ${schemaText || "No tables available in active database."}
 ${relText}
 ### Output Rules:
-1. Return ONLY one raw ${isMariaDb ? "MariaDB" : "SQLite"} SELECT statement.
+1. Return ONLY one raw ${dialectLabel} SELECT statement.
 2. No markdown, no explanation, no trailing semicolon.
 3. If no table in the schema plausibly matches the main noun of the question (e.g. patients, students, employees), respond with a single line starting with -- rather than guessing a mapping.
-
 
 ### Dialect & Schema Rules:
 ${dialectSpecificRules}

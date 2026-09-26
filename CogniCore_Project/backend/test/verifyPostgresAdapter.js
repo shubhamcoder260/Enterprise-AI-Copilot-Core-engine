@@ -51,37 +51,90 @@ async function testPostgresAdapter() {
   assert(paramRows.length >= 6, "Must retrieve 2024 orders");
   console.log("  ✅ Parameter conversion and execution verified");
 
-  // 4. Physical Server Write Rejection (Finding 1)
-  console.log("\n[4] Testing physical server write rejection (GRANT SELECT ONLY)...");
-  let writeBlocked = false;
-  let serverErrorCode = null;
-  let serverErrorMessage = "";
+  // 4a. Table Ownership Verification (Finding 1 Rigor)
+  console.log("\n[4a] Verifying Table Ownership in PostgreSQL (pg_tables)...");
+  const ownershipRows = await postgresAdapter.queryReadOnly(
+    "SELECT tablename, tableowner FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
+  );
+  console.log("  Table Owners:", ownershipRows.map(r => `${r.tablename} -> ${r.tableowner}`).join(", "));
+  for (const row of ownershipRows) {
+    assert.notStrictEqual(row.tableowner, "cognicore_ro", `Table ${row.tablename} must NOT be owned by cognicore_ro`);
+  }
+  console.log("  ✅ Zero tables owned by cognicore_ro — ownership bypass impossible");
+
+  // 4b. Primary Defense: Server-Level Privilege Enforcement (SQLSTATE 42501)
+  console.log("\n[4b] Testing PRIMARY Defense: Server-Level Privilege Enforcement (SQLSTATE 42501)...");
+  console.log("     Connecting explicitly WITHOUT session read-only (default_transaction_read_only = off)...");
+  
+  const { Client } = await import('pg');
+  const rawClient = new Client({
+    host: pgSource.host,
+    port: pgSource.port,
+    user: pgSource.user,
+    password: pgSource.password,
+    database: pgSource.database
+    // Note: NO options: "-c default_transaction_read_only=on"
+  });
+
+  await rawClient.connect();
+  await rawClient.query("SET default_transaction_read_only = off");
+  
+  const roCheck = await rawClient.query("SHOW default_transaction_read_only");
+  console.log(`     Session default_transaction_read_only is: ${roCheck.rows[0]?.default_transaction_read_only}`);
+  assert.strictEqual(roCheck.rows[0]?.default_transaction_read_only, "off", "Session must be in read-write mode to isolate privilege check");
+
+  let primaryBlocked = false;
+  let primaryCode = null;
+  let primaryMessage = "";
 
   try {
-    // Attempt physical INSERT on server
+    await rawClient.query(
+      'INSERT INTO "customers" ("name", "email", "city") VALUES ($1, $2, $3)',
+      ['Privilege Probe', 'probe@test.com', 'Nowhere']
+    );
+  } catch (err) {
+    primaryBlocked = true;
+    primaryCode = err.code;
+    primaryMessage = err.message;
+  } finally {
+    await rawClient.end();
+  }
+
+  console.log(`     Write blocked:       ${primaryBlocked}`);
+  console.log(`     Postgres error code: ${primaryCode}`);
+  console.log(`     Postgres message:    ${primaryMessage}`);
+
+  assert.strictEqual(primaryBlocked, true, "Physical write must be blocked by database server privilege check");
+  assert.strictEqual(primaryCode, "42501", "Server must return SQLSTATE 42501 (insufficient_privilege)");
+  assert(primaryMessage.toLowerCase().includes("permission denied for table"), "Error message must state 'permission denied for table'");
+  console.log("  ✅ PRIMARY SERVER PRIVILEGE ENFORCEMENT VERIFIED (SQLSTATE 42501)");
+
+  // 4c. Secondary Defense-in-Depth: Session Read-Only Enforcement (SQLSTATE 25006)
+  console.log("\n[4c] Testing SECONDARY Defense: Session Read-Only Defense-in-Depth (SQLSTATE 25006)...");
+  let secondaryBlocked = false;
+  let secondaryCode = null;
+  let secondaryMessage = "";
+
+  try {
+    // Attempt physical INSERT on server via adapter with session read-only active
     await postgresAdapter.queryReadOnly(
       'INSERT INTO "customers" ("name", "email", "city") VALUES (?, ?, ?)',
       ['Unauthorized Write', 'fail@test.com', 'Nowhere']
     );
   } catch (err) {
-    writeBlocked = true;
-    serverErrorCode = err.code;
-    serverErrorMessage = err.message;
+    secondaryBlocked = true;
+    secondaryCode = err.code;
+    secondaryMessage = err.message;
   }
 
-  console.log(`  Write blocked:       ${writeBlocked}`);
-  console.log(`  Postgres error code: ${serverErrorCode}`);
-  console.log(`  Postgres message:    ${serverErrorMessage}`);
+  console.log(`     Write blocked:       ${secondaryBlocked}`);
+  console.log(`     Postgres error code: ${secondaryCode}`);
+  console.log(`     Postgres message:    ${secondaryMessage}`);
 
-  assert.strictEqual(writeBlocked, true, "Physical write must be blocked by the server");
-  assert(
-    serverErrorMessage.toLowerCase().includes("permission denied") ||
-    serverErrorMessage.toLowerCase().includes("read-only") ||
-    serverErrorCode === "42501" ||
-    serverErrorCode === "25006",
-    `Server must reject write with permission denied or read-only error (got: ${serverErrorMessage})`
-  );
-  console.log("  ✅ Physical server write rejection verified (Finding 1 satisfied)");
+  assert.strictEqual(secondaryBlocked, true, "Physical write must be blocked by session read-only check");
+  assert.strictEqual(secondaryCode, "25006", "Session read-only check must return SQLSTATE 25006 (read_only_sql_transaction)");
+  assert(secondaryMessage.toLowerCase().includes("read-only transaction"), "Error message must indicate read-only transaction");
+  console.log("  ✅ SECONDARY DEFENSE-IN-DEPTH VERIFIED (SQLSTATE 25006)");
 
   // 5. Schema Introspection
   console.log("\n[5] Introspecting schema via PostgreSQL Schema Reader...");

@@ -303,15 +303,29 @@ Per CAP v2.2 §204 / §281, the onboarding-hours thesis states that adding a thi
 ### 7.2 Physical Read-Only Enforcement Receipt (User Finding 1)
 
 PostgreSQL security adheres to L-1's physical enforcement standard:
-1. Dedicated server role `cognicore_ro` provisioned with `GRANT SELECT ON ALL TABLES IN SCHEMA public TO cognicore_ro;` and explicit `REVOKE INSERT, UPDATE, DELETE, TRUNCATE ...`.
-2. Connection-level defense-in-depth: `options: "-c default_transaction_read_only=on"` applied at the protocol handshake.
-3. Physical server rejection test output (`test/verifyPostgresAdapter.js`):
+1. **Table Ownership Verification:** All tables are owned by superuser/admin role `postgres`, NOT `cognicore_ro`. `cognicore_ro` owns 0 tables in `public`, preventing ownership bypass of `REVOKE` grants.
+2. **Dedicated Read-Only Role:** `cognicore_ro` provisioned with `GRANT SELECT ON ALL TABLES IN SCHEMA public TO cognicore_ro;` and explicit `REVOKE INSERT, UPDATE, DELETE, TRUNCATE ...`.
+3. **Primary Server-Level Privilege Test (SQLSTATE 42501):** Connection established explicitly with session read-only turned `off` (`default_transaction_read_only = off`), proving that the Postgres server itself rejects write operations based purely on role privileges:
 ```
-[4] Testing physical server write rejection (GRANT SELECT ONLY)...
-  Write blocked:       true
-  Postgres error code: 25006
-  Postgres message:    cannot execute INSERT in a read-only transaction
-  ✅ Physical server write rejection verified (Finding 1 satisfied)
+[4a] Verifying Table Ownership in PostgreSQL (pg_tables)...
+  Table Owners: customers -> postgres, items -> postgres, orders -> postgres
+  ✅ Zero tables owned by cognicore_ro — ownership bypass impossible
+
+[4b] Testing PRIMARY Defense: Server-Level Privilege Enforcement (SQLSTATE 42501)...
+     Connecting explicitly WITHOUT session read-only (default_transaction_read_only = off)...
+     Session default_transaction_read_only is: off
+     Write blocked:       true
+     Postgres error code: 42501
+     Postgres message:    permission denied for table customers
+  ✅ PRIMARY SERVER PRIVILEGE ENFORCEMENT VERIFIED (SQLSTATE 42501)
+```
+4. **Secondary Defense-in-Depth Receipt (SQLSTATE 25006):**
+```
+[4c] Testing SECONDARY Defense: Session Read-Only Defense-in-Depth (SQLSTATE 25006)...
+     Write blocked:       true
+     Postgres error code: 25006
+     Postgres message:    cannot execute INSERT in a read-only transaction
+  ✅ SECONDARY DEFENSE-IN-DEPTH VERIFIED (SQLSTATE 25006)
 ```
 
 ### 7.3 Dangerous Vector AST Gate Corpus Receipt (User Finding 2)
