@@ -15,12 +15,18 @@ for f in \
   verify_unpolicied_table_rls \
   verifyFastIntentGolden \
   verifyGateSelector \
-  verifyRlsPolicyGolden; do
+  verifyRlsPolicyGolden \
+  verify_rls_live_pipeline \
+  verifyWriteTemplates \
+  verifyRlsWritePolicyGolden \
+  verify_action_audit_log \
+  verify_action_gateway_lifecycle \
+  verify_live_action_demo; do
   echo "════ $f"
   node "$f.js" > "/tmp/litmus-$f.log" 2>&1 && { echo "  ✅"; PASS=$((PASS+1)); } \
     || { echo "  ❌ FAILED — see /tmp/litmus-$f.log"; FAIL=$((FAIL+1)); }
 done
 echo "══════════════════════════"
 echo "REGRESSION: $PASS passed, $FAIL failed ($PASS/$((PASS+FAIL)))"
-[ $FAIL -eq 0 ] && echo "🏆 FULL REGRESSION GREEN — BASE HOLDS (12/12)" || echo "🚨 BASE INTEGRITY BREACH"
+[ $FAIL -eq 0 ] && echo "🏆 FULL REGRESSION GREEN — BASE HOLDS (18/18)" || echo "🚨 BASE INTEGRITY BREACH"
 exit $FAIL
