@@ -17,6 +17,77 @@ export const RLS_VERDICT = deepFreeze({
 });
 
 /**
+ * Core Authorization Primitive: Single Source of Truth for Employee Record Scoping.
+ * Evaluates whether a caller identity is authorized to access or mutate records
+ * belonging to targetEmployeeId / targetEmployeeName.
+ *
+ * Rules:
+ *  - Executive / HR Manager roles: Company-wide authorization.
+ *  - Employee role: Strictly restricted to their own employeeId. Cross-employee access denied.
+ *  - Missing employeeId for Employee role: Denied fail-closed.
+ *  - Other roles: Denied.
+ *
+ * Shared identically by evaluateRlsPolicy (read) and evaluateRlsWritePolicy (write).
+ *
+ * @param {object} params
+ * @param {object} params.identity - Identity context { userId, employeeId, roles }
+ * @param {string} [params.targetEmployeeId] - Specific employeeId being queried or mutated
+ * @param {string} [params.targetEmployeeName] - Target employee name for probe detection (CEO/Victoria Stirling)
+ * @returns {{ allowed: boolean, isExecutiveOrHr: boolean, callerEmpId?: string, error?: string, reason?: string }}
+ */
+export function verifyEmployeeScopeAuthorization({ identity, targetEmployeeId, targetEmployeeName }) {
+  const roles = new Set(identity?.roles || []);
+  const isExecutiveOrHr = roles.has('Executive') || roles.has('HR Manager');
+
+  if (isExecutiveOrHr) {
+    return {
+      allowed: true,
+      isExecutiveOrHr: true,
+      callerEmpId: identity?.employeeId || null,
+      reason: 'Authorized role (Executive/HR) permitted company-wide salary reporting.'
+    };
+  }
+
+  if (roles.has('Employee')) {
+    const callerEmpId = identity?.employeeId;
+    if (!callerEmpId || typeof callerEmpId !== 'string' || !callerEmpId.trim()) {
+      return {
+        allowed: false,
+        isExecutiveOrHr: false,
+        error: 'missing_employee_id',
+        reason: 'Authenticated user has Employee role but lacks a valid employeeId.'
+      };
+    }
+
+    if (
+      (targetEmployeeId && targetEmployeeId !== callerEmpId) ||
+      (targetEmployeeName && (targetEmployeeName.toLowerCase().includes('ceo') || targetEmployeeName.toLowerCase().includes('victoria stirling')))
+    ) {
+      return {
+        allowed: false,
+        isExecutiveOrHr: false,
+        error: 'cross_employee_access',
+        reason: 'Access to salary records of other employees is restricted by enterprise policy.'
+      };
+    }
+
+    return {
+      allowed: true,
+      isExecutiveOrHr: false,
+      callerEmpId,
+      reason: `Scoped query strictly to authenticated employee ${callerEmpId}.`
+    };
+  }
+
+  return {
+    allowed: false,
+    isExecutiveOrHr: false,
+    error: 'role_unauthorized',
+    reason: 'User role lacks permission to query payroll records.'
+  };
+}
+
+/**
  * Evaluates an incoming table reference and user identity against the enterprise RLS policy.
  *
  * @param {object} params
@@ -28,8 +99,6 @@ export const RLS_VERDICT = deepFreeze({
  */
 export function evaluateRlsPolicy({ tableName, identity, queryIntent = {}, dialect = 'mariadb' }) {
   const cleanTable = String(tableName || '').replace(/[`"]/g, '');
-  const roles = new Set(identity?.roles || []);
-  const isExecutiveOrHr = roles.has('Executive') || roles.has('HR Manager');
 
   const empCol = quoteIdentifier('employee', dialect);
   const docstatusCol = quoteIdentifier('docstatus', dialect);
@@ -46,57 +115,39 @@ export function evaluateRlsPolicy({ tableName, identity, queryIntent = {}, diale
       };
     }
 
-    // Executive / HR Manager: permitted company-wide salary reporting
-    if (isExecutiveOrHr) {
+    const auth = verifyEmployeeScopeAuthorization({
+      identity,
+      targetEmployeeId: queryIntent.targetEmployeeId,
+      targetEmployeeName: queryIntent.targetEmployeeName
+    });
+
+    if (!auth.allowed) {
+      const errMap = {
+        missing_employee_id: 'rls_forbidden:missing_employee_id',
+        cross_employee_access: 'rls_forbidden:unauthorized_salary_access',
+        role_unauthorized: 'rls_forbidden:role_unauthorized'
+      };
+      return {
+        verdict: RLS_VERDICT.REJECT_FORBIDDEN,
+        injectedPredicate: null,
+        error: errMap[auth.error] || 'rls_forbidden:access_denied',
+        reason: auth.reason
+      };
+    }
+
+    if (auth.isExecutiveOrHr) {
       return {
         verdict: RLS_VERDICT.ALLOW,
         injectedPredicate: `${docstatusCol} = 1`,
-        reason: 'Authorized role (Executive/HR) permitted company-wide salary reporting.'
+        reason: auth.reason
       };
     }
 
-    // Standard employee role
-    if (roles.has('Employee')) {
-      const empId = identity.employeeId;
-      if (!empId || typeof empId !== 'string' || !empId.trim()) {
-        return {
-          verdict: RLS_VERDICT.REJECT_FORBIDDEN,
-          injectedPredicate: null,
-          error: 'rls_forbidden:missing_employee_id',
-          reason: 'Authenticated user has Employee role but lacks a valid employeeId.'
-        };
-      }
-
-      const targetEmp = queryIntent.targetEmployeeId;
-      const targetName = queryIntent.targetEmployeeName;
-
-      // Direct probe of another employee (e.g. Victoria Stirling / CEO EMP-001 or peer)
-      if (
-        (targetEmp && targetEmp !== empId) ||
-        (targetName && (targetName.toLowerCase().includes('ceo') || targetName.toLowerCase().includes('victoria stirling')))
-      ) {
-        return {
-          verdict: RLS_VERDICT.REJECT_FORBIDDEN,
-          injectedPredicate: null,
-          error: 'rls_forbidden:unauthorized_salary_access',
-          reason: 'Access to salary records of other employees is restricted by enterprise policy.'
-        };
-      }
-
-      // Self-service salary query: inject predicate restricting strictly to caller's employeeId
-      return {
-        verdict: RLS_VERDICT.INJECT_PREDICATE,
-        injectedPredicate: `${empCol} = '${empId}' AND ${docstatusCol} = 1`,
-        reason: `Scoped query strictly to authenticated employee ${empId}.`
-      };
-    }
-
-    // Any other unauthorized role
+    // Standard employee self-service query: inject predicate
     return {
-      verdict: RLS_VERDICT.REJECT_FORBIDDEN,
-      injectedPredicate: null,
-      error: 'rls_forbidden:role_unauthorized',
-      reason: 'User role lacks permission to query payroll records.'
+      verdict: RLS_VERDICT.INJECT_PREDICATE,
+      injectedPredicate: `${empCol} = '${auth.callerEmpId}' AND ${docstatusCol} = 1`,
+      reason: auth.reason
     };
   }
 
@@ -291,24 +342,23 @@ export function evaluateRlsWritePolicy({ templateId, targetTable, identity, para
     };
   }
 
-  // 6. Cross-employee write enforcement
+  // 6. Cross-employee write enforcement using the shared authorization primitive
   if (templateId === 'UPDATE_OWN_CONTACT') {
-    const callerEmpId = identity.employeeId;
-    const targetEmpId = params.employeeId;
+    const auth = verifyEmployeeScopeAuthorization({
+      identity,
+      targetEmployeeId: params.employeeId
+    });
 
-    if (!callerEmpId && !isExecutiveOrHr) {
-      return {
-        verdict: RLS_VERDICT.REJECT_FORBIDDEN,
-        error: 'rls_write_forbidden:missing_employee_id',
-        reason: 'Authenticated user has Employee role but lacks employeeId.'
+    if (!auth.allowed) {
+      const writeErrMap = {
+        missing_employee_id: 'rls_write_forbidden:missing_employee_id',
+        cross_employee_access: 'rls_write_forbidden:cross_employee_write',
+        role_unauthorized: 'rls_write_forbidden:role_unauthorized'
       };
-    }
-
-    if (callerEmpId && targetEmpId && callerEmpId !== targetEmpId && !isExecutiveOrHr) {
       return {
         verdict: RLS_VERDICT.REJECT_FORBIDDEN,
-        error: 'rls_write_forbidden:cross_employee_write',
-        reason: `Employee '${callerEmpId}' cannot modify contact details of employee '${targetEmpId}'.`
+        error: writeErrMap[auth.error] || 'rls_write_forbidden:access_denied',
+        reason: auth.reason
       };
     }
   }
