@@ -87,7 +87,14 @@ export function verifyEmployeeScopeAuthorization({ identity, targetEmployeeId, t
   };
 }
 
-export const OPEN_TABLES_ALLOWLIST = deepFreeze(new Set([
+function freezeSet(set) {
+  set.add = function() { throw new TypeError("Cannot add to frozen Set: OPEN_TABLES_ALLOWLIST is immutable"); };
+  set.delete = function() { throw new TypeError("Cannot delete from frozen Set: OPEN_TABLES_ALLOWLIST is immutable"); };
+  set.clear = function() { throw new TypeError("Cannot clear frozen Set: OPEN_TABLES_ALLOWLIST is immutable"); };
+  return Object.freeze(set);
+}
+
+export const OPEN_TABLES_ALLOWLIST = freezeSet(new Set([
   // ERPNext (MariaDB) standard transactional and catalog DocTypes
   "tabcustomer",
   "tabsales invoice",

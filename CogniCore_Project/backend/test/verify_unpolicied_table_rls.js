@@ -1,5 +1,5 @@
 import assert from "assert";
-import { evaluateRlsPolicy, enforceRlsOnAst, RLS_VERDICT } from "../src/security/rls.policy.js";
+import { evaluateRlsPolicy, enforceRlsOnAst, RLS_VERDICT, OPEN_TABLES_ALLOWLIST } from "../src/security/rls.policy.js";
 import { validateAstCore } from "../src/kernel/ast.gate.core.js";
 
 console.log("==================================================");
@@ -72,6 +72,22 @@ test("evaluateRlsPolicy permits explicitly allowlisted table (students)", () => 
   });
   assert.strictEqual(res.verdict, RLS_VERDICT.ALLOW);
   assert.strictEqual(res.injectedPredicate, null);
+});
+
+test("OPEN_TABLES_ALLOWLIST is strictly immutable at runtime", () => {
+  assert.throws(() => {
+    OPEN_TABLES_ALLOWLIST.add("malicious_unpolicied_table");
+  }, /^TypeError: Cannot add to frozen Set/);
+
+  assert.throws(() => {
+    OPEN_TABLES_ALLOWLIST.delete("tabcustomer");
+  }, /^TypeError: Cannot delete from frozen Set/);
+
+  assert.throws(() => {
+    OPEN_TABLES_ALLOWLIST.clear();
+  }, /^TypeError: Cannot clear frozen Set/);
+
+  assert.strictEqual(Object.isFrozen(OPEN_TABLES_ALLOWLIST), true);
 });
 
 // 2. enforceRlsOnAst checks
