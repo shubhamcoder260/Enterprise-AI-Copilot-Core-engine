@@ -38,6 +38,26 @@ export const MARIADB_ALLOWED_FUNCTIONS = new Set([
   "ROUND"
 ]);
 
+export const POSTGRES_ALLOWED_FUNCTIONS = new Set([
+  "COUNT",
+  "SUM",
+  "AVG",
+  "MIN",
+  "MAX",
+  "DATE_TRUNC",
+  "DATE_PART",
+  "EXTRACT",
+  "TO_CHAR",
+  "NOW",
+  "CONCAT",
+  "LOWER",
+  "UPPER",
+  "ROUND",
+  "COALESCE",
+  "NULLIF",
+  "ABS"
+]);
+
 export const AGGREGATE_FUNCTIONS = new Set([
   "COUNT",
   "SUM",
@@ -85,12 +105,20 @@ export function validateAstCore(sql, options = {}) {
 
   const cleanSql = sql.trim().replace(/;+$/, "").trim();
   const dialect = (options.dialect || "sqlite").toLowerCase();
-  const parserDb = dialect === "mariadb" ? "mariadb" : "sqlite";
-  const allowedFunctions = options.allowedFunctions || (dialect === "mariadb" ? MARIADB_ALLOWED_FUNCTIONS : DEFAULT_ALLOWED_FUNCTIONS);
+  const isPg = dialect === "postgres" || dialect === "postgresql";
+  const parserDb = dialect === "mariadb" ? "mariadb" : (isPg ? "postgresql" : "sqlite");
+  const allowedFunctions = options.allowedFunctions || (
+    dialect === "mariadb" ? MARIADB_ALLOWED_FUNCTIONS : (isPg ? POSTGRES_ALLOWED_FUNCTIONS : DEFAULT_ALLOWED_FUNCTIONS)
+  );
 
   // A2 Check for MariaDB: reject INTO OUTFILE and INTO DUMPFILE
   if (dialect === "mariadb" && /INTO\s+(OUTFILE|DUMPFILE)/i.test(cleanSql)) {
     return { valid: false, reason: "ast_disallowed_clause:into_outfile" };
+  }
+
+  // Check for Postgres: reject COPY TO/FROM PROGRAM
+  if (isPg && /COPY\s+.*\s+(FROM|TO)\s+PROGRAM/i.test(cleanSql)) {
+    return { valid: false, reason: "ast_disallowed_clause:copy_program" };
   }
 
   let ast;

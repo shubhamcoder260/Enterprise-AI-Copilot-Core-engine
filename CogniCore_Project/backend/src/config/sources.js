@@ -34,8 +34,19 @@ function initCatalog() {
     status: "available"
   };
 
+  const postgresSource = {
+    id: "postgres_default",
+    name: "PostgreSQL (Enterprise)",
+    kind: "postgres",
+    dialect: "postgres",
+    credentialRef: "env:postgres",
+    profileRef: "postgres",
+    status: "available"
+  };
+
   sourcesCatalog.set(sqliteSource.id, sqliteSource);
   sourcesCatalog.set(erpnextSource.id, erpnextSource);
+  sourcesCatalog.set(postgresSource.id, postgresSource);
 }
 
 initCatalog();

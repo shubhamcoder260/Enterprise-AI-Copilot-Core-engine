@@ -9,6 +9,9 @@ import { GATE_CHAIN } from "./gate.chain.js";
 import { mariadbValidator } from "../llm/mariadb.validator.js";
 import { astGateMariadb } from "./ast.gate.mariadb.js";
 import { mariadbAdapter } from "../adapters/mariadb.adapter.js";
+import { postgresValidator } from "../llm/postgres.validator.js";
+import { astGatePostgres } from "./ast.gate.postgres.js";
+import { postgresAdapter } from "../adapters/postgres.adapter.js";
 import { deepFreeze } from "../adapters/dialects/index.js";
 
 export const readonlyExecutorMariaDB = {
@@ -21,9 +24,20 @@ export const readonlyExecutorMariaDB = {
   }
 };
 
+export const readonlyExecutorPostgres = {
+  name: "readonly-executor",
+  type: "execute",
+  run: async (sql, options = {}) => {
+    const adapter = options?.capabilities?.db || postgresAdapter;
+    return await adapter.executeReadOnlySql(sql, options?.params || []);
+  }
+};
+
 export const GATE_CHAINS = deepFreeze({
   sqlite: GATE_CHAIN, // Identity equality: === GATE_CHAIN
-  mariadb: [mariadbValidator, astGateMariadb, readonlyExecutorMariaDB]
+  mariadb: [mariadbValidator, astGateMariadb, readonlyExecutorMariaDB],
+  postgres: [postgresValidator, astGatePostgres, readonlyExecutorPostgres],
+  postgresql: [postgresValidator, astGatePostgres, readonlyExecutorPostgres]
 });
 
 /**

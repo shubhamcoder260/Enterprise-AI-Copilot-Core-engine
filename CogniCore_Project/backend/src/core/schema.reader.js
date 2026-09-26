@@ -217,17 +217,21 @@ export async function getEnrichedSchema(dbInstance, options = {}) {
 
 import { getActiveSource } from "../kernel/switch.orchestrator.js";
 import { getMariaDbEnrichedSchema, clearMariaDbSchemaCache } from "./mariadb.schema.reader.js";
+import { getPostgresEnrichedSchema, clearPostgresSchemaCache } from "./postgres.schema.reader.js";
 
-export { getMariaDbEnrichedSchema, clearMariaDbSchemaCache };
+export { getMariaDbEnrichedSchema, clearMariaDbSchemaCache, getPostgresEnrichedSchema, clearPostgresSchemaCache };
 
 /**
  * Standard reader wrapper maintaining backward compatibility across core engine & tests.
- * Dispatches to MariaDB information_schema reader when active source dialect is 'mariadb'.
+ * Dispatches to MariaDB or PostgreSQL information_schema reader when active source dialect matches.
  */
 export async function readDatabaseSchema(forceRefresh = false, options = {}) {
   const activeSource = options.source || getActiveSource();
   if (activeSource?.dialect === "mariadb") {
     return await getMariaDbEnrichedSchema(options.adapter, { forceRefresh, ...options });
+  }
+  if (activeSource?.dialect === "postgres" || activeSource?.dialect === "postgresql") {
+    return await getPostgresEnrichedSchema(options.adapter, { forceRefresh, ...options });
   }
   return await getEnrichedSchema(null, { forceRefresh, ...options });
 }

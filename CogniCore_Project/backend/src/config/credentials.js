@@ -22,6 +22,16 @@ export function resolveCredentials(credentialRef) {
         apiSecret: process.env.ERPNEXT_API_SECRET || ""
       };
 
+    case "env:postgres":
+    case "postgres":
+      return {
+        host: process.env.PGHOST || process.env.POSTGRES_HOST || "127.0.0.1",
+        port: parseInt(process.env.PGPORT || process.env.POSTGRES_PORT || "5432", 10),
+        user: process.env.PGUSER || process.env.POSTGRES_USER || "cognicore_ro",
+        password: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || "cognicore_ro_password",
+        database: process.env.PGDATABASE || process.env.POSTGRES_DB || "cognicore_pg_test"
+      };
+
     case "env:sqlite":
     case "sqlite":
       return {};

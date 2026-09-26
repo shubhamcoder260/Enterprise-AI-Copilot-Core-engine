@@ -2,6 +2,9 @@
 // FAST INTENT ROUTER — Deterministic NL → Parameterized SQL Router
 // Returns { sql, params, shape, table } or null.
 //
+// RE-PIN #5: Phase D3 multi-dialect ratio, time-window, and dynamic-tier porting.
+// Date: 2026-09-26 | Author: Antigravity | Equivalence: 18/18 golden cases verified
+//
 // Invariants (§2 of Part 1 Build Plan):
 //   • NEVER executes SQL — only builds plans for query.executor.js
 //   • Parameterized values only (? placeholders)
@@ -79,6 +82,7 @@ export function pickTable(tokens, schema, getDistinct) {
 
   for (const t of tables) {
     const tn = norm(t.name);
+    const cleanTn = tn.startsWith("tab") ? tn.slice(3) : tn;
     const cols = (t.columns || []).map((c) => norm(c.name));
     const distinctVals = typeof getDistinct === "function" ? getDistinct(t.name) || [] : [];
 
@@ -86,13 +90,21 @@ export function pickTable(tokens, schema, getDistinct) {
     let s = 0;
 
     for (const tok of tokens) {
-      if (tn === tok) {
+      if (
+        tn === tok ||
+        cleanTn === tok ||
+        cleanTn + "s" === tok ||
+        tok + "s" === cleanTn
+      ) {
         matchedTokens.add(tok);
         s += 3;
       } else if (
         tn.includes(tok) ||
         tok.includes(tn) ||
-        (tn.length > 4 && tok.length > 4 && editDistance(tn, tok) <= 2)
+        cleanTn.includes(tok) ||
+        tok.includes(cleanTn) ||
+        (tn.length > 4 && tok.length > 4 && editDistance(tn, tok) <= 2) ||
+        (cleanTn.length > 4 && tok.length > 4 && editDistance(cleanTn, tok) <= 2)
       ) {
         matchedTokens.add(tok);
         s += 2;
@@ -170,7 +182,7 @@ export function detectAction(q) {
 
 // "student id = 80" | "student id 80" | "id 80" → { column, op:"=", value }
 // "more than|above|over|greater than N" → { op:">" } ; "at least N" → { op:">=" }
-export function extractFilters(q, table, getDistinct) {
+export function extractFilters(q, table, getDistinct, dialect = "sqlite") {
   const filters = [];
   const queryStr = String(q || "");
 
@@ -303,8 +315,8 @@ export function extractFilters(q, table, getDistinct) {
 }
 
 export function compile(act, table, filters, dialect = "sqlite") {
-  const isMaria = dialect === "mariadb";
-  const quote = isMaria ? (d) => `\`${d}\`` : (d) => `"${d}"`;
+  const d = getDialect(dialect);
+  const quote = d && typeof d.quote === "function" ? d.quote : (val) => `"${val}"`;
   const where = filters.length ? filters : [];
   const wsql = where.length
     ? " WHERE " + where.map((f) => `${quote(f.column)} ${f.op} ?`).join(" AND ")
@@ -382,7 +394,7 @@ export function resolveOrderedCol(q, table) {
  * @param {object} deps - Injected dependencies: { getSchema, getDistinct, isLongFormat }
  * @returns {object|null} - { sql, params, shape, table } or null
  */
-export function tryRoute(question, deps) {
+export function tryRoute(question, deps, dialect = "sqlite") {
   if (!question || !deps || typeof deps.getSchema !== "function") return null;
 
   const rawSchema = deps.getSchema();
@@ -404,6 +416,8 @@ export function tryRoute(question, deps) {
   let table = pickTable(tokenize(question), schema, deps.getDistinct);
   if (!table) return null;
 
+  const activeDialect = (dialect || deps.dialect || deps.source?.dialect || "sqlite").toLowerCase();
+
   // b1 Guard: Reject grouping/count-by markers that require GROUP BY aggregation
   const gbCheck = checkGroupByRequired(question, table);
   if (gbCheck.requiresGroupBy) {
@@ -411,7 +425,7 @@ export function tryRoute(question, deps) {
   }
 
   let act = detectAction(question);
-  let filters = extractFilters(question, table, deps.getDistinct);
+  let filters = extractFilters(question, table, deps.getDistinct, activeDialect);
   if (filters === null) return null;
 
   if (!act) {
@@ -456,14 +470,12 @@ export function tryRoute(question, deps) {
       );
     if (altTable) {
       table = altTable;
-      filters = extractFilters(question, table, deps.getDistinct);
+      filters = extractFilters(question, table, deps.getDistinct, activeDialect);
       if (filters === null) return null;
     } else {
       return null;
     }
   }
-
-  const dialect = (deps.dialect || deps.source?.dialect || "sqlite").toLowerCase();
 
   // NUMERIC COVERAGE GUARD: every number in the question must be consumed. Else refuse.
   const asked = (question.match(/\d+/g) || []).map(Number);
@@ -532,7 +544,7 @@ export function tryRoute(question, deps) {
     }
   }
 
-  const out = compile(act, table, filters, dialect);
+  const out = compile(act, table, filters, activeDialect);
   return out
     ? {
         ...out,

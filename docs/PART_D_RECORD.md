@@ -268,4 +268,112 @@ Across all submittable transactional tables (`tabSales Invoice`, `tabSales Order
 ==================================================
 ```
 
+---
+
+## 7. Phase D3 — PostgreSQL Adapter, FastIntent Re-Pin #5 & Onboarding-Hours Thesis
+
+| Step | Milestone / Receipt | Target / Assertion | Status |
+|---|---|---|---|
+| **D3a** | Baseline Snapshot & Audit Freeze | 10/10 Tier-1 pristine; Re-Pin #4 golden snapshot at `test/golden/fast_intent_repin4_snapshot.json` | ✅ **PASSED** (10/10 clean, 18/18 FI green) |
+| **D3b** | Scheduled STABLE Edit (`sql.builder.js`) | `quoteIdentifier(name, dialect)` consumes `getDialect(dialect).quote()`; SQLite (`"col"`), MariaDB (`` `col` ``), Postgres (`"col"`) | ✅ **PASSED** (CE-01..07 100% green) |
+| **D3c** | FastIntent Re-Pin #5 | Header annotated; multi-dialect quoting, docstatus auto-injection for MariaDB, ratio/percentage & time-window support for MariaDB/Postgres | ✅ **PASSED** (18/18 golden green, `verifyFastIntentMultiDialect.js` 100% green) |
+| **D3d** | Dynamic Tier Multi-Dialect Porting | `dynamic.query.engine.js` & `dynamic.link.js` parameterized with capabilities; ERPNext `tab*` prefix matching; fallback on non-match | ✅ **PASSED** (`verifyDynamicMultiDialect.js` 100% green in 8.6ms) |
+| **D3e** | Postgres Protocol Adapter & AST Gate | `postgres.adapter.js`, `postgres.validator.js`, `ast.gate.postgres.js`, `postgres.schema.reader.js`, `gate.selector.js`, `sources.js` | ✅ **PASSED** (`verifyAstGatePostgresGolden.js` 15/15 green) |
+| **D3f** | Live Container & Onboarding Thesis | `cognicore-postgres` container; `cognicore_ro` role with SELECT-only grants; physical server write rejection; live queries answered | ✅ **PASSED** (Thesis confirmed: 7.72 minutes elapsed vs 4.0 hr target) |
+| **D3g** | Audit Freeze & Full Regression Battery | 10/10 Tier-1 freeze clean; 8/8 master regression green; 6/6 college battery green; 7/7 CE green | ✅ **PASSED** (Zero regressions across all suites) |
+
+### 7.1 Onboarding-Hours Thesis Receipt
+
+Per CAP v2.2 §204 / §281, the onboarding-hours thesis states that adding a third production dialect (PostgreSQL) into CogniCore's governed multi-dialect kernel requires **< 4.0 hours** from initialization to first answered live production query.
+
+```
+==================================================
+     POSTGRESQL ONBOARDING-HOURS THESIS RECEIPT   
+==================================================
+  T_start (Creation of postgres.adapter.js): 2026-09-26T04:22:40.420Z (1790396560420 ms)
+  T_end   (First live query answered):       2026-09-26T04:30:23.477Z (1790397023477 ms)
+  T_total (Elapsed Wall Clock Duration):     463.06 seconds (7.72 minutes)
+  T_code  (Adapter & Gate implementation):   182.1 seconds (3.03 minutes)
+  Onboarding Target:                         < 4.0 hours (Thesis target)
+  Actual Onboarding Time:                    0.13 hours (7.72 minutes)
+  Thesis Status:                             CONFIRMED & PROVEN LIVE
+==================================================
+```
+
+### 7.2 Physical Read-Only Enforcement Receipt (User Finding 1)
+
+PostgreSQL security adheres to L-1's physical enforcement standard:
+1. Dedicated server role `cognicore_ro` provisioned with `GRANT SELECT ON ALL TABLES IN SCHEMA public TO cognicore_ro;` and explicit `REVOKE INSERT, UPDATE, DELETE, TRUNCATE ...`.
+2. Connection-level defense-in-depth: `options: "-c default_transaction_read_only=on"` applied at the protocol handshake.
+3. Physical server rejection test output (`test/verifyPostgresAdapter.js`):
+```
+[4] Testing physical server write rejection (GRANT SELECT ONLY)...
+  Write blocked:       true
+  Postgres error code: 25006
+  Postgres message:    cannot execute INSERT in a read-only transaction
+  ✅ Physical server write rejection verified (Finding 1 satisfied)
+```
+
+### 7.3 Dangerous Vector AST Gate Corpus Receipt (User Finding 2)
+
+Dedicated test matrix (`test/golden/ast_gate_postgres_golden.json` and `test/verifyAstGatePostgresGolden.js`):
+```
+==================================================
+  VERIFYING POSTGRESQL AST GATE GOLDEN CORPUS     
+==================================================
+✅ [PG-01] PASS: Standard SELECT with double-quoted table and columns
+✅ [PG-02] PASS: Standard aggregation and date range filtering
+✅ [PG-03] PASS: Allowed Postgres date truncation DATE_TRUNC
+✅ [PG-04] PASS: Allowed Postgres numeric formatting and aggregation ROUND(AVG)
+✅ [PG-05] PASS: Correctly rejected (ast_multiple_statements_disallowed)
+✅ [PG-06] PASS: Correctly rejected (ast_disallowed_statement_type:copy)
+✅ [PG-07] PASS: Correctly rejected (ast_disallowed_clause:copy_program)
+✅ [PG-08] PASS: Correctly rejected (ast_disallowed_function:large_object)
+✅ [PG-09] PASS: Correctly rejected (ast_disallowed_function:large_object)
+✅ [PG-10] PASS: Correctly rejected (ast_disallowed_function:server_file_access)
+✅ [PG-11] PASS: Correctly rejected (ast_disallowed_function:server_file_access)
+✅ [PG-12] PASS: Correctly rejected (ast_disallowed_function:cross_database_link)
+✅ [PG-13] PASS: Correctly rejected (ast_disallowed_statement_type)
+✅ [PG-14] PASS: Correctly rejected (ast_disallowed_statement_type)
+✅ [PG-15] PASS: Correctly rejected (ast_disallowed_statement_type)
+==================================================
+Summary: 15 passed, 0 failed (Total: 15)
+🏆 ALL POSTGRES AST GATE GOLDEN TESTS PASSED (100%)
+```
+
+### 7.4 Live Multi-Dialect Unified Engine HTTP Receipt
+
+Live execution via HTTP API (`POST /api/ai/query`) across all three supported database engines:
+
+1. **PostgreSQL (`sourceId: postgres_default`):**
+```json
+{
+  "answer": "There are 5 record(s) in the customers table.",
+  "source": "dynamic",
+  "data": { "type": "count", "table": "customers", "value": "5", "sql": "SELECT COUNT(*) AS result FROM \"customers\"" },
+  "meta": { "source": "postgres", "sourceId": "postgres_default", "processingMs": 8 }
+}
+```
+
+2. **MariaDB (`sourceId: erpnext_prod`):**
+```json
+{
+  "answer": "There are 0 record(s) in the tabCustomer table.",
+  "source": "dynamic",
+  "data": { "type": "count", "table": "tabCustomer", "value": 0, "sql": "SELECT COUNT(*) AS result FROM `tabCustomer` WHERE `docstatus` = ?" },
+  "meta": { "source": "mariadb", "sourceId": "erpnext_prod", "processingMs": 150 }
+}
+```
+
+3. **SQLite (`sourceId: sqlite_default`):**
+```json
+{
+  "answer": "There are 3000 record(s) in the patients table.",
+  "source": "dynamic",
+  "data": { "type": "count", "table": "patients", "value": 3000, "sql": "SELECT COUNT(*) AS result FROM \"patients\"" },
+  "meta": { "source": "sqlite", "sourceId": "sqlite_default", "processingMs": 11 }
+}
+```
+
+
 

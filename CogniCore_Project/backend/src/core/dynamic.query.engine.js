@@ -8,6 +8,7 @@ import { formatExecutionResponse } from "./response.formatter.js";
 import { tryRoute } from "./fastIntent.js";
 import { getDistinct, ensureDistinctCacheLoaded } from "./distinct.cache.js";
 import { validateAndSanitizeSql } from "../llm/sql.validator.js";
+import { gateChainFor } from "../kernel/gate.selector.js";
 
 // Re-export focused modules for direct testing or downstream usage
 export * from "./schema.resolver.js";
@@ -37,12 +38,17 @@ function isLongFormat(tableName, schema) {
  * 3. Execute (query.executor.js)
  * 4. Format (response.formatter.js)
  */
-export async function runDynamicQuery(query) {
-  console.log("\n🔥 DYNAMIC ENGINE RECEIVED:", query);
+export async function runDynamicQuery(query, options = {}) {
+  const capabilities = options.capabilities;
+  const dialect = (capabilities?.source?.dialect || "sqlite").toLowerCase();
+  console.log(`\n🔥 DYNAMIC ENGINE RECEIVED (${dialect}):`, query);
 
   try {
     // 1. Read Schema
-    const schema = await readDatabaseSchema();
+    const schema = options.schema || await readDatabaseSchema(false, {
+      source: capabilities?.source,
+      adapter: capabilities?.db
+    });
     const tables = Object.keys(schema);
     console.log("📊 AVAILABLE TABLES:", tables);
 
@@ -52,18 +58,34 @@ export async function runDynamicQuery(query) {
     const deps = {
       getSchema: () => schema,
       getDistinct,
-      isLongFormat: (t) => isLongFormat(t, schema)
+      isLongFormat: (t) => isLongFormat(t, schema),
+      dialect
     };
 
-    const fastPlan = tryRoute(query, deps);
+    const fastPlan = tryRoute(query, deps, dialect);
 
     if (fastPlan) {
       console.log("⚡ [FAST INTENT] Matched:", fastPlan.shape, "→", fastPlan.sql, "params:", fastPlan.params);
 
-      // Invariant 1: sql.validator.js security gate
-      const validation = validateAndSanitizeSql(fastPlan.sql);
-      if (!validation.valid) {
-        console.warn("⚠️ [FAST INTENT] SQL failed validation:", validation.reason);
+      // Invariant 1: Gate validation via gateChainFor or sql.validator.js
+      let isValid = true;
+      let rejectReason = null;
+
+      if (dialect === "sqlite") {
+        const validation = validateAndSanitizeSql(fastPlan.sql);
+        isValid = validation.valid;
+        rejectReason = validation.reason;
+      } else {
+        const chain = gateChainFor(capabilities?.source);
+        if (chain && chain.validator) {
+          const vRes = chain.validator(fastPlan.sql);
+          isValid = vRes.valid;
+          rejectReason = vRes.reason;
+        }
+      }
+
+      if (!isValid) {
+        console.warn("⚠️ [FAST INTENT] SQL failed validation:", rejectReason);
       } else {
         const plan = {
           operation: fastPlan.shape,
@@ -80,7 +102,22 @@ export async function runDynamicQuery(query) {
         };
 
         // Execute on read-only connection
-        const execution = await executeQueryPlan(plan);
+        let execution;
+        if (capabilities?.db && typeof capabilities.db.queryReadOnly === "function") {
+          const rows = await capabilities.db.queryReadOnly(plan.sql, plan.params);
+          execution = {
+            success: true,
+            operation: plan.operation,
+            tableName: plan.tableName,
+            columnName: plan.columnName,
+            records: rows,
+            rowCount: rows.length,
+            rawResult: plan.executionType === "get" ? rows[0] : rows,
+            result: plan.executionType === "get" ? (rows[0] ? Object.values(rows[0])[0] : null) : null
+          };
+        } else {
+          execution = await executeQueryPlan(plan);
+        }
 
         // Format
         const formatted = formatExecutionResponse({ plan, execution, schema });
@@ -94,6 +131,14 @@ export async function runDynamicQuery(query) {
     }
 
     console.log("ℹ️ [FAST INTENT] No match, falling through to heuristic pipeline");
+
+    if (dialect !== "sqlite") {
+      return {
+        success: false,
+        code: "dynamic_unmatched",
+        answer: `Fast intent did not match for ${dialect} source, cascading to LLM.`
+      };
+    }
 
     // 2. Understand (Resolve table + column)
     const resolved = resolveTableAndColumn(query, schema);

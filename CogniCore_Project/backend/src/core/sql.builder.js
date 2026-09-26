@@ -7,8 +7,13 @@
 import { findBestNumericColumn, isNumericColumn, findMatchingColumn } from "./schema.resolver.js";
 import { checkGroupByRequired } from "./guard-markers.js";
 import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
+import { getDialect } from "../adapters/dialects/index.js";
 
-export function quoteIdentifier(name) {
+export function quoteIdentifier(name, dialect = "sqlite") {
+  const d = getDialect(dialect);
+  if (d && typeof d.quote === "function") {
+    return d.quote(name);
+  }
   return `"${String(name).replace(/"/g, '""')}"`;
 }
 
@@ -26,7 +31,7 @@ function hasUnboundCriteria(q, tableName, getDistinct) {
   return false;
 }
 
-export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct }) {
+export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct, dialect = "sqlite" }) {
   const q = String(query || "").toLowerCase().trim();
   const tables = Object.keys(schema);
 
@@ -180,7 +185,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct 
 
     return {
       operation: "count",
-      sql: `SELECT COUNT(*) AS count FROM ${quoteIdentifier(tableName)}`,
+      sql: `SELECT COUNT(*) AS count FROM ${quoteIdentifier(tableName, dialect)}`,
       params: [],
       tableName,
       columnName: null,
@@ -207,7 +212,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct 
 
     return {
       operation: "records",
-      sql: `SELECT * FROM ${quoteIdentifier(tableName)} LIMIT 50`,
+      sql: `SELECT * FROM ${quoteIdentifier(tableName, dialect)} LIMIT 50`,
       params: [],
       tableName,
       columnName: null,
@@ -269,7 +274,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct 
     if (isAverageQuestion) {
       return {
         operation: "average",
-        sql: `SELECT AVG(${quoteIdentifier(detectedColumn)}) AS average FROM ${quoteIdentifier(tableName)} WHERE ${quoteIdentifier(detectedColumn)} IS NOT NULL`,
+        sql: `SELECT AVG(${quoteIdentifier(detectedColumn, dialect)}) AS average FROM ${quoteIdentifier(tableName, dialect)} WHERE ${quoteIdentifier(detectedColumn, dialect)} IS NOT NULL`,
         params: [],
         tableName,
         columnName: detectedColumn,
@@ -280,7 +285,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct 
     if (isSumQuestion) {
       return {
         operation: "sum",
-        sql: `SELECT SUM(${quoteIdentifier(detectedColumn)}) AS total FROM ${quoteIdentifier(tableName)} WHERE ${quoteIdentifier(detectedColumn)} IS NOT NULL`,
+        sql: `SELECT SUM(${quoteIdentifier(detectedColumn, dialect)}) AS total FROM ${quoteIdentifier(tableName, dialect)} WHERE ${quoteIdentifier(detectedColumn, dialect)} IS NOT NULL`,
         params: [],
         tableName,
         columnName: detectedColumn,
@@ -291,7 +296,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct 
     if (isHighestQuestion) {
       return {
         operation: "highest",
-        sql: `SELECT * FROM ${quoteIdentifier(tableName)} WHERE ${quoteIdentifier(detectedColumn)} IS NOT NULL ORDER BY ${quoteIdentifier(detectedColumn)} DESC LIMIT 1`,
+        sql: `SELECT * FROM ${quoteIdentifier(tableName, dialect)} WHERE ${quoteIdentifier(detectedColumn, dialect)} IS NOT NULL ORDER BY ${quoteIdentifier(detectedColumn, dialect)} DESC LIMIT 1`,
         params: [],
         tableName,
         columnName: detectedColumn,
@@ -302,7 +307,7 @@ export function buildQueryPlan({ query, schema = {}, resolved = {}, getDistinct 
     if (isLowestQuestion) {
       return {
         operation: "lowest",
-        sql: `SELECT * FROM ${quoteIdentifier(tableName)} WHERE ${quoteIdentifier(detectedColumn)} IS NOT NULL ORDER BY ${quoteIdentifier(detectedColumn)} ASC LIMIT 1`,
+        sql: `SELECT * FROM ${quoteIdentifier(tableName, dialect)} WHERE ${quoteIdentifier(detectedColumn, dialect)} IS NOT NULL ORDER BY ${quoteIdentifier(detectedColumn, dialect)} ASC LIMIT 1`,
         params: [],
         tableName,
         columnName: detectedColumn,

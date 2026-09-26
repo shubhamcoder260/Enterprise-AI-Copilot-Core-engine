@@ -8,6 +8,7 @@
 import * as databaseModule from "../config/database.js";
 import * as llmClientModule from "../llm/llm.client.js";
 import { mariadbAdapter } from "../adapters/mariadb.adapter.js";
+import { postgresAdapter } from "../adapters/postgres.adapter.js";
 
 export function createDefaultCapabilities() {
   return {
@@ -23,6 +24,8 @@ export function createCapabilitiesForSource(descriptor, customDbAdapter = null) 
   let defaultDbAdapter = databaseModule;
   if (dialect === "mariadb") {
     defaultDbAdapter = mariadbAdapter;
+  } else if (dialect === "postgres" || dialect === "postgresql") {
+    defaultDbAdapter = postgresAdapter;
   }
 
   return {

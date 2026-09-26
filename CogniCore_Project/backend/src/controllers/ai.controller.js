@@ -7,6 +7,7 @@ import { detectPresentationIntent } from "../core/presentation.intent.js";
 
 import { acquireQueryLease, getActiveSource } from "../kernel/switch.orchestrator.js";
 import { createCapabilitiesForSource } from "../kernel/capabilities.js";
+import { getSourceById } from "../config/sources.js";
 
 export async function handleQuery(req, res) {
   const startTime = Date.now();
@@ -39,7 +40,8 @@ export async function handleQuery(req, res) {
       });
     }
 
-    const activeSource = getActiveSource();
+    const requestedSourceId = req.body?.sourceId || req.body?.source || req.headers["x-source-id"];
+    const activeSource = requestedSourceId ? (getSourceById(requestedSourceId) || getActiveSource()) : getActiveSource();
     const capabilities = createCapabilitiesForSource(activeSource);
 
     const result = await runCoreEngine(
