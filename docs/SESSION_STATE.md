@@ -1,32 +1,39 @@
 # CogniCore Master Session State & Handoff Ledger
 
-**Last Updated:** 2026-09-27 19:04 IST  
-**Git Head:** `012b38e` (Branch: `main`, Remote: `myrepo/main`)  
+**Last Updated:** 2026-09-27 22:25 IST  
+**Git Head:** `393d4b5` (Branch: `main`, Remote: `myrepo/main`)  
 **Status:** All Tier-1 Frozen Files 10/10 Clean | Canonical Regression: 19/19 Green
 
 ---
 
 ## 1. Executive Summary & Where We Are
 
-We are currently executing the **Two-Part Expansion Plan**:
-- **Part A — Finish Connecting & Stress-Testing on `erpnext_v16`** (In Progress)
-- **Part B — Build Universal Self-Service Connector (Customer-Facing Dynamic Sources & Vault)** (Next)
+We have executed and completed the **Two-Part Expansion Plan**:
+- **Part A — Finish Connecting & Stress-Testing on `erpnext_v16`** (✅ COMPLETED)
+- **Part B — Build Universal Self-Service Connector (Customer-Facing Dynamic Sources & Vault)** (🚀 READY TO EXECUTE)
 
-### Exact Current Pause Point:
-- The user has started the backend server (`npm start` on port 5000).
-- We are actively in **Part A, Step 2 (Response-Shape Sweep)**, waiting to execute:
-  1. Switch to `erpnext_v16`:
-     ```bash
-     curl -s -X POST http://localhost:5000/api/database/sources/switch \
-       -H "Content-Type: application/json" \
-       -d '{"sourceId": "erpnext_v16"}'
-     ```
-  2. Query 2.1 (List Shape):
-     ```bash
-     curl -s -X POST http://localhost:5000/api/ai/query \
-       -H "Content-Type: application/json" \
-       -d '{"query": "show customers", "sessionId": "sweep-list-1"}'
-     ```
+### Part A Verification Summary (All Gates Passed):
+1. **Live Response-Shape Sweep:**
+   - Query 2.1 (List Shape): `"show customers"` -> 9 records from `tabCustomer`, SQL `LIMIT 50`, `verified: true`, `failures: []`.
+   - Query 2.2 (Top-N Shape): `"show top 3 customers by name"` -> top 3 records, SQL `LIMIT 3`, `verified: true`.
+   - Query 2.3 (Scalar Count Shape): `"how many customers do we have?"` -> 9 records, SQL `COUNT(*)`, `verified: true`.
+   - Query 2.4 (Submittable Shape): `"show sales invoices"` -> 35 records from `tabSales Invoice` with `docstatus = 1`, `verified: true`.
+   - Query 2.5 (Item Master Shape): `"show items"` -> 13 records from `tabItem`, `verified: true`.
+2. **Bug #3 Grounding Fix:**
+   - Grounded SQL pagination limits (e.g. `LIMIT 50`) and boilerplate notices in `src/kernel/verify.chain.js` and `src/core/response.formatter.js`.
+   - Expanded `test/verify_grounding_lie_detector.js` to 14/14 tests (added positive test and negative control).
+3. **Adversarial Gate Probes on Live ERPNext v16:**
+   - Protected Table Probe (`__Auth`): Blocked cold by RLS fail-closed policy.
+   - Comment Injection Probe (`/* injection */ DROP TABLE...`): Malicious payload stripped, safe query executed.
+   - Case-Variation Probe (`tabCUSTOMER`): Normalized and routed cleanly.
+4. **Schema-Scale Introspection & Pruning:**
+   - Full introspection of all 737 tables completed in 2.2 seconds.
+   - Schema pruner isolated relevant sub-schemas for natural language queries in 33–51 milliseconds.
+5. **Live Concurrency Check:**
+   - 10 parallel queries fired simultaneously against `erpnext_v16` under real latency; 10/10 returned HTTP 200 with `verified: true`.
+6. **Regression Gate:**
+   - 10/10 Tier-1 frozen files verified clean.
+   - 19/19 canonical test suites passing green (`verifyFullRegression.sh`).
 
 ---
 
