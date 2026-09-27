@@ -230,6 +230,67 @@ async function runLieDetectorTests() {
     assert.ok(result.honestNotice.includes("Verification Warning"));
   });
 
+  // TEST 12: Positive Test: list response pagination limit (50) grounds cleanly
+  test("Pagination Limit Grounding: standard 'limited to first 50 records' passes without warning", () => {
+    const listRecords = [
+      { name: "Acme Corp", customer_name: "Acme Corp" },
+      { name: "Globex Inc", customer_name: "Globex Inc" }
+    ];
+    const dynamicData = {
+      type: "records",
+      table: "tabCustomer",
+      value: 2,
+      limit: 50,
+      sql: "SELECT * FROM `tabCustomer` LIMIT 50",
+      records: listRecords
+    };
+    const answer = "Showing 2 record(s) from the tabCustomer table. The display is limited to the first 50 records.";
+    const query = "show customers";
+
+    const result = runVerificationChain({
+      answer,
+      records: listRecords,
+      query,
+      data: dynamicData
+    });
+
+    assert.strictEqual(result.verified, true, "List query pagination limit must pass verification");
+    assert.strictEqual(result.passed, true);
+    assert.strictEqual(result.failures.length, 0);
+    assert.strictEqual(result.honestNotice, null);
+    assert.strictEqual(result.details.grounding.passed, true);
+  });
+
+  // TEST 13: Negative Control: hallucinated number in list response fails grounding
+  test("Pagination Limit Negative Control: hallucinated number (777) in list query fails grounding", () => {
+    const listRecords = [
+      { name: "Acme Corp", customer_name: "Acme Corp" }
+    ];
+    const dynamicData = {
+      type: "records",
+      table: "tabCustomer",
+      value: 1,
+      limit: 50,
+      sql: "SELECT * FROM `tabCustomer` LIMIT 50",
+      records: listRecords
+    };
+    const hallucinatedAnswer = "Showing 1 record(s) from the tabCustomer table. The display is limited to the first 50 records, but 777 others were omitted.";
+    const query = "show customers";
+
+    const result = runVerificationChain({
+      answer: hallucinatedAnswer,
+      records: listRecords,
+      query,
+      data: dynamicData
+    });
+
+    assert.strictEqual(result.verified, false, "Hallucinated number in list response must fail verification");
+    assert.strictEqual(result.passed, false);
+    assert.ok(result.failures.length > 0);
+    assert.ok(result.failures[0].includes("777"));
+    assert.ok(result.honestNotice.includes("Verification Warning"));
+  });
+
   console.log("==================================================");
   console.log(`LIE DETECTOR BATTERY RESULTS: ${passed}/${total} PASSED`);
   if (passed === total) {

@@ -158,6 +158,7 @@ export function formatExecutionResponse({ plan, execution, schema = {} }) {
         type: "records",
         table: tableName,
         value: records.length,
+        limit: 50,
         records
       }
     };

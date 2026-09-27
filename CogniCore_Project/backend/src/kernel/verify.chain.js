@@ -56,7 +56,7 @@ export function extractNumericTokens(text) {
  * @param {object} [data] - Optional execution data payload containing { value, record, records, ... }
  * @returns {Set<number>}
  */
-export function collectRecordNumbers(records, data = null) {
+export function collectRecordNumbers(records, data = null, options = {}) {
   const numbers = new Set();
 
   function addVal(val) {
@@ -94,6 +94,12 @@ export function collectRecordNumbers(records, data = null) {
     if (data.average !== undefined && data.average !== null) {
       addVal(data.average);
     }
+    if (data.limit !== undefined && data.limit !== null) {
+      addVal(data.limit);
+    }
+    if (data.offset !== undefined && data.offset !== null) {
+      addVal(data.offset);
+    }
     if (data.record && typeof data.record === "object") {
       extractFromObject(data.record);
     }
@@ -112,6 +118,20 @@ export function collectRecordNumbers(records, data = null) {
     if (Array.isArray(data.values)) {
       for (const v of data.values) addVal(v);
     }
+  }
+
+  // Handle SQL limit and offset if present in data.sql or options.sql
+  const sqlCandidate = typeof data?.sql === "string" ? data.sql : (typeof options?.sql === "string" ? options.sql : null);
+  if (sqlCandidate) {
+    const limitMatch = sqlCandidate.match(/\bLIMIT\s+(\d+)\b/i);
+    if (limitMatch) addVal(parseInt(limitMatch[1], 10));
+    const offsetMatch = sqlCandidate.match(/\bOFFSET\s+(\d+)\b/i);
+    if (offsetMatch) addVal(parseInt(offsetMatch[1], 10));
+  }
+
+  // Standard system pagination display limit for records / list responses
+  if (data?.type === "records" || data?.operation === "records" || data?.operation === "list") {
+    addVal(50);
   }
 
   // If records itself is a single object with a value or record shape (not an array)
@@ -176,8 +196,16 @@ export function verifyGrounding(answer, records = [], query = "", options = {}) 
   }
 
   const dataPayload = options.data || options.payload || null;
-  const recordNumbers = collectRecordNumbers(records, dataPayload);
+  const recordNumbers = collectRecordNumbers(records, dataPayload, options);
   const queryNumbers = collectQueryNumbers(query);
+
+  // Recognize system display limit boilerplate (e.g. "limited to the first 50 records")
+  const displayLimitMatch = answer.match(/\blimited to (?:the first )?(\d+) records\b/i);
+  if (displayLimitMatch) {
+    const lim = parseInt(displayLimitMatch[1], 10);
+    recordNumbers.add(lim);
+    recordNumbers.add(Math.round(lim));
+  }
 
   if (options.scalarValues && Array.isArray(options.scalarValues)) {
     for (const sv of options.scalarValues) {
