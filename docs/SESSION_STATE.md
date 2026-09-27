@@ -64,39 +64,36 @@ We have executed and completed the **Two-Part Expansion Plan**:
   - Added positive (TEST 10) and negative-control (TEST 11) test cases to `test/verify_grounding_lie_detector.js` (12/12 passing).
   - Verified live on `erpnext_v16`: `verification.verified: true`, `honestNotice: null`, zero warning banners.
 
+### D. Bug #3 Resolution (Pagination Limit False-Positive Grounding)
+- **Root Problem:** The response formatter for list/records queries appends `"The display is limited to the first 50 records."` The Grounding Lie Detector (`verify.chain.js`) scanned numbers in the answer (`9`, `50`), saw `50` was not in the records, and erroneously issued an ungrounded claim warning badge.
+- **Resolution:**
+  - Extended `collectRecordNumbers(records, data, options)` in `src/kernel/verify.chain.js` to parse SQL `LIMIT` and `OFFSET` clauses, record `data.limit`, and recognize default record pagination limit (50).
+  - Extended `verifyGrounding` to parse system pagination notices (`/limited to (?:the first )?(\d+) records/i`).
+  - Updated `src/core/response.formatter.js` to include `limit: 50` in data payload.
+  - Added TEST 12 (positive limit grounding) and TEST 13 (negative control catching fake numbers) in `test/verify_grounding_lie_detector.js` (14/14 green).
+  - Verified live on `erpnext_v16`: `"show customers"` returns `verified: true`, `honestNotice: null`.
+
 ---
 
-## 3. The Active Plan: Part A & Part B Roadmap
+## 3. The Active Plan & Decision: Part B Roadmap
 
-### Part A — Close Out Connector Testing (`erpnext_v16`)
-1. **Response-Shape Sweep:**
-   - 2.1 List shape: `"show customers"`
-   - 2.2 Top-N shape: `"show top 3 customers"`
-   - 2.3 Submittable count: `"how many sales orders do we have?"`
-   - 2.4 Active filter: `"how many active items do we have?"`
-   - 2.5 Aggregate / Average: `"average grand total of sales invoices"`
-2. **Adversarial Gate Probes:**
-   - Obfuscated subquery to protected table (e.g. `tabSalary Slip`)
-   - Injection via SQL comments and encoding
-   - Mixed-case identifier probes (`TabCustomer`, `tabsales invoice`)
-   - Verify all fail closed via `gateChainFor("mariadb")`.
-3. **Schema-Scale Check:**
-   - Time full introspection on MariaDB 11.8 across all 740+ tables.
-   - Confirm schema cache and pruning latency remains within acceptable thresholds (< 250ms).
-4. **Concurrency & Lease Check:**
-   - Fire parallel queries during `switchTo()` to prove zero lease starvation and 100% clean releases.
+### Architectural Decision Made:
+We evaluated the 3 options for connecting ERPs:
+1. **Option 1 (Direct Self-Service Wizard + Pre-flight Test + AES-256-GCM Vault) — SELECTED ⭐**
+2. **Option 2 (REST API Keys) — RULED OUT** (20x-50x slower, throws away SQL validation and schema pruner).
+3. **Option 3 (Reverse Tunnel Agent) — RULED OUT** (overkill, requires IT command-line work).
 
-### Part B — The Universal Connector (Customer-Facing Architecture)
-1. **Backend Vault & Multi-Tenant Credential Store:**
-   - Replace static `.env` credential dependency with per-source encrypted storage (AES-256-GCM).
-   - CRUD API endpoints: `POST /api/sources`, `POST /api/sources/:id/test`, `GET /api/sources`, `DELETE /api/sources/:id`.
-2. **Active Grant Validation (Pre-Flight Probe):**
-   - Live test endpoint attempts read introspection and affirmatively tests that write operations (`CREATE TABLE`, `INSERT`) fail with privilege errors (`ER_TABLEACCESS_DENIED_ERROR`).
-3. **Automated SQL Setup Guidance:**
-   - Endpoint generating exact, copy-pasteable `CREATE USER` and `GRANT SELECT` scripts populated with the user's database name.
-4. **Frontend Wizard & Dashboard:**
-   - Connection wizard (engine selection $\rightarrow$ credential input $\rightarrow$ live test $\rightarrow$ save).
-   - Sources dashboard with live status indicators and connection diagnostics.
+### Part B Implementation Order (To execute next session):
+1. **Step 1: Encrypted Credential Vault & Dynamic Source Registry (Backend)**
+   - Create `src/config/vault.js`: Encrypts database credentials at rest with **AES-256-GCM**.
+   - Storage format: Local encrypted JSON/SQLite file; write-once security (passwords never returned in GET responses).
+   - Dynamic source CRUD: `POST /api/sources`, `GET /api/sources`, `DELETE /api/sources/:id`.
+2. **Step 2: Pre-Flight Test & Script Generation Endpoint (Backend)**
+   - `POST /api/sources/test`: Runs live test (connectivity, read access check, confirms write operations fail).
+   - `POST /api/sources/helper-script`: Generates copy-pasteable `CREATE USER / GRANT SELECT` SQL script for client DB admin.
+3. **Step 3: Frontend Connection Wizard & Sources Manager**
+   - Modal UI: Engine selector (ERPNext/MariaDB, Postgres, SQLite upload) $\rightarrow$ credentials form $\rightarrow$ "Test Connection" button $\rightarrow$ Save & Activate.
+   - Sources list with live health status pills.
 
 ---
 
@@ -106,9 +103,10 @@ We have executed and completed the **Two-Part Expansion Plan**:
 | :--- | :--- | :--- |
 | **`erpnext_v16` DB** | `frappe_docker-db-1` (port 3307) | Live MariaDB 11.8 testbed with real ERPNext schema (`_210a92d8bfbfc131`) |
 | **`cognicore-mariadb`** | port 3306 | Development fixture database (`_4e5d6a7b8c9d0e1f`) |
-| **`verify.chain.js`** | `src/kernel/verify.chain.js` | Grounding & arithmetic verification lie-detector |
+| **`verify.chain.js`** | `src/kernel/verify.chain.js` | Grounding & arithmetic verification lie-detector (14/14 green) |
 | **`dynamic.link.js`** | `src/core/links/dynamic.link.js` | Dynamic query engine pipeline bridge |
-| **`fastIntent.js`** | `src/core/fastIntent.js` | Tier-2 deterministic query router (Re-Pin #6) |
+| **`fastIntent.js`** | `src/core/fastIntent.js` | Tier-2 deterministic query router (Re-Pin #6, 22/22 green) |
 | **`erpnext.profile.js`** | `src/config/profiles/erpnext.profile.js` | ERPNext semantic profile & `docstatusKind` registry |
-| **Regression Suite** | `test/verifyFullRegression.sh` | 19 canonical suites (all passing green) |
+| **Regression Suite** | `test/verifyFullRegression.sh` | 19 canonical suites (19/19 passing green) |
 | **Freeze Gate** | `test/audit-freeze.js` | 10 Tier-1 files audited for zero diffs |
+
