@@ -37,6 +37,42 @@ const mockSchema = {
         { name: "date", type: "TEXT" },
         { name: "status", type: "TEXT" }
       ]
+    },
+    {
+      name: "tabCustomer",
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "customer_name", type: "VARCHAR" },
+        { name: "disabled", type: "INT" },
+        { name: "docstatus", type: "INT" }
+      ]
+    },
+    {
+      name: "tabItem",
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "item_name", type: "VARCHAR" },
+        { name: "disabled", type: "INT" },
+        { name: "docstatus", type: "INT" }
+      ]
+    },
+    {
+      name: "tabSales Invoice",
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "customer", type: "VARCHAR" },
+        { name: "grand_total", type: "DECIMAL" },
+        { name: "docstatus", type: "INT" }
+      ]
+    },
+    {
+      name: "tabPurchase Invoice",
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "supplier", type: "VARCHAR" },
+        { name: "grand_total", type: "DECIMAL" },
+        { name: "docstatus", type: "INT" }
+      ]
     }
   ]
 };
@@ -64,14 +100,14 @@ const mockDeps = {
 };
 
 console.log("==================================================");
-console.log("  VERIFYING FAST INTENT GOLDEN CORPUS (RE-PIN #4) ");
+console.log("  VERIFYING FAST INTENT GOLDEN CORPUS (RE-PIN #6) ");
 console.log("==================================================");
 
 let passed = 0;
 let failed = 0;
 
 for (const c of goldenCases) {
-  const plan = tryRoute(c.query, mockDeps);
+  const plan = tryRoute(c.query, mockDeps, c.dialect || "sqlite");
 
   try {
     assert.deepStrictEqual(plan, c.expectedPlan, `Mismatch for ${c.id}: ${c.desc}`);

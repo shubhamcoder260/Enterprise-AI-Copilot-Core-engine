@@ -2,8 +2,9 @@
 // FAST INTENT ROUTER — Deterministic NL → Parameterized SQL Router
 // Returns { sql, params, shape, table } or null.
 //
-// RE-PIN #5: Phase D3 multi-dialect ratio, time-window, and dynamic-tier porting.
-// Date: 2026-09-26 | Author: Antigravity | Equivalence: 18/18 golden cases verified
+// RE-PIN #6: S17 docstatus scope-gating (submittable doctypes filtered, masters unfiltered).
+// Date: 2026-09-27 | Author: Antigravity | Equivalence: 22/22 golden cases verified
+// Prior re-pins: #4 (golden snapshot), #5 (D3 multi-dialect port)
 //
 // Invariants (§2 of Part 1 Build Plan):
 //   • NEVER executes SQL — only builds plans for query.executor.js

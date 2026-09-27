@@ -3,6 +3,7 @@
     "id": "FI-01",
     "query": "how many students are there",
     "desc": "Count records",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT COUNT(*) AS result FROM \"students\"",
       "params": [],
@@ -16,6 +17,7 @@
     "id": "FI-02",
     "query": "find student id = 80 absent days",
     "desc": "List + ID filter",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"attendance\" WHERE \"student_id\" = ? AND \"status\" = ? LIMIT 50",
       "params": [
@@ -32,6 +34,7 @@
     "id": "FI-03",
     "query": "lowest attendence top 5",
     "desc": "BottomN + Typo tolerance",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" ASC LIMIT 5",
       "params": [],
@@ -45,6 +48,7 @@
     "id": "FI-04",
     "query": "students with attendance_percentage more than 75",
     "desc": "Threshold filter",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"students\" WHERE \"attendance_percentage\" > ? LIMIT 50",
       "params": [
@@ -60,6 +64,7 @@
     "id": "FI-05",
     "query": "show attendance records with status Present",
     "desc": "Value-match filter",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"attendance\" WHERE \"status\" = ? LIMIT 50",
       "params": [
@@ -75,24 +80,28 @@
     "id": "FI-06",
     "query": "calculate average attendance per department",
     "desc": "'per department' guard -> null",
+    "dialect": "sqlite",
     "expectedPlan": null
   },
   {
     "id": "FI-07",
     "query": "show students 42 and 99 in computer science",
     "desc": "Unmatched number guard -> null",
+    "dialect": "sqlite",
     "expectedPlan": null
   },
   {
     "id": "FI-08",
     "query": "how many unicorns are in the database",
     "desc": "Unknown table -> null",
+    "dialect": "sqlite",
     "expectedPlan": null
   },
   {
     "id": "FI-09",
     "query": "top 10 students by attendance_percentage",
     "desc": "TopN shape with limit",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" DESC LIMIT 10",
       "params": [],
@@ -106,6 +115,7 @@
     "id": "FI-10",
     "query": "how many student are there",
     "desc": "Count students singular",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT COUNT(*) AS result FROM \"students\"",
       "params": [],
@@ -119,6 +129,7 @@
     "id": "FI-11",
     "query": "find student with id 15",
     "desc": "List by student id 15",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"students\" WHERE \"student_id\" = ? LIMIT 50",
       "params": [
@@ -134,6 +145,7 @@
     "id": "FI-12",
     "query": "calculate average attendance_percentage",
     "desc": "Average aggregate without grouping",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT AVG(\"attendance_percentage\") AS result FROM \"students\"",
       "params": [],
@@ -147,6 +159,7 @@
     "id": "FI-13",
     "query": "what percentage of attendance has status Present",
     "desc": "Percentage query",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT ROUND((SELECT COUNT(*) FROM \"attendance\" WHERE \"status\" = ?) * 100.0 / COUNT(*), 2) AS result FROM \"attendance\"",
       "params": [
@@ -162,6 +175,7 @@
     "id": "FI-14",
     "query": "average absent percentage",
     "desc": "Absent derivation or fallback",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT (100.0 - AVG(\"attendance_percentage\")) AS result FROM \"students\"",
       "params": [],
@@ -175,6 +189,7 @@
     "id": "FI-15",
     "query": "lowest attendence top 5 (calculate the lowest attendance by student id)",
     "desc": "Lowest attendance top 5 complex prompt",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"students\" ORDER BY \"attendance_percentage\" ASC LIMIT 5",
       "params": [],
@@ -188,12 +203,14 @@
     "id": "FI-16",
     "query": "calculate average no. of student absent more than 10 days",
     "desc": "Ambiguous query -> cascade",
+    "dialect": "sqlite",
     "expectedPlan": null
   },
   {
     "id": "FI-17",
     "query": "show students with section A",
     "desc": "Filter by categorical section A",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"students\" LIMIT 50",
       "params": [],
@@ -207,6 +224,7 @@
     "id": "FI-18",
     "query": "display students with attendance_percentage above 80",
     "desc": "Threshold filter above 80",
+    "dialect": "sqlite",
     "expectedPlan": {
       "sql": "SELECT * FROM \"students\" WHERE \"attendance_percentage\" > ? LIMIT 50",
       "params": [
@@ -214,6 +232,66 @@
       ],
       "shape": "list",
       "table": "students",
+      "orderCol": null,
+      "aggCol": null
+    }
+  },
+  {
+    "id": "FI-19",
+    "query": "how many customers do we have",
+    "desc": "Master doctype Customer count (no docstatus filter)",
+    "dialect": "mariadb",
+    "expectedPlan": {
+      "sql": "SELECT COUNT(*) AS result FROM `tabCustomer`",
+      "params": [],
+      "shape": "count",
+      "table": "tabCustomer",
+      "orderCol": null,
+      "aggCol": null
+    }
+  },
+  {
+    "id": "FI-20",
+    "query": "how many items do we have",
+    "desc": "Master doctype Item count (no docstatus filter)",
+    "dialect": "mariadb",
+    "expectedPlan": {
+      "sql": "SELECT COUNT(*) AS result FROM `tabItem`",
+      "params": [],
+      "shape": "count",
+      "table": "tabItem",
+      "orderCol": null,
+      "aggCol": null
+    }
+  },
+  {
+    "id": "FI-21",
+    "query": "how many sales invoices do we have",
+    "desc": "Submittable doctype Sales Invoice count (docstatus = 1 filter injected)",
+    "dialect": "mariadb",
+    "expectedPlan": {
+      "sql": "SELECT COUNT(*) AS result FROM `tabSales Invoice` WHERE `docstatus` = ?",
+      "params": [
+        1
+      ],
+      "shape": "count",
+      "table": "tabSales Invoice",
+      "orderCol": null,
+      "aggCol": null
+    }
+  },
+  {
+    "id": "FI-22",
+    "query": "how many purchase invoices do we have",
+    "desc": "Submittable doctype Purchase Invoice count (docstatus = 1 filter injected)",
+    "dialect": "mariadb",
+    "expectedPlan": {
+      "sql": "SELECT COUNT(*) AS result FROM `tabPurchase Invoice` WHERE `docstatus` = ?",
+      "params": [
+        1
+      ],
+      "shape": "count",
+      "table": "tabPurchase Invoice",
       "orderCol": null,
       "aggCol": null
     }

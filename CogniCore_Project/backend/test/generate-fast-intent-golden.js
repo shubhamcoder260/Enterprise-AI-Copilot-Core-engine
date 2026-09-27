@@ -38,6 +38,42 @@ const mockSchema = {
         { name: "date", type: "TEXT" },
         { name: "status", type: "TEXT" }
       ]
+    },
+    {
+      name: "tabCustomer",
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "customer_name", type: "VARCHAR" },
+        { name: "disabled", type: "INT" },
+        { name: "docstatus", type: "INT" }
+      ]
+    },
+    {
+      name: "tabItem",
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "item_name", type: "VARCHAR" },
+        { name: "disabled", type: "INT" },
+        { name: "docstatus", type: "INT" }
+      ]
+    },
+    {
+      name: "tabSales Invoice",
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "customer", type: "VARCHAR" },
+        { name: "grand_total", type: "DECIMAL" },
+        { name: "docstatus", type: "INT" }
+      ]
+    },
+    {
+      name: "tabPurchase Invoice",
+      columns: [
+        { name: "name", type: "VARCHAR" },
+        { name: "supplier", type: "VARCHAR" },
+        { name: "grand_total", type: "DECIMAL" },
+        { name: "docstatus", type: "INT" }
+      ]
     }
   ]
 };
@@ -86,7 +122,13 @@ const CASES = [
   { id: "FI-15", query: "lowest attendence top 5 (calculate the lowest attendance by student id)", desc: "Lowest attendance top 5 complex prompt" },
   { id: "FI-16", query: "calculate average no. of student absent more than 10 days", desc: "Ambiguous query -> cascade" },
   { id: "FI-17", query: "show students with section A", desc: "Filter by categorical section A" },
-  { id: "FI-18", query: "display students with attendance_percentage above 80", desc: "Threshold filter above 80" }
+  { id: "FI-18", query: "display students with attendance_percentage above 80", desc: "Threshold filter above 80" },
+
+  // S17 ERPNext Master vs. Submittable Doctypes (4 cases)
+  { id: "FI-19", query: "how many customers do we have", desc: "Master doctype Customer count (no docstatus filter)", dialect: "mariadb" },
+  { id: "FI-20", query: "how many items do we have", desc: "Master doctype Item count (no docstatus filter)", dialect: "mariadb" },
+  { id: "FI-21", query: "how many sales invoices do we have", desc: "Submittable doctype Sales Invoice count (docstatus = 1 filter injected)", dialect: "mariadb" },
+  { id: "FI-22", query: "how many purchase invoices do we have", desc: "Submittable doctype Purchase Invoice count (docstatus = 1 filter injected)", dialect: "mariadb" }
 ];
 
 function generateGolden() {
@@ -94,11 +136,12 @@ function generateGolden() {
   const records = [];
 
   for (const c of CASES) {
-    const plan = tryRoute(c.query, mockDeps);
+    const plan = tryRoute(c.query, mockDeps, c.dialect || "sqlite");
     records.push({
       id: c.id,
       query: c.query,
       desc: c.desc,
+      dialect: c.dialect || "sqlite",
       expectedPlan: plan
     });
     console.log(`Captured ${c.id}: ${c.desc} -> ${plan ? plan.shape + " (" + plan.sql + ")" : "null"}`);
