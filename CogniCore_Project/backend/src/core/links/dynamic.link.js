@@ -31,7 +31,8 @@ export async function executeDynamicLink({ query, organization, role, sessionId,
       const vResult = runVerificationChain({
         answer: dynamicResult.answer,
         records,
-        query
+        query,
+        data: dynamicResult.data
       });
 
       const sql = dynamicResult.data?.sql || "";

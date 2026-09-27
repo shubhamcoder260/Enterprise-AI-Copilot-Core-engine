@@ -178,6 +178,58 @@ async function runLieDetectorTests() {
     assert.ok(hallucinated.details.grounding.ungroundedTokens.length > 0);
   });
 
+  // TEST 10: Dynamic-Tier Count Response (empty records array, scalar data.value)
+  test("Dynamic Tier: count response with scalar data.value passes grounding and verification", () => {
+    const dynamicData = {
+      type: "count",
+      table: "tabCustomer",
+      value: 9,
+      sql: "SELECT COUNT(*) AS result FROM `tabCustomer`"
+    };
+    const answer = "There are 9 record(s) in the tabCustomer table.";
+    const query = "how many customers do we have?";
+
+    const result = runVerificationChain({
+      answer,
+      records: [],
+      query,
+      data: dynamicData
+    });
+
+    assert.strictEqual(result.verified, true, "Dynamic-tier count must pass verification");
+    assert.strictEqual(result.passed, true);
+    assert.strictEqual(result.failures.length, 0);
+    assert.strictEqual(result.honestNotice, null);
+    assert.strictEqual(result.details.grounding.passed, true);
+    assert.strictEqual(result.details.grounding.verifiedTokens.length, 1);
+    assert.strictEqual(result.details.grounding.verifiedTokens[0].value, 9);
+  });
+
+  // TEST 11: Negative Control: genuinely hallucinated number in dynamic-tier response fails
+  test("Dynamic Tier Negative Control: hallucinated number in dynamic count fails grounding", () => {
+    const dynamicData = {
+      type: "count",
+      table: "tabCustomer",
+      value: 9,
+      sql: "SELECT COUNT(*) AS result FROM `tabCustomer`"
+    };
+    const hallucinatedAnswer = "There are 9 record(s) in the tabCustomer table and 99 extra pending accounts.";
+    const query = "how many customers do we have?";
+
+    const result = runVerificationChain({
+      answer: hallucinatedAnswer,
+      records: [],
+      query,
+      data: dynamicData
+    });
+
+    assert.strictEqual(result.verified, false, "Hallucinated claim must fail verification");
+    assert.strictEqual(result.passed, false);
+    assert.ok(result.failures.length > 0);
+    assert.ok(result.failures[0].includes("99"));
+    assert.ok(result.honestNotice.includes("Verification Warning"));
+  });
+
   console.log("==================================================");
   console.log(`LIE DETECTOR BATTERY RESULTS: ${passed}/${total} PASSED`);
   if (passed === total) {

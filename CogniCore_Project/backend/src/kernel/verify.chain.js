@@ -48,32 +48,94 @@ export function extractNumericTokens(text) {
 }
 
 /**
- * Collects all candidate numeric values from SQL raw records and column names.
- * @param {Array<object>} records
+ * Collects all candidate numeric values from SQL raw records, column names,
+ * scalar result payloads (e.g. data.value from count, sum, avg, topN),
+ * and scalar entries.
+ *
+ * @param {Array<object>|object} records
+ * @param {object} [data] - Optional execution data payload containing { value, record, records, ... }
  * @returns {Set<number>}
  */
-export function collectRecordNumbers(records) {
+export function collectRecordNumbers(records, data = null) {
   const numbers = new Set();
+
+  function addVal(val) {
+    if (typeof val === "number" && !isNaN(val)) {
+      numbers.add(val);
+      numbers.add(Math.round(val));
+    } else if (typeof val === "string") {
+      const cleaned = val.replace(/[\$,]/g, "").trim();
+      const num = parseFloat(cleaned);
+      if (!isNaN(num)) {
+        numbers.add(num);
+        numbers.add(Math.round(num));
+      }
+    }
+  }
+
+  function extractFromObject(obj) {
+    if (!obj || typeof obj !== "object") return;
+    for (const [key, val] of Object.entries(obj)) {
+      addVal(val);
+    }
+  }
+
+  // Handle data payload (scalar dynamic tier results: count, avg, sum, topN, etc.)
+  if (data && typeof data === "object") {
+    if (data.value !== undefined && data.value !== null) {
+      addVal(data.value);
+    }
+    if (data.count !== undefined && data.count !== null) {
+      addVal(data.count);
+    }
+    if (data.total !== undefined && data.total !== null) {
+      addVal(data.total);
+    }
+    if (data.average !== undefined && data.average !== null) {
+      addVal(data.average);
+    }
+    if (data.record && typeof data.record === "object") {
+      extractFromObject(data.record);
+    }
+    if (Array.isArray(data.records)) {
+      for (const r of data.records) {
+        if (typeof r === "object") extractFromObject(r);
+        else addVal(r);
+      }
+    }
+    if (Array.isArray(data.rows)) {
+      for (const r of data.rows) {
+        if (typeof r === "object") extractFromObject(r);
+        else addVal(r);
+      }
+    }
+    if (Array.isArray(data.values)) {
+      for (const v of data.values) addVal(v);
+    }
+  }
+
+  // If records itself is a single object with a value or record shape (not an array)
+  if (records && !Array.isArray(records) && typeof records === "object") {
+    if (records.value !== undefined && records.value !== null) {
+      addVal(records.value);
+    }
+    extractFromObject(records);
+    return numbers;
+  }
+
   if (!Array.isArray(records) || records.length === 0) return numbers;
 
   // Add row count
   numbers.add(records.length);
 
   for (const row of records) {
-    if (!row || typeof row !== "object") continue;
-    for (const [key, val] of Object.entries(row)) {
-      if (typeof val === "number" && !isNaN(val)) {
-        numbers.add(val);
-        // Also add rounded/integer versions
-        numbers.add(Math.round(val));
-      } else if (typeof val === "string") {
-        const cleaned = val.replace(/[\$,]/g, "").trim();
-        const num = parseFloat(cleaned);
-        if (!isNaN(num)) {
-          numbers.add(num);
-          numbers.add(Math.round(num));
-        }
-      }
+    if (row === null || row === undefined) continue;
+    if (typeof row === "number" || typeof row === "string") {
+      addVal(row);
+      continue;
+    }
+    if (typeof row === "object") {
+      extractFromObject(row);
     }
   }
 
@@ -99,10 +161,10 @@ export function collectQueryNumbers(query) {
 
 /**
  * Verifies that all numbers in the answer are grounded in either the query,
- * the empirical records, or trivial linguistic constants (0, 1).
+ * the empirical records, scalar data values, or trivial linguistic constants (0, 1).
  *
  * @param {string} answer
- * @param {Array<object>} records
+ * @param {Array<object>|object} records
  * @param {string} query
  * @param {object} [options]
  * @returns {{ passed: boolean, reason?: string, ungroundedTokens: Array<object>, verifiedTokens: Array<object> }}
@@ -113,8 +175,19 @@ export function verifyGrounding(answer, records = [], query = "", options = {}) 
     return { passed: true, verifiedTokens: [], ungroundedTokens: [] };
   }
 
-  const recordNumbers = collectRecordNumbers(records);
+  const dataPayload = options.data || options.payload || null;
+  const recordNumbers = collectRecordNumbers(records, dataPayload);
   const queryNumbers = collectQueryNumbers(query);
+
+  if (options.scalarValues && Array.isArray(options.scalarValues)) {
+    for (const sv of options.scalarValues) {
+      const num = typeof sv === "number" ? sv : parseFloat(sv);
+      if (!isNaN(num)) {
+        recordNumbers.add(num);
+        recordNumbers.add(Math.round(num));
+      }
+    }
+  }
 
   const allowedConstants = new Set([0, 1, 2, ...(options.allowedConstants || [])]);
   const tolerance = options.tolerance ?? 0.01;
@@ -195,6 +268,22 @@ export function verifyGrounding(answer, records = [], query = "", options = {}) 
  */
 export function verifyArithmetic(answer, records = [], operation = "AUTO", options = {}) {
   if (!Array.isArray(records) || records.length === 0) {
+    if (options.data && typeof options.data.value === "number") {
+      const expectedCount = options.data.value;
+      const countMatch = answer.match(/(?:found|total of|count of|there are)\s+(\d+)\s+record/i);
+      if (countMatch) {
+        const statedCount = parseInt(countMatch[1], 10);
+        if (statedCount !== expectedCount) {
+          return {
+            passed: false,
+            reason: `arithmetic_count_mismatch: expected ${expectedCount} records, answer claimed ${statedCount}`,
+            expected: expectedCount,
+            actual: statedCount,
+            operation: "COUNT"
+          };
+        }
+      }
+    }
     return { passed: true, reason: "no_records_to_compute" };
   }
 
@@ -358,11 +447,16 @@ export function runVerificationChain({
   query = "",
   operation = "AUTO",
   samples = null,
-  options = {}
+  options = {},
+  data = null
 }) {
-  const grounding = verifyGrounding(answer, records, query, options);
-  const arithmetic = verifyArithmetic(answer, records, operation, options);
-  const selfConsistency = samples ? verifySelfConsistency(samples, options) : { passed: true };
+  const mergedOptions = { ...options };
+  if (data && !mergedOptions.data) {
+    mergedOptions.data = data;
+  }
+  const grounding = verifyGrounding(answer, records, query, mergedOptions);
+  const arithmetic = verifyArithmetic(answer, records, operation, mergedOptions);
+  const selfConsistency = samples ? verifySelfConsistency(samples, mergedOptions) : { passed: true };
 
   const failures = [];
   if (!grounding.passed) failures.push(grounding.reason);
