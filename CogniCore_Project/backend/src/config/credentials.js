@@ -22,6 +22,16 @@ export function resolveCredentials(credentialRef) {
         apiSecret: process.env.ERPNEXT_API_SECRET || ""
       };
 
+    case "env:erpnext16":
+    case "erpnext16":
+      return {
+        host: process.env.ERPNEXT16_DB_HOST || "127.0.0.1",
+        port: parseInt(process.env.ERPNEXT16_DB_PORT || "3307", 10),
+        user: process.env.ERPNEXT16_DB_USER || "cognicore_ro",
+        password: process.env.ERPNEXT16_DB_PASSWORD || "",
+        database: process.env.ERPNEXT16_DB_NAME || "_210a92d8bfbfc131"
+      };
+
     case "env:postgres":
     case "postgres":
       return {
@@ -60,3 +70,4 @@ export function resolveCredentials(credentialRef) {
       return {};
   }
 }
+

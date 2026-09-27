@@ -131,7 +131,44 @@ export const OPEN_TABLES_ALLOWLIST = freezeSet(new Set([
   // SQLite Food Delivery realm
   "order_items",
   "restaurants",
-  "drivers"
+  "drivers",
+
+  // SQLite Realm Benchmarks (University, Bank, Food Delivery, Hospital, Industry)
+  "accounts",
+  "accts",
+  "branches",
+  "brs",
+  "couriers",
+  "courses",
+  "crss",
+  "cst",
+  "cur",
+  "defect_log",
+  "depts",
+  "dfc",
+  "docs",
+  "dx",
+  "enrollments",
+  "enrs",
+  "instructors",
+  "lns",
+  "loans",
+  "machines",
+  "mcs",
+  "menu_items",
+  "mnu",
+  "oi",
+  "ords",
+  "prod",
+  "production_runs",
+  "profs",
+  "pts",
+  "rst",
+  "rx",
+  "stus",
+  "transactions",
+  "txns",
+  "vsts"
 ]));
 
 /**

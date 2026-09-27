@@ -17,6 +17,7 @@
 import { checkGroupByRequired } from "./guard-markers.js";
 import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
 import { getDialect } from "../adapters/dialects/index.js";
+import { isSubmittable, getActiveConvention, ERPNEXT_PROFILE } from "../config/profiles/erpnext.profile.js";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
 const normVal = (s) => String(s ?? "").trim().toLowerCase();
@@ -62,7 +63,8 @@ export function bestColumn(phrase, cols) {
 const STOP = new Set([
   "how", "many", "much", "is", "are", "the", "a", "an", "of", "in", "for",
   "to", "and", "what", "which", "show", "me", "give", "please", "calculate",
-  "find", "get", "no", "by", "with", "from", "there", "were", "was"
+  "find", "get", "no", "by", "with", "from", "there", "were", "was",
+  "do", "does", "did", "we", "i", "you", "our", "my", "your", "have", "has", "had", "can"
 ]);
 
 export function tokenize(q) {
@@ -79,6 +81,7 @@ export function pickTable(tokens, schema, getDistinct) {
   let tie = false;
 
   const tables = Array.isArray(schema?.tables) ? schema.tables : [];
+  const fullTokens = tokens.join("");
 
   for (const t of tables) {
     const tn = norm(t.name);
@@ -88,6 +91,27 @@ export function pickTable(tokens, schema, getDistinct) {
 
     const matchedTokens = new Set();
     let s = 0;
+
+    // Compound table name match (e.g. ['sales', 'invoices'] -> 'salesinvoices' matching 'tabSales Invoice')
+    if (
+      tn === fullTokens ||
+      cleanTn === fullTokens ||
+      cleanTn + "s" === fullTokens ||
+      fullTokens + "s" === cleanTn
+    ) {
+      tokens.forEach((tok) => matchedTokens.add(tok));
+      s += 15;
+    }
+
+    // Schema alias match (e.g. 'invoices' -> 'tabSales Invoice')
+    const aliases = ERPNEXT_PROFILE?.schemaAliases || {};
+    for (const tok of tokens) {
+      const aliasTarget = aliases[tok];
+      if (aliasTarget && (norm(aliasTarget) === tn || norm(aliasTarget) === cleanTn)) {
+        matchedTokens.add(tok);
+        s += 12;
+      }
+    }
 
     for (const tok of tokens) {
       if (
@@ -303,12 +327,25 @@ export function extractFilters(q, table, getDistinct, dialect = "sqlite") {
     }
   }
 
-  // 5. Default docstatus filter for ERPNext tables
+  // 5. Docstatus doctrine filter for ERPNext tables (scoped to SUBMITTABLE doctypes only; masters are UNFILTERED)
   if (
+    isSubmittable(table.name) &&
     table.columns.some((c) => c.name === "docstatus") &&
     !filters.some((f) => f.column === "docstatus")
   ) {
     filters.push({ column: "docstatus", op: "=", value: 1 });
+  }
+
+  // 6. Master "active" convention: Customer/Supplier/Item -> disabled = 0; Employee -> status = 'Active'
+  if (/\bactive\b/i.test(queryStr)) {
+    const conv = getActiveConvention(table.name);
+    if (
+      conv &&
+      table.columns.some((c) => c.name === conv.column) &&
+      !filters.some((f) => f.column === conv.column)
+    ) {
+      filters.push({ column: conv.column, op: "=", value: conv.value });
+    }
   }
 
   return filters;

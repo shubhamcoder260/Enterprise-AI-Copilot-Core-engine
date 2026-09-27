@@ -7,8 +7,23 @@
 
 import * as databaseModule from "../config/database.js";
 import * as llmClientModule from "../llm/llm.client.js";
-import { mariadbAdapter } from "../adapters/mariadb.adapter.js";
-import { postgresAdapter } from "../adapters/postgres.adapter.js";
+import { mariadbAdapter, createMariaDbAdapter } from "../adapters/mariadb.adapter.js";
+import { postgresAdapter, createPostgresAdapter } from "../adapters/postgres.adapter.js";
+
+const sourceAdapters = new Map();
+
+export function getAdapterForSource(descriptor) {
+  if (!descriptor || !descriptor.id) return null;
+  const key = `${descriptor.dialect}:${descriptor.id}`;
+  if (!sourceAdapters.has(key)) {
+    if (descriptor.dialect === "mariadb") {
+      sourceAdapters.set(key, createMariaDbAdapter({ sourceDescriptor: descriptor }));
+    } else if (descriptor.dialect === "postgres" || descriptor.dialect === "postgresql") {
+      sourceAdapters.set(key, createPostgresAdapter({ sourceDescriptor: descriptor }));
+    }
+  }
+  return sourceAdapters.get(key);
+}
 
 export function createDefaultCapabilities() {
   return {
@@ -23,9 +38,9 @@ export function createCapabilitiesForSource(descriptor, customDbAdapter = null) 
 
   let defaultDbAdapter = databaseModule;
   if (dialect === "mariadb") {
-    defaultDbAdapter = mariadbAdapter;
+    defaultDbAdapter = (descriptor && descriptor.id !== "erpnext_prod") ? (getAdapterForSource(descriptor) || mariadbAdapter) : mariadbAdapter;
   } else if (dialect === "postgres" || dialect === "postgresql") {
-    defaultDbAdapter = postgresAdapter;
+    defaultDbAdapter = (descriptor && descriptor.id !== "postgres_default") ? (getAdapterForSource(descriptor) || postgresAdapter) : postgresAdapter;
   }
 
   return {

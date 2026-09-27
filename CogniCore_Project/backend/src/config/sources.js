@@ -34,6 +34,16 @@ function initCatalog() {
     status: "available"
   };
 
+    const erpnextV16Source = {
+    id: "erpnext_v16",
+    name: "ERPNext v16 (MariaDB 11.8)",
+    kind: "mariadb",
+    dialect: "mariadb",
+    credentialRef: "env:erpnext16",
+    profileRef: "erpnext",
+    status: "available"
+  };
+
   const postgresSource = {
     id: "postgres_default",
     name: "PostgreSQL (Enterprise)",
@@ -46,6 +56,7 @@ function initCatalog() {
 
   sourcesCatalog.set(sqliteSource.id, sqliteSource);
   sourcesCatalog.set(erpnextSource.id, erpnextSource);
+  sourcesCatalog.set(erpnextV16Source.id, erpnextV16Source);
   sourcesCatalog.set(postgresSource.id, postgresSource);
 }
 

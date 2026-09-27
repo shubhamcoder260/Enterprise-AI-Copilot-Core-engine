@@ -12,7 +12,7 @@ import { resolveCredentials } from '../config/credentials.js';
 
 export function createMariaDbAdapter(config = {}) {
   let pool = null;
-  let activeDescriptor = null;
+  let activeDescriptor = config.sourceDescriptor || null;
 
   function redactError(err) {
     if (!err) return err;
@@ -30,22 +30,26 @@ export function createMariaDbAdapter(config = {}) {
     dialect: "mariadb",
 
     async connect(sourceDescriptor = {}) {
-      activeDescriptor = sourceDescriptor;
+      if (sourceDescriptor && (sourceDescriptor.id || sourceDescriptor.credentialRef || sourceDescriptor.host)) {
+        activeDescriptor = sourceDescriptor;
+      }
+      const desc = activeDescriptor || sourceDescriptor || {};
 
-      const creds = sourceDescriptor.credentialRef
-        ? resolveCredentials(sourceDescriptor.credentialRef)
+      const creds = desc.credentialRef
+        ? resolveCredentials(desc.credentialRef)
         : {};
 
-      const host = sourceDescriptor.host || creds.host || process.env.ERPNEXT_DB_HOST || '127.0.0.1';
-      const port = Number(sourceDescriptor.port || creds.port || process.env.ERPNEXT_DB_PORT || 3306);
-      const user = sourceDescriptor.user || creds.user || process.env.ERPNEXT_DB_USER || 'cognicore_ro';
-      const password = sourceDescriptor.password || creds.password || process.env.ERPNEXT_DB_PASSWORD || 'cognicore_ro_password';
-      const database = sourceDescriptor.database || creds.database || process.env.ERPNEXT_DB_NAME || '_4e5d6a7b8c9d0e1f';
+      const host = desc.host || creds.host || process.env.ERPNEXT_DB_HOST || '127.0.0.1';
+      const port = Number(desc.port || creds.port || process.env.ERPNEXT_DB_PORT || 3306);
+      const user = desc.user || creds.user || process.env.ERPNEXT_DB_USER || 'cognicore_ro';
+      const password = desc.password || creds.password || process.env.ERPNEXT_DB_PASSWORD || 'cognicore_ro_password';
+      const database = desc.database || creds.database || process.env.ERPNEXT_DB_NAME || '_4e5d6a7b8c9d0e1f';
 
       if (pool) {
         await pool.end();
       }
 
+      const { sourceDescriptor: _unused, ...poolConfig } = config;
       pool = mysql.createPool({
         host,
         port,
@@ -57,7 +61,7 @@ export function createMariaDbAdapter(config = {}) {
         queueLimit: 0,
         connectTimeout: 5000,
         decimalNumbers: true,
-        ...config
+        ...poolConfig
       });
 
       pool.on('error', (err) => {
@@ -110,11 +114,13 @@ export function createMariaDbAdapter(config = {}) {
     },
 
     meta() {
+      const desc = activeDescriptor || {};
+      const creds = desc.credentialRef ? resolveCredentials(desc.credentialRef) : {};
       return {
         dialect: "mariadb",
         readOnlyMechanism: "GRANT SELECT ONLY",
         ansiQuotesHook: "pool.on('connection')",
-        database: activeDescriptor?.database || process.env.ERPNEXT_DB_NAME || '_4e5d6a7b8c9d0e1f'
+        database: desc.database || creds.database || process.env.ERPNEXT_DB_NAME || '_4e5d6a7b8c9d0e1f'
       };
     }
   };

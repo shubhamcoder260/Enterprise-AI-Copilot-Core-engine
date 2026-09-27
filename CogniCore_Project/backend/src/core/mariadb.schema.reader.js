@@ -25,7 +25,8 @@ export function clearMariaDbSchemaCache() {
  */
 export async function getMariaDbEnrichedSchema(adapterInstance = null, options = {}) {
   const adapter = adapterInstance || mariadbAdapter;
-  const database = options.database || process.env.ERPNEXT_DB_NAME || "_4e5d6a7b8c9d0e1f";
+  const metaDb = adapter.meta ? adapter.meta().database : null;
+  const database = options.database || metaDb || process.env.ERPNEXT_DB_NAME || "_4e5d6a7b8c9d0e1f";
   const { maxSampleValues = 8, maxRowsToSample = 10000, forceRefresh = false } = options;
 
   const cacheKey = `mariadb:${database}`;

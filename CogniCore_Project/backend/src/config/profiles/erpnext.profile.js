@@ -42,6 +42,53 @@ export const ERPNEXT_PROFILE = deepFreeze({
     ]
   },
 
+  // S17: Explicit docstatusKind per DocType
+  docstatusKind: {
+    // Submittable DocTypes (analytical queries REQUIRE docstatus = 1 filter)
+    'Sales Invoice': 'submittable',
+    'Purchase Invoice': 'submittable',
+    'Salary Slip': 'submittable',
+    'Stock Entry': 'submittable',
+    'Purchase Order': 'submittable',
+    'Sales Order': 'submittable',
+    'GL Entry': 'submittable',
+    'Payment Entry': 'submittable',
+    'tabSales Invoice': 'submittable',
+    'tabPurchase Invoice': 'submittable',
+    'tabSalary Slip': 'submittable',
+    'tabStock Entry': 'submittable',
+    'tabPurchase Order': 'submittable',
+    'tabSales Order': 'submittable',
+    'tabGL Entry': 'submittable',
+    'tabPayment Entry': 'submittable',
+
+    // Master DocTypes (unfiltered by docstatus; active records use disabled = 0 or status = 'Active')
+    'Customer': 'master',
+    'Supplier': 'master',
+    'Item': 'master',
+    'Employee': 'master',
+    'Warehouse': 'master',
+    'tabCustomer': 'master',
+    'tabSupplier': 'master',
+    'tabItem': 'master',
+    'tabEmployee': 'master',
+    'tabWarehouse': 'master'
+  },
+
+  // S17: Master "active" convention: Customer/Supplier/Item -> disabled = 0; Employee -> status = 'Active'
+  activeConvention: {
+    'Customer': { column: 'disabled', value: 0 },
+    'Supplier': { column: 'disabled', value: 0 },
+    'Item': { column: 'disabled', value: 0 },
+    'Employee': { column: 'status', value: 'Active' },
+    'Warehouse': { column: 'disabled', value: 0 },
+    'tabCustomer': { column: 'disabled', value: 0 },
+    'tabSupplier': { column: 'disabled', value: 0 },
+    'tabItem': { column: 'disabled', value: 0 },
+    'tabEmployee': { column: 'status', value: 'Active' },
+    'tabWarehouse': { column: 'disabled', value: 0 }
+  },
+
   // 2. Module Vocabulary across all 5 Modules
   modules: {
     accounting: {
@@ -124,3 +171,45 @@ export const ERPNEXT_PROFILE = deepFreeze({
     departments: 'tabDepartment'
   }
 });
+
+/**
+ * Resolves the docstatus kind ('submittable' | 'master' | null) for a table or DocType.
+ * Unknown doctypes default to null / no filter (fail-honest direction: never zero out a master).
+ */
+export function getDocstatusKind(tableNameOrDoctype) {
+  if (!tableNameOrDoctype) return null;
+  const raw = String(tableNameOrDoctype).replace(/[`"]/g, '').trim();
+  const clean = raw.startsWith('tab') ? raw.slice(3) : raw;
+  const lowerClean = clean.toLowerCase();
+
+  for (const [key, kind] of Object.entries(ERPNEXT_PROFILE.docstatusKind || {})) {
+    const keyClean = key.startsWith('tab') ? key.slice(3) : key;
+    if (keyClean.toLowerCase() === lowerClean) {
+      return kind;
+    }
+  }
+  return null;
+}
+
+export function isSubmittable(tableNameOrDoctype) {
+  return getDocstatusKind(tableNameOrDoctype) === 'submittable';
+}
+
+export function isMaster(tableNameOrDoctype) {
+  return getDocstatusKind(tableNameOrDoctype) === 'master';
+}
+
+export function getActiveConvention(tableNameOrDoctype) {
+  if (!tableNameOrDoctype) return null;
+  const raw = String(tableNameOrDoctype).replace(/[`"]/g, '').trim();
+  const clean = raw.startsWith('tab') ? raw.slice(3) : raw;
+  const lowerClean = clean.toLowerCase();
+
+  for (const [key, conv] of Object.entries(ERPNEXT_PROFILE.activeConvention || {})) {
+    const keyClean = key.startsWith('tab') ? key.slice(3) : key;
+    if (keyClean.toLowerCase() === lowerClean) {
+      return conv;
+    }
+  }
+  return null;
+}
