@@ -179,16 +179,17 @@ TIER-1 AUDIT: 10/10 files verified clean
 - **Golden Corpus Location:** `test/golden/ast_gate_golden.json`
 - **Fresh Live Test Run:** `node test/verifyAstGolden.js` $\rightarrow$ **40/40 PASSED** (100% green).
 
-#### 4. `src/core/fastIntent.js` (Re-Pins #4, #5 & Phase D5 Edit)
+#### 4. `src/core/fastIntent.js` (Re-Pins #4, #5, #6 & Phase D5 Edit)
 - **State Before Re-Pins:** Emitted SQLite-only double-quoted identifiers, possessed no temporal compilation for MariaDB/Postgres, did not inject `docstatus = 1` for ERPNext, and emitted parameterized `LIMIT ?`.
 - **Actual Evolutions:**
   - *Re-Pin #4 (Commit `8dbf974`):* Added Intent-IR compilation for temporal ranges (`compileIntentToSql`).
   - *Re-Pin #5 (Commit `e6de38e`):* Added dialect parameterization via `quoteIdentifier(name, dialect)`, automatic `docstatus = 1` injection for MariaDB DocTypes, and multi-dialect percentage/ratio queries.
   - *Phase D5 Adjustment (Commit `5d2e571`):* Adjusted `topN`/`bottomN` shapes to output validated numeric integer literals (`LIMIT ${limitNum}`) instead of parameterized `LIMIT ?`, because `node-sql-parser` threw AST syntax errors on `LIMIT ?` under SQLite grammar during query validation.
-- **Golden Corpus Location:** `test/golden/fast_intent_golden.json` (captured during Re-Pin #4) & `test/verifyFastIntentMultiDialect.js`.
+  - *Re-Pin #6 (Commits `7df623e` / `06a8ce6`):* Scoped `docstatus = 1` doctrine injection strictly to submittable doctypes (`Sales Invoice`, `Purchase Invoice`, `Salary Slip`, etc.), while leaving master doctypes (`Customer`, `Item`, `Supplier`, `Employee`, `Warehouse`) unfiltered. Expanded golden corpus from 18 to 22 cases with 100% equivalence verified.
+- **Golden Corpus Location:** `test/golden/fast_intent_golden.json` & `test/verifyFastIntentMultiDialect.js`.
 - **Fresh Live Test Run:**
   - `node test/verifyFastIntentMultiDialect.js` $\rightarrow$ **4/4 PASSED** (100% green).
-  - `node test/verifyFastIntentGolden.js` $\rightarrow$ **18/18 PASSED** (100% green; golden snapshot synchronized with validated unparameterized integer literal `LIMIT`).
+  - `node test/verifyFastIntentGolden.js` $\rightarrow$ **22/22 PASSED** (100% green; 18 baseline cases + 4 ERPNext master/submittable doctype cases).
 
 ---
 
@@ -1049,6 +1050,13 @@ During the initial ground-truth verification pass of this session, one critical 
 - CogniCore currently has **no multi-tenancy architecture**.
 - The database connections, credentials, and source registries are single-tenant global singletons.
 - If two enterprise customers were to access the API simultaneously, queries would execute against the same database instance with zero tenant isolation at the schema or database level.
+
+### 7. Write-Pathway Scope Boundary (Dev Fixture vs. Live erpnext_v16)
+- **Scope Policy:** Write pathway (D5) is currently verified against the original dev fixture only. `erpnext_v16` (the live test instance added post-D5 on port 3307) has read-only (`cognicore_ro`) access; `cognicore_write` has NOT been provisioned there. This is a deliberate scope boundary, not an oversight.
+- **`cognicore-mariadb` (port 3306 - Dev Fixture):** Provisioned with both `cognicore_ro` (SELECT only) and `cognicore_write` (SELECT, INSERT, UPDATE restricted strictly to allowlisted tables `tabEmployee`, `tabCustomer`, `tabSales Order`).
+- **`frappe_docker-db-1` (port 3307 - Live `erpnext_v16`):** Provisioned with `cognicore_ro` only. Running `SHOW GRANTS FOR 'cognicore_write'@'%'` on this container returns:
+  `ERROR 1141 (42000): There is no such grant defined for user 'cognicore_write' on host '%'`.
+  Any write capability on live ERPNext remains strictly unprovisioned until governed authorization is explicitly commissioned.
 
 ---
 
