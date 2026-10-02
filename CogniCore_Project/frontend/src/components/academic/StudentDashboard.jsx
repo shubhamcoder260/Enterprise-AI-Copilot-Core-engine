@@ -15,17 +15,11 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
   const [outboxMessages, setOutboxMessages] = useState([]);
   const [outboxLoading, setOutboxLoading] = useState(false);
 
-  if (!profile || !profile.student) {
-    return (
-      <div style={{ padding: "60px 20px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>
-        Loading student record...
-      </div>
-    );
-  }
+  const student = profile?.student || null;
+  const courses = profile?.courses || [];
+  const notifications = profile?.notifications || [];
 
-  const { student, courses = [], notifications = [] } = profile;
-
-  // Set default selected course for recovery planner
+  // Set default selected course for recovery planner (All hooks at top level)
   useEffect(() => {
     if (courses.length > 0 && !selectedCourseId) {
       setSelectedCourseId(courses[0].offering_id || courses[0].course_id);
@@ -34,7 +28,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
 
   // Load off-portal outbox messages when Outbox tab is selected
   useEffect(() => {
-    if (activeTab === "outbox" && outboxMessages.length === 0) {
+    if (activeTab === "outbox" && student?.student_id && outboxMessages.length === 0) {
       (async () => {
         try {
           setOutboxLoading(true);
@@ -50,7 +44,23 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
         }
       })();
     }
-  }, [activeTab, student.student_id, outboxMessages.length]);
+  }, [activeTab, student?.student_id, outboxMessages.length]);
+
+  // Self-heal: If profile is not yet hydrated, trigger refresh
+  useEffect(() => {
+    if (!profile && onRefresh) {
+      onRefresh();
+    }
+  }, [profile, onRefresh]);
+
+  // Guard after all hooks are declared
+  if (!profile || !student) {
+    return (
+      <div style={{ padding: "60px 20px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>
+        Loading student record...
+      </div>
+    );
+  }
 
   // Filter courses by compliance status
   const criticalCourses = courses.filter((c) => c.attendance?.alertLevel === "CRITICAL" || c.attendance?.alertLevel === "DANGER");
@@ -86,9 +96,9 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
   };
 
   // Selected course for recovery planner
-  const activePlanningCourse = courses.find((c) => (c.offering_id || c.course_id) === selectedCourseId) || courses[0];
-  const currentAttended = activePlanningCourse?.attendance?.attendedClasses ?? 20;
-  const currentHeld = activePlanningCourse?.attendance?.heldClasses ?? 28;
+  const activePlanningCourse = courses.find((c) => (c.offering_id || c.course_id) === selectedCourseId) || courses[0] || {};
+  const currentAttended = activePlanningCourse?.attendance?.attended ?? activePlanningCourse?.attendance?.attendedClasses ?? 0;
+  const currentHeld = activePlanningCourse?.attendance?.held ?? activePlanningCourse?.attendance?.heldClasses ?? 0;
 
   // Recovery formula calculation
   const totalHeldAfter = currentHeld + futureTotalClasses;
@@ -96,6 +106,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
   const resultingPct = totalHeldAfter > 0 ? Number(((totalAttendedAfter / totalHeldAfter) * 100).toFixed(2)) : 100;
   const neededConsecutiveToReach75 = Math.max(0, Math.ceil(0.75 * totalHeldAfter - currentAttended));
   const isEligibleAfterPlan = resultingPct >= 75.0;
+  const currentAttPct = currentHeld > 0 ? Number(((currentAttended / currentHeld) * 100).toFixed(1)) : 100.0;
 
   return (
     <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "28px 20px", color: "#0f172a" }}>
@@ -117,17 +128,17 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
             <h1 style={{ fontSize: "22px", fontWeight: "700", color: "#0f172a", margin: 0 }}>
-              {student.first_name} {student.last_name}
+              {student.name || `${student.first_name || ""} ${student.last_name || ""}`.trim() || "Student"}
             </h1>
             <span style={{ fontSize: "12px", background: "#f1f5f9", color: "#334155", padding: "3px 8px", borderRadius: "4px", fontWeight: "600", border: "1px solid #e2e8f0" }}>
-              Reg: {student.register_number}
+              Reg: {student.register_number || student.registerNumber || student.roll_number || "—"}
             </span>
             <span style={{ fontSize: "12px", background: "#ecfdf5", color: "#065f46", padding: "3px 8px", borderRadius: "4px", fontWeight: "600", border: "1px solid #a7f3d0" }}>
               CGPA: {student.cgpa ? Number(student.cgpa).toFixed(2) : "7.50"} / 10.0
             </span>
           </div>
           <div style={{ fontSize: "13px", color: "#64748b" }}>
-            {student.program_name || "Bachelor of Technology in Computer Science"} • Semester {student.current_semester || "1"} • Section {student.section || "A"} • Status: <strong style={{ color: "#047857" }}>Active</strong>
+            {student.program_name || student.department_name || "Undergraduate Engineering"} • Semester {student.current_semester || student.semester || "1"} • Section {student.section || "A"} • Status: <strong style={{ color: "#047857" }}>Active</strong>
           </div>
         </div>
 
@@ -250,10 +261,14 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
             const risk = c.risk || {};
             const alertBadge = getAlertBadgeStyle(att.alertLevel);
             const riskBadge = getRiskBadgeStyle(risk.riskLevel);
-            const isExpanded = expandedRiskCourse === c.course_id;
+            const courseUniqueKey = c.enrollment_id || `${c.course_id}_${c.offering_id}`;
+            const isExpanded = expandedRiskCourse === courseUniqueKey;
+
+            const attendedNum = att.attended ?? att.attendedClasses ?? 0;
+            const heldNum = att.held ?? att.heldClasses ?? 0;
 
             return (
-              <div key={c.course_id} style={{
+              <div key={courseUniqueKey} style={{
                 background: "#ffffff",
                 border: "1px solid #e2e8f0",
                 borderRadius: "10px",
@@ -288,22 +303,22 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "6px" }}>
                       <span style={{ fontSize: "12px", fontWeight: "600", color: "#64748b" }}>Attendance Ratio</span>
                       <span style={{ fontSize: "18px", fontWeight: "700", color: att.currentPct < 75 ? "#be123c" : "#0f172a" }}>
-                        {att.currentPct}%
+                        {att.currentPct ?? 0}%
                       </span>
                     </div>
 
                     {/* Progress Bar */}
                     <div style={{ height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden", position: "relative", marginBottom: "8px" }}>
-                      <div style={{ height: "100%", width: `${Math.min(100, att.currentPct)}%`, background: att.currentPct < 75 ? "#be123c" : att.currentPct < 80 ? "#d97706" : "#059669", borderRadius: "3px" }} />
+                      <div style={{ height: "100%", width: `${Math.min(100, att.currentPct || 0)}%`, background: att.currentPct < 75 ? "#be123c" : att.currentPct < 80 ? "#d97706" : "#059669", borderRadius: "3px" }} />
                     </div>
 
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#64748b", marginBottom: "6px" }}>
-                      <span>Attended: <strong>{att.attendedClasses} / {att.heldClasses}</strong> classes</span>
-                      <span>Projected: <strong>{att.projectedFinalPct}%</strong></span>
+                      <span>Attended: <strong>{attendedNum} / {heldNum}</strong> classes</span>
+                      <span>Projected: <strong>{att.projectedFinalPct ?? att.currentPct ?? 0}%</strong></span>
                     </div>
 
                     <div style={{ fontSize: "12px", color: "#334155", background: "#ffffff", padding: "6px 8px", borderRadius: "4px", border: "1px solid #e2e8f0", lineHeight: "1.4" }}>
-                      {att.explanation}
+                      {att.explanation || "Attendance records current."}
                     </div>
                   </div>
 
@@ -335,11 +350,11 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <span style={{ fontSize: "12px", color: "#64748b" }}>Academic Risk:</span>
                       <span style={{ fontSize: "11px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: riskBadge.bg, color: riskBadge.text, border: `1px solid ${riskBadge.border}` }}>
-                        {riskBadge.label} ({risk.totalRiskScore}/100)
+                        {riskBadge.label} ({risk.totalRiskScore ?? 0}/100)
                       </span>
                     </div>
                     <button
-                      onClick={() => setExpandedRiskCourse(isExpanded ? null : c.course_id)}
+                      onClick={() => setExpandedRiskCourse(isExpanded ? null : courseUniqueKey)}
                       style={{ background: "transparent", border: "none", color: "#2563eb", fontSize: "11px", cursor: "pointer", fontWeight: "600", display: "flex", alignItems: "center", gap: "3px" }}
                     >
                       {isExpanded ? "Hide Details" : "View Factors"}
@@ -387,7 +402,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
             >
               {courses.map((c) => (
                 <option key={c.offering_id || c.course_id} value={c.offering_id || c.course_id}>
-                  {c.course_code}: {c.course_name} (Current: {c.attendance.currentPct}%)
+                  {c.course_code}: {c.course_name} (Current: {c.attendance?.currentPct ?? 0}%)
                 </option>
               ))}
             </select>
@@ -467,7 +482,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
             <div style={{ fontSize: "13px", color: isEligibleAfterPlan ? "#065f46" : "#991b1b", borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: "12px", marginTop: "8px" }}>
               {isEligibleAfterPlan ? (
                 <span>
-                  🎉 Under this plan, your attendance will rise from <strong>{((currentAttended / currentHeld) * 100).toFixed(1)}%</strong> to <strong>{resultingPct}%</strong>. You will be fully cleared for the end-semester exams in {activePlanningCourse?.course_code}.
+                  🎉 Under this plan, your attendance will rise from <strong>{currentAttPct}%</strong> to <strong>{resultingPct}%</strong>. You will be fully cleared for the end-semester exams in {activePlanningCourse?.course_code || "this course"}.
                 </span>
               ) : (
                 <span>
@@ -492,24 +507,30 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
           </div>
 
           <div>
-            {notifications.map((n) => (
-              <div key={n.notification_id} style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", gap: "12px" }}>
-                <div style={{ marginTop: "2px" }}>
-                  <CheckCircleIcon size={16} color="#059669" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
-                    <strong style={{ fontSize: "13px", color: "#0f172a" }}>{n.title}</strong>
-                    <span style={{ fontSize: "11px", color: "#94a3b8" }}>
-                      {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })}
-                    </span>
+            {notifications.length > 0 ? (
+              notifications.map((n) => (
+                <div key={n.notification_id} style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                  <div style={{ marginTop: "2px" }}>
+                    <CheckCircleIcon size={16} color="#059669" />
                   </div>
-                  <div style={{ fontSize: "13px", color: "#475569", lineHeight: "1.4" }}>
-                    {n.message}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
+                      <strong style={{ fontSize: "13px", color: "#0f172a" }}>{n.title}</strong>
+                      <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                        {n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" }) : "—"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "13px", color: "#475569", lineHeight: "1.4" }}>
+                      {n.message}
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div style={{ padding: "30px", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
+                No active notifications on record.
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
