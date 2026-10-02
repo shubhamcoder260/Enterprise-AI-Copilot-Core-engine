@@ -225,7 +225,7 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
             </span>
           </div>
           <div style={{ fontSize: "13px", color: "#64748b" }}>
-            Official Course Gradebook & Statutory Academic Monitoring System
+            Course Gradebook & Attendance
           </div>
         </div>
 
@@ -288,14 +288,14 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", marginBottom: "24px" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", marginBottom: "20px" }}>
         <button
           onClick={() => setActiveTab("voice")}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
-            padding: "12px 18px",
+            gap: "6px",
+            padding: "10px 16px",
             border: "none",
             borderBottom: activeTab === "voice" ? "2px solid #0f2942" : "2px solid transparent",
             background: "transparent",
@@ -305,16 +305,16 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
             cursor: "pointer"
           }}
         >
-          <MicIcon size={16} color={activeTab === "voice" ? "#0f2942" : "#64748b"} />
-          Speech-Assisted Mark Dictation
+          <MicIcon size={15} color={activeTab === "voice" ? "#0f2942" : "#64748b"} />
+          Voice Entry
         </button>
         <button
           onClick={() => setActiveTab("roster")}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
-            padding: "12px 18px",
+            gap: "6px",
+            padding: "10px 16px",
             border: "none",
             borderBottom: activeTab === "roster" ? "2px solid #0f2942" : "2px solid transparent",
             background: "transparent",
@@ -324,16 +324,16 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
             cursor: "pointer"
           }}
         >
-          <BookOpenIcon size={16} color={activeTab === "roster" ? "#0f2942" : "#64748b"} />
-          Course Roster & Gradebook ({roster.length} Students)
+          <BookOpenIcon size={15} color={activeTab === "roster" ? "#0f2942" : "#64748b"} />
+          Roster ({roster.length})
         </button>
         <button
           onClick={() => setActiveTab("at-risk")}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
-            padding: "12px 18px",
+            gap: "6px",
+            padding: "10px 16px",
             border: "none",
             borderBottom: activeTab === "at-risk" ? "2px solid #0f2942" : "2px solid transparent",
             background: "transparent",
@@ -343,15 +343,15 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
             cursor: "pointer"
           }}
         >
-          <AlertCircleIcon size={16} color={activeTab === "at-risk" ? "#0f2942" : "#64748b"} />
-          Statutory Intervention Required ({atRiskList.length})
+          <AlertCircleIcon size={15} color={activeTab === "at-risk" ? "#0f2942" : "#64748b"} />
+          At-Risk ({atRiskList.length})
         </button>
       </div>
 
       {/* Success Notification Alert */}
       {commitStatus && (
-        <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", padding: "14px 18px", marginBottom: "24px", color: "#065f46", fontSize: "13px", display: "flex", alignItems: "center", gap: "10px" }}>
-          <CheckCircleIcon size={18} color="#059669" />
+        <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "6px", padding: "12px 16px", marginBottom: "20px", color: "#065f46", fontSize: "13px", display: "flex", alignItems: "center", gap: "10px" }}>
+          <CheckCircleIcon size={16} color="#059669" />
           <span>{commitStatus.message}</span>
         </div>
       )}
@@ -360,14 +360,14 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
       {activeTab === "voice" && (
         <div>
           {/* Auditory Assistant Suite Card */}
-          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "24px", marginBottom: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "20px", marginBottom: "20px", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
               <div>
-                <h2 style={{ fontSize: "16px", fontWeight: "700", color: "#0f172a", margin: "0 0 4px 0" }}>
-                  Auditory Mark Dictation Suite
+                <h2 style={{ fontSize: "15px", fontWeight: "700", color: "#0f172a", margin: "0 0 2px 0" }}>
+                  Voice Mark Entry
                 </h2>
-                <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-                  Dictate continuous marks for students verbally. The engine maps spoken names and roll numbers, verifies grade boundaries, and flags homophonic ambiguities.
+                <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
+                  Dictate student marks verbally. Confirm candidates before saving to roster.
                 </p>
               </div>
 
@@ -378,37 +378,33 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "8px",
-                    padding: "9px 16px",
+                    gap: "6px",
+                    padding: "8px 14px",
                     borderRadius: "6px",
                     background: isRecording ? "#be123c" : "#0f2942",
                     color: "#ffffff",
                     border: "none",
-                    fontSize: "13px",
+                    fontSize: "12px",
                     fontWeight: "600",
-                    cursor: "pointer",
-                    boxShadow: isRecording ? "0 0 10px rgba(190, 18, 60, 0.4)" : "none"
+                    cursor: "pointer"
                   }}
                 >
-                  <MicIcon size={16} color="#ffffff" />
-                  {isRecording ? "Listening (Click to Stop)..." : "Start Voice Dictation"}
+                  <MicIcon size={15} color="#ffffff" />
+                  {isRecording ? "Listening..." : "Dictate Marks"}
                 </button>
               </div>
             </div>
 
             {/* Transcript Textarea */}
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#334155", marginBottom: "6px" }}>
-                Spoken Speech Transcript / Typed Fallback
-              </label>
+            <div style={{ marginBottom: "12px" }}>
               <textarea
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
                 placeholder="Example: Roll 101 forty-five out of fifty; Sneha Rao 48; Roll 103 42.5"
-                rows={3}
+                rows={2}
                 style={{
                   width: "100%",
-                  padding: "10px 12px",
+                  padding: "8px 10px",
                   borderRadius: "6px",
                   border: "1px solid #cbd5e1",
                   fontSize: "13px",
@@ -419,23 +415,23 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
               />
             </div>
 
-            {/* Evaluation Simulation Presets */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Evaluation Test Prompts:</span>
+            {/* Quick Test Presets */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "11px", color: "#64748b" }}>Test samples:</span>
                 <button
                   type="button"
                   onClick={() => setTranscript("Roll 2026030001, forty-seven out of fifty; Roll 2025060002, 38; Sneha, forty")}
-                  style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer", color: "#1e293b" }}
+                  style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "4px", padding: "3px 7px", fontSize: "11px", fontWeight: "500", cursor: "pointer", color: "#334155" }}
                 >
-                  Load Roster & Ambiguity Sample
+                  Sample 1: Multi-Student
                 </button>
                 <button
                   type="button"
                   onClick={() => setTranscript("Roll 2026030001, fifty-eight out of fifty")}
-                  style={{ background: "#fef2f2", border: "1px solid #fecdd3", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer", color: "#991b1b" }}
+                  style={{ background: "#fef2f2", border: "1px solid #fecdd3", borderRadius: "4px", padding: "3px 7px", fontSize: "11px", fontWeight: "500", cursor: "pointer", color: "#991b1b" }}
                 >
-                  Test Range Error (58 &gt; 50)
+                  Sample 2: Invalid Mark (&gt;50)
                 </button>
               </div>
 
@@ -444,17 +440,17 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
                 onClick={handleParseMarks}
                 disabled={loading || !transcript.trim()}
                 style={{
-                  padding: "8px 18px",
+                  padding: "7px 16px",
                   borderRadius: "6px",
                   background: "#0f2942",
                   color: "#ffffff",
-                  fontSize: "13px",
+                  fontSize: "12px",
                   fontWeight: "600",
                   border: "none",
                   cursor: loading || !transcript.trim() ? "not-allowed" : "pointer"
                 }}
               >
-                {loading ? "Parsing Speech Stream..." : "Process Transcript"}
+                {loading ? "Parsing..." : "Process Transcript"}
               </button>
             </div>
           </div>
@@ -465,10 +461,10 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
               <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 2px 0" }}>
-                    Speech Parsing Verification Ledger
+                    Review Entries
                   </h3>
                   <div style={{ fontSize: "12px", color: "#64748b" }}>
-                    Review matches and resolve any candidate ambiguities before committing to official records.
+                    Verify parsed marks before saving to records.
                   </div>
                 </div>
                 <button
@@ -486,7 +482,7 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
                     cursor: submitting ? "not-allowed" : "pointer"
                   }}
                 >
-                  {submitting ? "Committing Ledger..." : "Commit Verified Marks"}
+                  {submitting ? "Saving..." : "Save Marks"}
                 </button>
               </div>
 
@@ -494,12 +490,12 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                   <thead>
                     <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
-                      <th style={{ padding: "10px 14px", color: "#475569" }}>Spoken Identifier</th>
-                      <th style={{ padding: "10px 14px", color: "#475569" }}>Roster Match</th>
-                      <th style={{ padding: "10px 14px", color: "#475569" }}>Obtained Score</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Input</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Student</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Score</th>
                       <th style={{ padding: "10px 14px", color: "#475569" }}>Max</th>
-                      <th style={{ padding: "10px 14px", color: "#475569" }}>Integrity Status</th>
-                      <th style={{ padding: "10px 14px", color: "#475569" }}>Resolution Action</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Status</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -642,10 +638,10 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
         <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
             <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 2px 0" }}>
-              Statutory Intervention Roster — Students Below 75% or Moderate Risk
+              At-Risk Students
             </h3>
             <div style={{ fontSize: "12px", color: "#64748b" }}>
-              Identified through the 35/30/20/15 decomposition formula. Immediate academic counseling recommended.
+              Students requiring academic attention based on attendance and assessment performance.
             </div>
           </div>
 
@@ -655,9 +651,9 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
                 <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
                   <th style={{ padding: "10px 14px", color: "#475569" }}>Reg. Number</th>
                   <th style={{ padding: "10px 14px", color: "#475569" }}>Student Name</th>
-                  <th style={{ padding: "10px 14px", color: "#475569" }}>Attendance %</th>
-                  <th style={{ padding: "10px 14px", color: "#475569" }}>Risk Score</th>
-                  <th style={{ padding: "10px 14px", color: "#475569" }}>Key Risk Drivers</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Attendance</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Risk Level</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Risk Factors</th>
                 </tr>
               </thead>
               <tbody>

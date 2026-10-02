@@ -61,14 +61,14 @@ export default function AdminDashboard() {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
             <h1 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", margin: 0 }}>
-              Office of the Provost & University Registrar
+              Academic Administration
             </h1>
             <span style={{ fontSize: "11px", fontWeight: "700", background: "#f3e8ff", color: "#6b21a8", padding: "3px 8px", borderRadius: "4px", border: "1px solid #d8b4fe" }}>
-              INSTITUTIONAL GOVERNANCE
+              ADMINISTRATOR
             </span>
           </div>
           <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-            Campus-wide academic metrics, multi-department risk distribution, and individual student audit drilldown.
+            Overview of department performance, enrollment, and student records.
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export default function AdminDashboard() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `academic_governance_report_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.download = `academic_report_${new Date().toISOString().slice(0, 10)}.csv`;
             a.click();
           }}
           style={{
@@ -108,7 +108,7 @@ export default function AdminDashboard() {
           }}
         >
           <DownloadIcon size={15} color="#ffffff" />
-          Export Institutional CSV
+          Export CSV
         </button>
       </div>
 
@@ -161,10 +161,10 @@ export default function AdminDashboard() {
       <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", marginBottom: "28px" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
           <h2 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 2px 0" }}>
-            Departmental Academic & Attendance Distribution
+            Department Summary
           </h2>
           <div style={{ fontSize: "12px", color: "#64748b" }}>
-            Aggregated institutional indicators across all schools for academic session 2025–26.
+            Academic performance and enrollment across departments.
           </div>
         </div>
 
@@ -174,10 +174,10 @@ export default function AdminDashboard() {
               <thead>
                 <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
                   <th style={{ padding: "10px 14px", color: "#475569" }}>Code</th>
-                  <th style={{ padding: "10px 14px", color: "#475569" }}>Academic Department</th>
-                  <th style={{ padding: "10px 14px", color: "#475569" }}>Student Enrollment</th>
-                  <th style={{ padding: "10px 14px", color: "#475569" }}>Average CGPA</th>
-                  <th style={{ padding: "10px 14px", color: "#475569" }}>Compliance Status</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Department</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Students</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Avg CGPA</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -192,7 +192,7 @@ export default function AdminDashboard() {
                         {dept.department_name}
                       </td>
                       <td style={{ padding: "12px 14px", color: "#475569" }}>
-                        {dept.student_count} Students
+                        {dept.student_count}
                       </td>
                       <td style={{ padding: "12px 14px", fontWeight: "600", color: "#0f172a" }}>
                         {Number(dept.avg_cgpa).toFixed(2)}
@@ -200,11 +200,11 @@ export default function AdminDashboard() {
                       <td style={{ padding: "12px 14px" }}>
                         {isOptimal ? (
                           <span style={{ fontSize: "11px", fontWeight: "700", color: "#065f46", background: "#ecfdf5", padding: "2px 6px", borderRadius: "4px", border: "1px solid #a7f3d0" }}>
-                            OPTIMAL STANDING
+                            GOOD STANDING
                           </span>
                         ) : (
                           <span style={{ fontSize: "11px", fontWeight: "700", color: "#92400e", background: "#fffbeb", padding: "2px 6px", borderRadius: "4px", border: "1px solid #fde68a" }}>
-                            ADVISORY MONITORING
+                            MONITORING
                           </span>
                         )}
                       </td>
@@ -217,13 +217,13 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* Student Audit Drilldown Section */}
+      {/* Student Lookup Section */}
       <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
         <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 4px 0" }}>
-          Individual Student Record Audit
+          Student Lookup
         </h3>
         <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 14px 0" }}>
-          Inspect any student's statutory attendance ledger, internal assessments, and decomposition risk factors.
+          View attendance and internal marks for a specific student.
         </p>
 
         <div style={{ display: "flex", gap: "10px", marginBottom: "16px", maxWidth: "420px" }}>
@@ -239,7 +239,7 @@ export default function AdminDashboard() {
             disabled={drillLoading}
             style={{ padding: "8px 16px", borderRadius: "6px", background: "#0f2942", color: "#ffffff", fontSize: "13px", fontWeight: "600", border: "none", cursor: "pointer" }}
           >
-            {drillLoading ? "Searching..." : "Inspect Record"}
+            {drillLoading ? "Searching..." : "Lookup"}
           </button>
         </div>
 
@@ -255,7 +255,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
               <span style={{ fontSize: "11px", fontWeight: "700", color: "#065f46", background: "#ecfdf5", padding: "2px 6px", borderRadius: "4px", border: "1px solid #a7f3d0" }}>
-                RECORD VERIFIED
+                ENROLLED
               </span>
             </div>
 

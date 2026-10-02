@@ -5,7 +5,7 @@
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   background: #f6f7fb;
   color: #1e293b;
 }
@@ -470,7 +470,7 @@ pre {
   padding: 10px 14px;
   background: #0f172a;
   border-radius: 8px;
-  border-left: 3px solid #10b981;
+  border: 1px solid #1e293b;
 }
 
 .sql-card .sql-label {
@@ -533,7 +533,7 @@ pre {
   height: 8px;
   border-radius: 50%;
   background: #6366f1;
-  animation: bounce 1.2s infinite;
+  animation: pulse 1.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
 .thinking span:nth-child(2) {
@@ -544,17 +544,14 @@ pre {
   animation-delay: 0.4s;
 }
 
-@keyframes bounce {
-  0%,
-  60%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.5;
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.9);
   }
-
-  30% {
-    transform: translateY(-6px);
+  50% {
     opacity: 1;
+    transform: scale(1.05);
   }
 }
 

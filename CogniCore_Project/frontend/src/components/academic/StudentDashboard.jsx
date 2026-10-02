@@ -8,7 +8,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
   if (!profile || !profile.student) {
     return (
       <div style={{ padding: "60px 20px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>
-        Loading student academic profile and enrollment ledger...
+        Loading student record...
       </div>
     );
   }
@@ -78,7 +78,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
             </span>
           </div>
           <div style={{ fontSize: "13px", color: "#64748b" }}>
-            {student.program_name || "Bachelor of Technology in Computer Science"} • Semester {student.current_semester || "1"} • Section {student.section || "A"} • Standing: <strong style={{ color: "#047857" }}>Active & Registered</strong>
+            {student.program_name || "Bachelor of Technology in Computer Science"} • Semester {student.current_semester || "1"} • Section {student.section || "A"} • Status: <strong style={{ color: "#047857" }}>Active</strong>
           </div>
         </div>
 
@@ -102,7 +102,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
             }}
           >
             <BookOpenIcon size={15} color={activeTab === "courses" ? "#ffffff" : "#64748b"} />
-            Enrolled Courses ({courses.length})
+            Courses ({courses.length})
           </button>
           <button
             onClick={() => setActiveTab("notifications")}
@@ -123,7 +123,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
             }}
           >
             <BellIcon size={15} color={activeTab === "notifications" ? "#ffffff" : "#64748b"} />
-            Notices & Audit ({notifications.length})
+            Notifications ({notifications.length})
             {notifications.some((n) => n.is_read === 0) && (
               <span style={{ position: "absolute", top: "-3px", right: "-3px", width: "8px", height: "8px", background: "#be123c", borderRadius: "50%" }}></span>
             )}
@@ -131,29 +131,29 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
         </div>
       </div>
 
-      {/* Official Statutory Attendance Advisory Banner */}
+      {/* Attendance Advisory Banner */}
       {hasAlerts && (
         <div style={{
           background: "#fffbeb",
           border: "1px solid #fde68a",
           borderRadius: "8px",
-          padding: "16px 20px",
-          marginBottom: "24px",
+          padding: "14px 18px",
+          marginBottom: "20px",
           display: "flex",
           alignItems: "flex-start",
           gap: "12px"
         }}>
-          <AlertCircleIcon size={20} color="#b45309" />
+          <AlertCircleIcon size={18} color="#b45309" />
           <div>
-            <div style={{ fontSize: "14px", fontWeight: "700", color: "#92400e", marginBottom: "4px" }}>
-              Statutory Attendance Advisory — Office of Academic Affairs (Regulation §4.1)
+            <div style={{ fontSize: "13px", fontWeight: "700", color: "#92400e", marginBottom: "3px" }}>
+              Attendance Alert
             </div>
-            <div style={{ fontSize: "13px", color: "#78350f", lineHeight: "1.5" }}>
+            <div style={{ fontSize: "13px", color: "#78350f", lineHeight: "1.4" }}>
               {criticalCourses.length > 0 && (
-                <div>• <strong>Mandatory Intervention:</strong> Attendance has dropped below the 75% examination threshold in: <strong>{criticalCourses.map((c) => c.course_code).join(", ")}</strong>. Review recovery attendance obligations below.</div>
+                <div>• Attendance below 75% in <strong>{criticalCourses.map((c) => c.course_code).join(", ")}</strong>. Recovery attendance required for exam eligibility.</div>
               )}
               {warningCourses.length > 0 && (
-                <div>• <strong>Proactive Early Warning:</strong> Attendance is approaching the 75% boundary in: <strong>{warningCourses.map((c) => c.course_code).join(", ")}</strong>. Avoid further unexcused absences.</div>
+                <div>• Approaching 75% limit in <strong>{warningCourses.map((c) => c.course_code).join(", ")}</strong>.</div>
               )}
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
 
       {/* TAB 1: Enrolled Courses & Attendance Health */}
       {activeTab === "courses" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "18px" }}>
           {courses.map((c) => {
             const att = c.attendance || { alertLevel: "SAFE", currentPct: 100, held: 0, attended: 0, missBuffer: 0, recoveryNeeded: 0, projectedFinalPct: 100, recentRate: 100, explanation: "" };
             const badge = getAlertBadgeStyle(att.alertLevel);
@@ -176,36 +176,36 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
                 style={{
                   background: "#ffffff",
                   border: "1px solid #e2e8f0",
-                  borderRadius: "10px",
-                  padding: "20px",
+                  borderRadius: "8px",
+                  padding: "18px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)"
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.03)"
                 }}
               >
                 <div>
                   {/* Card Header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
                     <div>
-                      <span style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", letterSpacing: "0.5px" }}>
-                        {c.course_code} • {c.credits || 4} CREDITS
+                      <span style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>
+                        {c.course_code} • {c.credits || 4} Credits
                       </span>
-                      <h2 style={{ fontSize: "16px", fontWeight: "700", color: "#0f172a", margin: "2px 0 2px 0" }}>
+                      <h2 style={{ fontSize: "15px", fontWeight: "700", color: "#0f172a", margin: "2px 0 2px 0" }}>
                         {c.course_name}
                       </h2>
                       <div style={{ fontSize: "12px", color: "#64748b" }}>{c.facultyName}</div>
                     </div>
-                    <span style={{ fontSize: "11px", fontWeight: "700", padding: "4px 8px", borderRadius: "4px", background: badge.bg, color: badge.text, border: `1px solid ${badge.border}` }}>
+                    <span style={{ fontSize: "11px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", background: badge.bg, color: badge.text, border: `1px solid ${badge.border}` }}>
                       {badge.label} ({att.currentPct}%)
                     </span>
                   </div>
 
-                  {/* Attendance Progress Ledger */}
-                  <div style={{ marginBottom: "16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b", marginBottom: "6px" }}>
-                      <span>Attended: <strong>{att.attended}</strong> of <strong>{att.held}</strong> sessions</span>
-                      <span>Statutory Min: <strong>75.0%</strong></span>
+                  {/* Attendance Progress */}
+                  <div style={{ marginBottom: "14px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b", marginBottom: "5px" }}>
+                      <span>Attended: <strong>{att.attended}</strong> / {att.held}</span>
+                      <span>Target: 75%</span>
                     </div>
                     <div style={{ width: "100%", height: "6px", background: "#f1f5f9", borderRadius: "3px", overflow: "hidden" }}>
                       <div
@@ -219,67 +219,61 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
                     </div>
                   </div>
 
-                  {/* Actionable Regulatory Math */}
-                  <div style={{ background: "#f8fafc", borderRadius: "6px", padding: "12px 14px", marginBottom: "16px", border: "1px solid #e2e8f0" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "600", color: "#1e293b", marginBottom: "4px" }}>
+                  {/* Status & Forecast */}
+                  <div style={{ background: "#f8fafc", borderRadius: "6px", padding: "10px 12px", marginBottom: "14px", border: "1px solid #e2e8f0" }}>
+                    <div style={{ fontSize: "12px", fontWeight: "600", color: "#1e293b", marginBottom: "2px" }}>
                       {att.currentPct >= 75.0 ? (
-                        <span style={{ color: "#065f46" }}>Absence Buffer: Can miss up to <strong>{att.missBuffer} class(es)</strong></span>
+                        <span style={{ color: "#065f46" }}>Absence buffer: <strong>{att.missBuffer} classes</strong></span>
                       ) : (
-                        <span style={{ color: "#991b1b" }}>Mandatory Recovery: Must attend <strong>{att.recoveryNeeded} consecutive class(es)</strong></span>
+                        <span style={{ color: "#991b1b" }}>Recovery target: <strong>Attend next {att.recoveryNeeded} classes</strong></span>
                       )}
                     </div>
-                    <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.4" }}>
-                      {att.explanation}
-                    </div>
-                    <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "6px" }}>
-                      Projected End-of-Term Standing: <strong>{att.projectedFinalPct}%</strong> based on recent velocity
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>
+                      Projected attendance: <strong>{att.projectedFinalPct}%</strong> at term end
                     </div>
                   </div>
 
-                  {/* Internal Assessments Table */}
-                  <div style={{ marginBottom: "14px" }}>
-                    <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>
-                      Internal Assessment Ledger:
+                  {/* Internal Scores */}
+                  <div style={{ marginBottom: "12px" }}>
+                    <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", marginBottom: "6px" }}>
+                      Marks:
                     </div>
                     {c.marks && c.marks.length > 0 ? (
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                         {c.marks.map((m) => (
-                          <div key={m.mark_id} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "4px", padding: "4px 8px", fontSize: "12px" }}>
+                          <div key={m.mark_id} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "4px", padding: "3px 8px", fontSize: "12px" }}>
                             <span style={{ color: "#64748b" }}>{m.assessment_name}: </span>
-                            <strong style={{ color: "#0f172a" }}>{m.obtained_marks} / {m.max_marks}</strong>
+                            <strong style={{ color: "#0f172a" }}>{m.obtained_marks}/{m.max_marks}</strong>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <div style={{ fontSize: "12px", color: "#94a3b8", fontStyle: "italic" }}>No internal scores entered for this component yet</div>
+                      <div style={{ fontSize: "12px", color: "#94a3b8", fontStyle: "italic" }}>No scores posted yet</div>
                     )}
                   </div>
                 </div>
 
-                {/* Statutory Risk Advisory Drawer */}
-                <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
+                {/* Risk Factors */}
+                <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "12px", color: "#64748b" }}>Academic Advisory:</span>
+                      <span style={{ fontSize: "12px", color: "#64748b" }}>Academic Risk:</span>
                       <span style={{ fontSize: "11px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: riskBadge.bg, color: riskBadge.text, border: `1px solid ${riskBadge.border}` }}>
-                        {riskBadge.label} (Score: {risk.totalRiskScore}/100)
+                        {riskBadge.label} ({risk.totalRiskScore}/100)
                       </span>
                     </div>
                     <button
                       onClick={() => setExpandedRiskCourse(isExpanded ? null : c.course_id)}
-                      style={{ background: "transparent", border: "none", color: "#2563eb", fontSize: "11px", cursor: "pointer", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}
+                      style={{ background: "transparent", border: "none", color: "#2563eb", fontSize: "11px", cursor: "pointer", fontWeight: "600", display: "flex", alignItems: "center", gap: "3px" }}
                     >
-                      {isExpanded ? "Hide Audit Drivers" : "View Audit Drivers"}
+                      {isExpanded ? "Hide Details" : "View Factors"}
                       {isExpanded ? <ChevronUpIcon size={12} color="#2563eb" /> : <ChevronDownIcon size={12} color="#2563eb" />}
                     </button>
                   </div>
 
                   {isExpanded && (
-                    <div style={{ background: "#f8fafc", borderRadius: "6px", padding: "10px 12px", marginTop: "10px", fontSize: "12px", color: "#334155", border: "1px solid #e2e8f0" }}>
-                      <div style={{ fontWeight: "700", marginBottom: "4px", color: "#475569", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                        Statutory 35/30/20/15 Decomposition Factors:
-                      </div>
-                      <ul style={{ margin: 0, paddingLeft: "16px", lineHeight: "1.5" }}>
+                    <div style={{ background: "#f8fafc", borderRadius: "6px", padding: "8px 10px", marginTop: "8px", fontSize: "12px", color: "#334155", border: "1px solid #e2e8f0" }}>
+                      <ul style={{ margin: 0, paddingLeft: "14px", lineHeight: "1.4" }}>
                         {(risk.reasons || []).map((r, i) => (
                           <li key={i}>{r}</li>
                         ))}
@@ -298,10 +292,10 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
         <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ fontSize: "15px", fontWeight: "700", color: "#0f172a", margin: 0 }}>
-              Official Academic Notifications & Grade Modifications
+              Notifications
             </h2>
             <span style={{ fontSize: "12px", color: "#64748b" }}>
-              Total Records: {notifications.length}
+              {notifications.length} notices
             </span>
           </div>
 

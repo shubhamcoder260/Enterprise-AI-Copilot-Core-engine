@@ -326,8 +326,8 @@ function App() {
               <div style={{ width: "420px", borderLeft: "1px solid #1e293b", background: "#0f172a", display: "flex", flexDirection: "column" }}>
                 <div style={{ padding: "14px 18px", borderBottom: "1px solid #1e293b", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontSize: "18px" }}>🤖</span>
-                    <strong style={{ fontSize: "14px", color: "#f8fafc" }}>Academic AI Copilot</strong>
+                    <BookOpenIcon size={16} color="#93c5fd" />
+                    <strong style={{ fontSize: "14px", color: "#f8fafc" }}>Academic Analytics Terminal</strong>
                   </div>
                   <button
                     onClick={() => setShowCopilotDock(false)}

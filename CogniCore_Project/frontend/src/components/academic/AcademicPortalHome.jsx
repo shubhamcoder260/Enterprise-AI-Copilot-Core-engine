@@ -78,18 +78,15 @@ export default function AcademicPortalHome({ onQuickLogin, onCredentialLogin, lo
     <div style={{ minHeight: "100%", background: "#f8fafc", padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
       
       {/* University Identity Header */}
-      <div style={{ textAlign: "center", marginBottom: "32px", maxWidth: "680px" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "56px", height: "56px", borderRadius: "12px", background: "#0f2942", color: "#ffffff", marginBottom: "16px", boxShadow: "0 2px 8px rgba(15, 41, 66, 0.15)" }}>
-          <UniversitySeal size={32} color="#ffffff" />
+      <div style={{ textAlign: "center", marginBottom: "28px", maxWidth: "560px" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "48px", height: "48px", borderRadius: "10px", background: "#0f2942", color: "#ffffff", marginBottom: "14px" }}>
+          <UniversitySeal size={28} color="#ffffff" />
         </div>
-        <h1 style={{ fontSize: "26px", fontWeight: "800", color: "#0f172a", margin: "0 0 6px 0", letterSpacing: "-0.3px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+        <h1 style={{ fontSize: "22px", fontWeight: "700", color: "#0f172a", margin: "0 0 4px 0", letterSpacing: "-0.2px" }}>
           UNIVERSITY X
         </h1>
-        <div style={{ fontSize: "14px", fontWeight: "600", color: "#475569", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "8px" }}>
-          Academic Information & Governance System (AIGS)
-        </div>
-        <p style={{ fontSize: "13px", color: "#64748b", margin: 0, lineHeight: "1.5" }}>
-          Official portal for statutory attendance monitoring, early-warning trajectory projections, auditory mark entry, and institutional performance governance.
+        <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
+          Sign in to access student records, course rosters, and grades.
         </p>
       </div>
 
@@ -286,73 +283,73 @@ export default function AcademicPortalHome({ onQuickLogin, onCredentialLogin, lo
           </div>
         </div>
 
-        {/* Footer Security Notice */}
-        <div style={{ background: "#f8fafc", borderTop: "1px solid #e2e8f0", padding: "10px 20px", fontSize: "11px", color: "#64748b", textAlign: "center", lineHeight: "1.4" }}>
-          Single Sign-On (SSO) session secured with Row-Level Security (RLS) and cryptographic token governance.
+        {/* Footer */}
+        <div style={{ background: "#f8fafc", borderTop: "1px solid #e2e8f0", padding: "10px 20px", fontSize: "11px", color: "#64748b", textAlign: "center" }}>
+          University X Academic Computing Services • Support: helpdesk@university.edu
         </div>
       </div>
 
-      {/* Evaluator Fast-Track Section */}
-      <div style={{ width: "100%", maxWidth: "860px" }}>
-        <div style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "12px", textAlign: "center" }}>
-          Evaluator Quick-Access Ledgers
+      {/* Quick Demo Access */}
+      <div style={{ width: "100%", maxWidth: "800px" }}>
+        <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px", textAlign: "center" }}>
+          Demo Role Portals
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "14px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>
           
-          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                 <GraduationCapIcon size={16} color="#1e3a8a" />
-                <span style={{ fontWeight: "700", fontSize: "13px", color: "#0f172a" }}>Student View</span>
+                <span style={{ fontWeight: "700", fontSize: "13px", color: "#0f172a" }}>Student</span>
               </div>
-              <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 12px 0", lineHeight: "1.4" }}>
-                Statutory attendance health, 10-class forecast, recovery targets, and multi-factor risk advisory.
+              <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 10px 0" }}>
+                Attendance trajectories, recovery targets, and marks.
               </p>
             </div>
             <button
               onClick={() => onQuickLogin("student", 1)}
               disabled={loading}
-              style={{ width: "100%", padding: "8px", borderRadius: "6px", background: "#f1f5f9", color: "#1e3a8a", border: "1px solid #cbd5e1", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}
+              style={{ width: "100%", padding: "7px", borderRadius: "6px", background: "#f1f5f9", color: "#1e3a8a", border: "1px solid #cbd5e1", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}
             >
-              Open Vivek Reddy (83.8%)
+              Sign in as Student
             </button>
           </div>
 
-          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                 <UserCheckIcon size={16} color="#065f46" />
-                <span style={{ fontWeight: "700", fontSize: "13px", color: "#0f172a" }}>Faculty Console</span>
+                <span style={{ fontWeight: "700", fontSize: "13px", color: "#0f172a" }}>Faculty</span>
               </div>
-              <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 12px 0", lineHeight: "1.4" }}>
-                Hands-free auditory gradebook entry, phonetic parsing, and ambiguity conflict resolution.
+              <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 10px 0" }}>
+                Class rosters, voice-assisted grading, and at-risk alerts.
               </p>
             </div>
             <button
               onClick={() => onQuickLogin("faculty", 1)}
               disabled={loading}
-              style={{ width: "100%", padding: "8px", borderRadius: "6px", background: "#f1f5f9", color: "#065f46", border: "1px solid #cbd5e1", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}
+              style={{ width: "100%", padding: "7px", borderRadius: "6px", background: "#f1f5f9", color: "#065f46", border: "1px solid #cbd5e1", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}
             >
-              Open Prof. Menon (Roster CS101)
+              Sign in as Faculty
             </button>
           </div>
 
-          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                 <ShieldBuildingIcon size={16} color="#581c87" />
-                <span style={{ fontWeight: "700", fontSize: "13px", color: "#0f172a" }}>Registrar & Deans</span>
+                <span style={{ fontWeight: "700", fontSize: "13px", color: "#0f172a" }}>Registrar</span>
               </div>
-              <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 12px 0", lineHeight: "1.4" }}>
-                Campus-wide academic health heatmap across 3,000 students, 8 departments, and audit logs.
+              <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 10px 0" }}>
+                Campus attendance distribution and academic standing audits.
               </p>
             </div>
             <button
               onClick={() => onQuickLogin("admin")}
               disabled={loading}
-              style={{ width: "100%", padding: "8px", borderRadius: "6px", background: "#f1f5f9", color: "#581c87", border: "1px solid #cbd5e1", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}
+              style={{ width: "100%", padding: "7px", borderRadius: "6px", background: "#f1f5f9", color: "#581c87", border: "1px solid #cbd5e1", fontSize: "12px", fontWeight: "600", cursor: "pointer" }}
             >
-              Open Institutional Heatmap
+              Sign in as Registrar
             </button>
           </div>
 
