@@ -1,6 +1,7 @@
 import express from "express";
 import {
   demoLogin,
+  loginWithCredentials,
   getStudentDashboard,
   getFacultyCourses,
   getCourseRoster,
@@ -12,8 +13,9 @@ import {
 
 const router = express.Router();
 
-// 1-Click Demo Login
+// Authentication Endpoints (Credentials & Quick Demo)
 router.post("/auth/demo-login", demoLogin);
+router.post("/auth/login", loginWithCredentials);
 
 // Student Endpoints
 router.get("/student/dashboard", getStudentDashboard);

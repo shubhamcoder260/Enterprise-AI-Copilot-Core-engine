@@ -107,6 +107,38 @@ function App() {
     }
   }
 
+  // Credential-based Login Handler (Email/Roll + Password)
+  async function handleCredentialLogin(identifier, password, role) {
+    try {
+      setAcademicLoading(true);
+      const res = await fetch("http://localhost:5000/api/academic/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password, role })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || "Authentication failed." };
+      }
+      if (data.token) {
+        try { localStorage.setItem("cognicore_auth_token", data.token); } catch {}
+      }
+      setAcademicUser(data.user);
+      setAcademicRole(data.user.role);
+
+      if (data.user.role === "student") {
+        const profRes = await fetch(`http://localhost:5000/api/academic/student/dashboard?studentId=${data.user.id}`);
+        const profData = await profRes.json();
+        if (profData.profile) setAcademicStudentProfile(profData.profile);
+      }
+      return { success: true, user: data.user };
+    } catch (err) {
+      return { success: false, error: err.message };
+    } finally {
+      setAcademicLoading(false);
+    }
+  }
+
   // Reload student profile
   async function refreshStudentProfile() {
     if (!academicUser || academicUser.role !== "student") return;
@@ -263,6 +295,7 @@ function App() {
               {academicRole === null && (
                 <AcademicPortalHome
                   onQuickLogin={handleQuickLogin}
+                  onCredentialLogin={handleCredentialLogin}
                   loading={academicLoading}
                 />
               )}

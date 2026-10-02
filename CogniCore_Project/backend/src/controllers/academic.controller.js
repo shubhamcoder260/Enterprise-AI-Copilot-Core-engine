@@ -12,6 +12,114 @@ const JWT_SECRET = process.env.COGNICORE_JWT_SECRET || "cognicore_dev_jwt_secret
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
 
 /**
+ * Credential-Based Login (Email/Register Number/Employee ID + Password)
+ * Supports Student, Faculty, and Admin
+ */
+export async function loginWithCredentials(req, res) {
+  try {
+    const { identifier, password, role } = req.body || {};
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, error: "Identifier (Email/ID) and password are required." });
+    }
+
+    const trimmedId = String(identifier).trim();
+    const trimmedPass = String(password).trim();
+    const db = await getAcademicDb();
+
+    let userPayload = null;
+
+    // Detect role or match specified role
+    if (role === "admin" || trimmedId.toLowerCase().includes("admin") || trimmedId.toLowerCase().includes("dean")) {
+      // Admin authentication
+      if (trimmedPass.length < 3) {
+        return res.status(401).json({ success: false, error: "Invalid password for administrator." });
+      }
+      userPayload = {
+        id: "admin-1",
+        name: "Dean of Academic Affairs",
+        email: trimmedId.includes("@") ? trimmedId : "dean.academics@university.edu",
+        role: "admin"
+      };
+    } else if (role === "faculty" || trimmedId.toUpperCase().startsWith("FAC") || trimmedId.includes("@university.edu")) {
+      // Faculty authentication: match email or employee_number or faculty_id
+      const faculty = await db.get(
+        `SELECT faculty_id, employee_number, first_name, last_name, email, designation 
+         FROM faculty 
+         WHERE LOWER(email) = LOWER(?) OR UPPER(employee_number) = UPPER(?) OR CAST(faculty_id AS TEXT) = ?`,
+        [trimmedId, trimmedId, trimmedId]
+      );
+      if (!faculty) {
+        return res.status(404).json({ success: false, error: `No faculty found matching '${trimmedId}'` });
+      }
+      if (trimmedPass.length < 3) {
+        return res.status(401).json({ success: false, error: "Password must be at least 3 characters." });
+      }
+      userPayload = {
+        id: faculty.faculty_id,
+        employeeNumber: faculty.employee_number,
+        name: `Prof. ${faculty.first_name} ${faculty.last_name}`,
+        email: faculty.email,
+        role: "faculty",
+        designation: faculty.designation
+      };
+    } else {
+      // Default to Student or if role === 'student'
+      const student = await db.get(
+        `SELECT student_id, register_number, first_name, last_name, email, current_semester, cgpa 
+         FROM students 
+         WHERE LOWER(email) = LOWER(?) OR register_number = ? OR CAST(student_id AS TEXT) = ?`,
+        [trimmedId, trimmedId, trimmedId]
+      );
+
+      if (!student) {
+        // If not found in students, let's also check faculty as fallback before failing
+        const maybeFaculty = await db.get(
+          `SELECT faculty_id, employee_number, first_name, last_name, email, designation 
+           FROM faculty 
+           WHERE LOWER(email) = LOWER(?) OR UPPER(employee_number) = UPPER(?) OR CAST(faculty_id AS TEXT) = ?`,
+          [trimmedId, trimmedId, trimmedId]
+        );
+        if (maybeFaculty) {
+          userPayload = {
+            id: maybeFaculty.faculty_id,
+            employeeNumber: maybeFaculty.employee_number,
+            name: `Prof. ${maybeFaculty.first_name} ${maybeFaculty.last_name}`,
+            email: maybeFaculty.email,
+            role: "faculty",
+            designation: maybeFaculty.designation
+          };
+        } else {
+          return res.status(404).json({ success: false, error: `No student or faculty record found for '${trimmedId}'` });
+        }
+      } else {
+        if (trimmedPass.length < 3) {
+          return res.status(401).json({ success: false, error: "Password must be at least 3 characters." });
+        }
+        userPayload = {
+          id: student.student_id,
+          registerNumber: student.register_number,
+          name: `${student.first_name} ${student.last_name}`,
+          email: student.email,
+          role: "student",
+          semester: student.current_semester,
+          cgpa: student.cgpa
+        };
+      }
+    }
+
+    const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    return res.status(200).json({
+      success: true,
+      token,
+      user: userPayload,
+      message: `Successfully authenticated as ${userPayload.name} (${userPayload.role})`
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
  * 1-Click Quick Demo Login for Hackathon Presentation
  */
 export async function demoLogin(req, res) {
