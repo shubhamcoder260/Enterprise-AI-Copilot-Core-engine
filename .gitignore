@@ -5,5 +5,9 @@ CogniCore_Project/backend/data/*.db
 CogniCore_Project/backend/data/*.db-shm
 CogniCore_Project/backend/data/*.db-wal
 CogniCore_Project/backend/data/*.jsonl
+CogniCore_Project/backend/data/*.enc
 CogniCore_Project/backend/uploads/
 database_test/
+.agents/
+.archify/
+skills-lock.json

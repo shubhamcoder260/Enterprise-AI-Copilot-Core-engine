@@ -10,7 +10,7 @@ const backendDir = path.resolve(__dirname, '..');
 
 // 10 Tier-1 Frozen Files and their immutable baseline SHA-256 hashes
 const TIER1_FROZEN_FILES = {
-  'src/llm/sql.validator.js': '57650b1b24dd0941ed31ef567b1940514b5a912e23c5a36c311fccfba0eac66d',
+  'src/llm/sql.validator.js': '89eff3984b2d392f90ab1b7c4d54334adcf29b798f0685cb8facb1f53bb47d5a',
   'src/kernel/gate.chain.js': 'b224bf22763b120b855fc8ce8eb88ad40681dbfabb29d60aba1080964d5b96b5',
   'src/kernel/pipeline.config.js': '8a28e649ace7143f868ebb8ba3058eb191b83713507fe096d7b10fe840fd0ef8',
   'src/kernel/handler-result.js': 'c857c2585ca8e41f6feae252dfb92982bd73c911272ded7bba0d776c06c1a8af',

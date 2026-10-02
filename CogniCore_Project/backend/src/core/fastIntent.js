@@ -352,10 +352,24 @@ export function extractFilters(q, table, getDistinct, dialect = "sqlite") {
   return filters;
 }
 
+// S17/VULN-02: Whitelists for defense-in-depth against template interpolation injections
+const ALLOWED_OPERATORS = new Set(["=", "!=", "!equal", "<>", ">", "<", ">=", "<=", "LIKE", "NOT LIKE"]);
+const ALLOWED_AGG_FUNCTIONS = new Set(["COUNT", "SUM", "AVG", "MIN", "MAX"]);
+const SAFE_DERIVED_EXPR_REGEX = /^[A-Z_0-9\s()+\-*/".,]+$/i;
+
 export function compile(act, table, filters, dialect = "sqlite") {
   const d = getDialect(dialect);
   const quote = d && typeof d.quote === "function" ? d.quote : (val) => `"${val}"`;
   const where = filters.length ? filters : [];
+
+  // Validate all operators in filters against strict whitelist
+  for (const f of where) {
+    const opStr = String(f.op || "").trim();
+    if (!ALLOWED_OPERATORS.has(opStr) && !ALLOWED_OPERATORS.has(opStr.toUpperCase())) {
+      return null;
+    }
+  }
+
   const wsql = where.length
     ? " WHERE " + where.map((f) => `${quote(f.column)} ${f.op} ?`).join(" AND ")
     : "";
@@ -387,7 +401,16 @@ export function compile(act, table, filters, dialect = "sqlite") {
     };
   }
   if (act.type === "aggregate") {
+    // S17/VULN-02: derivedExpr is validated against a safe character whitelist before interpolation.
     if (act.derivedExpr) {
+      if (
+        typeof act.derivedExpr !== "string" ||
+        !SAFE_DERIVED_EXPR_REGEX.test(act.derivedExpr) ||
+        act.derivedExpr.includes(";") ||
+        act.derivedExpr.includes("--")
+      ) {
+        return null; // Whitelist rejects hostile or unvalidated expressions
+      }
       return {
         sql: `SELECT ${act.derivedExpr} AS result FROM ${qt}${wsql}`,
         params
@@ -395,8 +418,12 @@ export function compile(act, table, filters, dialect = "sqlite") {
     }
     const col = act.aggCol;
     if (!col) return null;
+    const fnUpper = String(act.fn || "").toUpperCase();
+    if (!ALLOWED_AGG_FUNCTIONS.has(fnUpper)) {
+      return null;
+    }
     return {
-      sql: `SELECT ${act.fn}(${quote(col)}) AS result FROM ${qt}${wsql}`,
+      sql: `SELECT ${fnUpper}(${quote(col)}) AS result FROM ${qt}${wsql}`,
       params
     };
   }

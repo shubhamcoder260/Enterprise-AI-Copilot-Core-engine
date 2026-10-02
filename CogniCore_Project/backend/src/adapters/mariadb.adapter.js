@@ -42,7 +42,7 @@ export function createMariaDbAdapter(config = {}) {
       const host = desc.host || creds.host || process.env.ERPNEXT_DB_HOST || '127.0.0.1';
       const port = Number(desc.port || creds.port || process.env.ERPNEXT_DB_PORT || 3306);
       const user = desc.user || creds.user || process.env.ERPNEXT_DB_USER || 'cognicore_ro';
-      const password = desc.password || creds.password || process.env.ERPNEXT_DB_PASSWORD || 'cognicore_ro_password';
+      const password = desc.password || creds.password || process.env.ERPNEXT_DB_PASSWORD;
       const database = desc.database || creds.database || process.env.ERPNEXT_DB_NAME || '_4e5d6a7b8c9d0e1f';
 
       if (pool) {

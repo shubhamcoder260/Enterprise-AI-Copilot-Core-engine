@@ -18,9 +18,12 @@ import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { generateToken } from "../src/middleware/auth.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = "http://localhost:5000";
 const CONFIG_FILE = path.join(__dirname, "..", "active-database.json");
+const TEST_TOKEN = generateToken({ userId: "admin", roles: ["admin"] });
 
 const COLLEGE_DB = path.join(
   __dirname,
@@ -156,7 +159,10 @@ async function main() {
     console.log(`🔄 Switching active database to college attendance DB...`);
     const switchRes = await fetch(`${BASE_URL}/api/database/switch`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${TEST_TOKEN}`
+      },
       body: JSON.stringify({ databasePath: COLLEGE_DB })
     }).then((r) => r.json());
 
@@ -171,7 +177,10 @@ async function main() {
       const start = Date.now();
       const res = await fetch(`${BASE_URL}/api/ai/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${TEST_TOKEN}`
+        },
         body: JSON.stringify({
           query: q.verbatim,
           sessionId: `verify-college-${q.id}`

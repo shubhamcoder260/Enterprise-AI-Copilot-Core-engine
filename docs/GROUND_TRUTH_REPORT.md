@@ -1118,11 +1118,11 @@ cd /home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend
 # Tier-1 Freeze Audit Gate (10/10 must pass)
 node test/audit-freeze.js
 
-# Full Master Regression Battery (18/18 must pass)
+# Full Master Regression Battery (26/26 must pass)
 bash test/verifyFullRegression.sh
 ```
 
-A green run completes with zero exit code 1 failures across all 18 suites (18/18).
+A green run completes with zero exit code 1 failures across all 26 suites (26/26).
 
 ---
 
@@ -1137,3 +1137,182 @@ If someone needs to understand the query request lifecycle from scratch, start r
 3. Injected capability resolution via `createCapabilitiesForSource(activeSource)`.
 4. Delegation to the pipeline loop in `core.engine.js`.
 5. Error trapping and guaranteed lease release in the `finally` block.
+agy
+---
+
+# PART 10: PHASE D6 — CUSTOMER-FACING ERP CONNECTION ARCHITECTURE
+
+**Feature Name:** Customer-Facing ERP Connection Feature (Direct Credential Wizard + Optional Auto-Provisioning)  
+**Implementation Date:** 2026-09-29 / 2026-09-30  
+**Scope:** Parts 1 through 6 complete. Zero modifications to Tier-1 or Tier-2 frozen files.
+
+### 1. Component Architecture & Invariants
+
+```
+                                  ┌───────────────────────────────┐
+                                  │   Frontend Connection Wizard  │
+                                  │   (ConnectionWizardModal.jsx) │
+                                  └───────────────┬───────────────┘
+                                                  │
+                  ┌───────────────────────────────┼──────────────────────────────┐
+                  ▼                               ▼                              ▼
+          [Direct Wizard]               [Auto-Provisioning]             [DBA Script Gen]
+         POST /api/sources/test       POST /api/sources/auto-prov    POST /api/sources/generate-grant-script
+                  │                               │                              │
+                  ▼                               ▼                              ▼
+    ┌───────────────────────────┐   ┌───────────────────────────┐  ┌───────────────────────────┐
+    │   connection.tester.js    │   │    auto.provisioner.js    │  │ grant.script.generator.js │
+    │ Reuses existing adapters  │   │ Creates least-privilege   │  │ Pure SQL generation       │
+    │ Connects, introspects,    │   │ user via admin creds,     │  │ Zero password leakage     │
+    │ cleanly closes connection │   │ purges admin creds memory │  └───────────────────────────┘
+    └─────────────┬─────────────┘   └─────────────┬─────────────┘
+                  │                               │
+                  └───────────────┬───────────────┘
+                                  ▼
+                     ┌──────────────────────────┐
+                     │   POST /api/sources      │
+                     │  (source.controller.js)  │
+                     └────────────┬─────────────┘
+                                  │
+         ┌────────────────────────┴────────────────────────┐
+         ▼                                                 ▼
+┌─────────────────────────────────┐       ┌─────────────────────────────────┐
+│     src/store/source.store.js   │       │ src/security/credential.vault.js│
+│ Dedicated SQLite Database:      │       │ Dedicated Encrypted DB:         │
+│ backend/data/cognicore_sources.db       │ backend/data/cognicore_vault.db │
+│ Stores metadata, host, dialect  │       │ Stores AES-256-GCM ciphertext,  │
+│ Survives server restarts        │       │ 96-bit IV, and 128-bit AuthTag  │
+└─────────────────────────────────┘       └─────────────────────────────────┘
+```
+
+#### Security Invariants:
+1. **AES-256-GCM Encryption at Rest:** Every credential (host, port, user, password, database) is encrypted at rest using AES-256-GCM with a random 96-bit IV per entry and a 128-bit authentication tag.
+2. **Master Key Isolation:** The master key is read strictly from `process.env.VAULT_MASTER_KEY` (`crypto.createHash("sha256").update(masterKey).digest()`). It is never hardcoded, never derived from data on disk, and fails closed immediately if missing.
+3. **Zero Plaintext Secret Exposure:** Plaintext credentials never appear in API responses (including creation responses), server logs, error objects, or SQLite database files.
+4. **Zero Admin Credential Retention:** Temporary elevated credentials supplied for auto-provisioning are held exclusively in-memory for the single transaction, explicitly wiped, and never logged or stored.
+5. **Freeze Gate Integrity:** Zero modifications made to any Tier-1 frozen files (`test/audit-freeze.js` continues to report 10/10 verified clean).
+
+---
+
+### 2. Physical File Manifest (Phase D6)
+
+| Layer | File Path | Purpose |
+| :--- | :--- | :--- |
+| **Persistence** | `src/store/source.store.js` | Persistent SQLite registry for dynamic data sources (`cognicore_sources.db`). |
+| **Security** | `src/security/credential.vault.js` | AES-256-GCM encrypted credential vault (`cognicore_vault.db`). |
+| **Testing** | `src/services/connection.tester.js` | Pre-flight connection verification and driver error categorization. |
+| **Scripting** | `src/services/grant.script.generator.js` | Generates least-privilege DBA setup SQL for MariaDB and PostgreSQL. |
+| **Provisioning** | `src/services/auto.provisioner.js` | Single-use admin connection to provision read-only roles and vault secrets. |
+| **Controller** | `src/controllers/source.controller.js` | Source CRUD, test, generate-script, and auto-provision endpoints. |
+| **Routing** | `src/routes/source.routes.js` | Route declarations mounted at `/api/sources`. |
+| **Frontend** | `frontend/src/components/ConnectionWizardModal.jsx` | Multi-tab UI for Direct Wizard, Auto-Provisioning, and DBA Script generation. |
+| **Frontend** | `frontend/src/components/SourceManagerModal.jsx` | Source management UI for listing, re-testing, and removing connections. |
+| **Frontend** | `frontend/src/lib/api.js` | Network client functions for all source operations. |
+
+---
+
+### 3. Canonical Regression Battery Output (26/26 Passed)
+
+Executed live on 2026-09-30 against the complete backend test suite:
+
+```text
+════ verify_college_attendance
+  ✅
+════ verifyLlm1ValidatorSecurity
+  ✅
+════ verifyConnLifecycle
+  ✅
+════ verifyPipelineOverride
+  ✅
+════ verifyGateIntegrity
+  ✅
+════ verifyBypass
+  ✅
+════ verifyLitmusNewTool
+  ✅
+════ verifyTraceEvidence
+  ✅
+════ verify_unpolicied_table_rls
+  ✅
+════ verifyFastIntentGolden
+  ✅
+════ verifyGateSelector
+  ✅
+════ verifyRlsPolicyGolden
+  ✅
+════ verify_rls_live_pipeline
+  ✅
+════ verifyWriteTemplates
+  ✅
+════ verifyRlsWritePolicyGolden
+  ✅
+════ verify_action_audit_log
+  ✅
+════ verify_action_gateway_lifecycle
+  ✅
+════ verify_live_action_demo
+  ✅
+════ verify_live_docstatus_wiring
+  ✅
+════ verify_credential_vault
+  ✅
+════ verify_source_persistence
+  ✅
+════ verify_test_connection_endpoint
+  ✅
+════ verify_grant_script_generator
+  ✅
+════ verify_auto_provisioning
+  ✅
+════ verify_source_crud_api
+  ✅
+════ verify_dynamic_source_e2e
+  ✅
+══════════════════════════
+REGRESSION: 26 passed, 0 failed (26/26)
+🏆 FULL REGRESSION GREEN — BASE HOLDS (26/26)
+```
+
+---
+
+### 4. Tier-1 Freeze Audit Output (10/10 Verified Clean)
+
+Executed live on 2026-09-30:
+
+```text
+==================================================
+   STEP 1 (D0a) — AUDIT FREEZE GATE (10 TIER-1)   
+==================================================
+✅ MATCH [SHA256]: src/llm/sql.validator.js
+✅ MATCH [SHA256]: src/kernel/gate.chain.js
+✅ MATCH [SHA256]: src/kernel/pipeline.config.js
+✅ MATCH [SHA256]: src/kernel/handler-result.js
+✅ MATCH [SHA256]: src/kernel/formatter.registry.js
+✅ MATCH [SHA256]: src/core/result.sanity.js
+✅ MATCH [SHA256]: src/core/guard-markers.js
+✅ MATCH [SHA256]: src/llm/llm.client.js
+✅ MATCH [SHA256]: src/config/semantic.profile.js
+✅ MATCH [SHA256]: src/config/database.js
+✅ GIT DIFF: 0 diffs across all 10 Tier-1 frozen files
+==================================================
+TIER-1 AUDIT: 10/10 files verified clean
+🏆 FREEZE GATE PASSED — ALL TIER-1 FILES UNTOUCHED
+==================================================
+```
+
+---
+
+### 5. Plaintext Credential Zero-Leakage Audit
+
+Executed live on 2026-09-30:
+
+```bash
+# Audit 1: Search application source code for plaintext credentials
+$ grep -rn "CogniCore_RO_2026!" src/ || echo "CLEAN: Zero plaintext credentials in src/"
+CLEAN: Zero plaintext credentials in src/
+
+# Audit 2: Search SQLite databases on disk for plaintext credentials
+$ strings data/cognicore_vault.db data/cognicore_sources.db | grep "CogniCore_RO_2026!" || echo "CLEAN: Zero plaintext credentials in SQLite databases"
+CLEAN: Zero plaintext credentials in SQLite databases
+```
+

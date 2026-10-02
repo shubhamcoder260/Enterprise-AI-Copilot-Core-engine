@@ -3,10 +3,12 @@
 // Catalog of available database and service sources.
 // Invariant: Handlers NEVER import this file directly.
 // Descriptors contain metadata and credential references, NEVER raw secrets.
+// Thin in-memory cache populated from built-ins and source.store.js.
 // ============================================================
 
 import { getActiveDatabasePath } from "./database.js";
 import { resolveCredentials } from "./credentials.js";
+import { getAllSources, saveSource as persistSource, deleteSource as deletePersistedSource } from "../store/source.store.js";
 
 const sourcesCatalog = new Map();
 
@@ -34,7 +36,7 @@ function initCatalog() {
     status: "available"
   };
 
-    const erpnextV16Source = {
+  const erpnextV16Source = {
     id: "erpnext_v16",
     name: "ERPNext v16 (MariaDB 11.8)",
     kind: "mariadb",
@@ -62,6 +64,25 @@ function initCatalog() {
 
 initCatalog();
 
+export async function syncSourcesFromStore() {
+  try {
+    const persisted = await getAllSources();
+    if (Array.isArray(persisted)) {
+      for (const s of persisted) {
+        if (s && s.id) {
+          sourcesCatalog.set(s.id, { ...s });
+        }
+      }
+    }
+  } catch (err) {
+    // Soft log during startup if store not initialized yet
+    console.warn("ℹ️ [Source Registry] Store sync deferred:", err.message);
+  }
+}
+
+// Auto-trigger sync on module initialization
+syncSourcesFromStore().catch(() => {});
+
 export function getRegisteredSources() {
   // Refresh sqlite path dynamically
   const sqlite = sourcesCatalog.get("sqlite_default");
@@ -77,12 +98,26 @@ export function getSourceById(id) {
   return { ...source };
 }
 
-export function registerSource(sourceDescriptor) {
+export async function registerSource(sourceDescriptor, options = {}) {
   if (!sourceDescriptor || !sourceDescriptor.id) {
     throw new Error("Invalid source descriptor: missing id");
   }
   sourcesCatalog.set(sourceDescriptor.id, { ...sourceDescriptor });
+  if (options.persist !== false) {
+    await persistSource(sourceDescriptor);
+  }
   return { ...sourceDescriptor };
+}
+
+export async function removeSource(id) {
+  if (!id) return false;
+  // Built-in sources cannot be deleted
+  const builtIns = new Set(["sqlite_default", "erpnext_prod", "erpnext_v16", "postgres_default"]);
+  if (builtIns.has(id)) {
+    throw new Error(`Cannot delete built-in source "${id}".`);
+  }
+  sourcesCatalog.delete(id);
+  return await deletePersistedSource(id);
 }
 
 export function getHydratedSource(id) {

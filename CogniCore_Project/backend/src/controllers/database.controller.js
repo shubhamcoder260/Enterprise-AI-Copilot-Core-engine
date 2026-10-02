@@ -1,10 +1,15 @@
 import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   switchDatabase,
   getActiveDatabasePath
 } from "../config/database.js";
 import { switchTo, getActiveSource } from "../kernel/switch.orchestrator.js";
 import { getRegisteredSources, getSourceById } from "../config/sources.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function uploadDatabase(req, res) {
 
@@ -98,22 +103,54 @@ export async function getActiveDatabase(req, res) {
 export async function switchActiveDatabase(req, res) {
   try {
     const { databasePath } = req.body || {};
-    if (!databasePath) {
+    if (!databasePath || typeof databasePath !== "string") {
       return res.status(400).json({ success: false, message: "Missing databasePath in request body." });
     }
-    await switchDatabase(databasePath);
+
+    // Path sanitization & traversal defense (VULN-01)
+    if (databasePath.includes("..")) {
+      return res.status(403).json({
+        error: "path_not_allowed",
+        message: "Path cannot contain directory traversal elements (..)."
+      });
+    }
+
+    const forbiddenExtensions = [".enc", ".log", ".json", ".db.bak"];
+    if (forbiddenExtensions.some((ext) => databasePath.toLowerCase().endsWith(ext))) {
+      return res.status(403).json({
+        error: "path_not_allowed",
+        message: "Access to internal artifacts or encrypted files is forbidden."
+      });
+    }
+
+    const resolvedPath = path.resolve(databasePath);
+    const allowedDirs = [
+      path.resolve(__dirname, "../../uploads"),
+      path.resolve(__dirname, "../../fixtures")
+    ];
+
+    const isAllowed = allowedDirs.some((dir) => resolvedPath.startsWith(dir));
+    if (!isAllowed) {
+      return res.status(403).json({
+        error: "path_not_allowed",
+        message: "Requested database file is outside allowed directories.",
+        allowedDirectories: allowedDirs
+      });
+    }
+
+    await switchDatabase(resolvedPath);
     await switchTo({
       id: "sqlite_default",
       kind: "sqlite",
       dialect: "sqlite",
-      path: databasePath
+      path: resolvedPath
     });
     return res.status(200).json({
       success: true,
       activeDatabase: getActiveDatabasePath()
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: "internal_server_error", message: error.message });
   }
 }
 

@@ -40,7 +40,7 @@ export function createPostgresWriteAdapter(config = {}) {
       const host = sourceDescriptor.host || creds.host || process.env.PG_WRITE_HOST || "127.0.0.1";
       const port = Number(sourceDescriptor.port || creds.port || process.env.PG_WRITE_PORT || 5432);
       const user = sourceDescriptor.user || creds.user || process.env.PG_WRITE_USER || "cognicore_write";
-      const password = sourceDescriptor.password || creds.password || process.env.PG_WRITE_PASSWORD || "cognicore_write_password";
+      const password = sourceDescriptor.password || creds.password || process.env.PG_WRITE_PASSWORD;
       const database = sourceDescriptor.database || creds.database || process.env.PG_WRITE_DB || "cognicore_pg_test";
 
       if (pool) {

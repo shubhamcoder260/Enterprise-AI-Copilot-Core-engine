@@ -50,7 +50,7 @@ export function createPostgresAdapter(config = {}) {
       const host = sourceDescriptor.host || creds.host || process.env.PGHOST || process.env.POSTGRES_HOST || '127.0.0.1';
       const port = Number(sourceDescriptor.port || creds.port || process.env.PGPORT || process.env.POSTGRES_PORT || 5432);
       const user = sourceDescriptor.user || creds.user || process.env.PGUSER || process.env.POSTGRES_USER || 'cognicore_ro';
-      const password = sourceDescriptor.password || creds.password || process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || 'cognicore_ro_password';
+      const password = sourceDescriptor.password || creds.password || process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD;
       const database = sourceDescriptor.database || creds.database || process.env.PGDATABASE || process.env.POSTGRES_DB || 'cognicore_pg_test';
 
       if (pool) {

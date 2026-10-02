@@ -5,10 +5,12 @@
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { generateToken } from "../src/middleware/auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = "http://localhost:5000";
 const CONFIG_FILE = path.join(__dirname, "..", "active-database.json");
+const TEST_TOKEN = generateToken({ userId: "admin", roles: ["admin"] });
 
 const COLLEGE_DB = path.join(
   __dirname,
@@ -23,7 +25,10 @@ async function switchDb(dbPath) {
   await fs.writeFile(CONFIG_FILE, JSON.stringify({ activeDatabasePath: dbPath }, null, 2));
   const res = await fetch(`${BASE_URL}/api/database/switch`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${TEST_TOKEN}`
+    },
     body: JSON.stringify({ databasePath: dbPath })
   });
   if (!res.ok) {
@@ -45,7 +50,8 @@ async function postQuery({ query, organization = "college", sessionId = "test_m_
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Session-ID": sessionId
+      "X-Session-ID": sessionId,
+      "Authorization": `Bearer ${TEST_TOKEN}`
     },
     body: JSON.stringify(body)
   });
@@ -171,7 +177,9 @@ async function runParitySuite() {
     console.log("Running M8...");
     const testSession = "session_m8_hydration_test_" + Date.now();
     await postQuery({ query: "how many invoices are there", organization: "chinook", sessionId: testSession });
-    const histRes = await fetch(`${BASE_URL}/api/history/${testSession}`);
+    const histRes = await fetch(`${BASE_URL}/api/history/${testSession}`, {
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` }
+    });
     const histData = await histRes.json();
     const exchanges = histData.exchanges || histData.history || [];
     const m8Pass = exchanges.length >= 1 && exchanges[0].question === "how many invoices are there";
@@ -186,7 +194,9 @@ async function runParitySuite() {
     // M9: Active DB status & switch verification
     // ----------------------------------------------------
     console.log("Running M9...");
-    const activeRes = await fetch(`${BASE_URL}/api/database/active`);
+    const activeRes = await fetch(`${BASE_URL}/api/database/active`, {
+      headers: { "Authorization": `Bearer ${TEST_TOKEN}` }
+    });
     const activeData = await activeRes.json();
     const m9Pass = Boolean(activeData?.activeDatabase);
     results.push({

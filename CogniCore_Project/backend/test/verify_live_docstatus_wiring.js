@@ -8,8 +8,10 @@
 // ============================================================================
 
 import assert from "node:assert/strict";
+import { generateToken } from "../src/middleware/auth.js";
 
 const BASE_URL = process.env.TEST_API_URL || "http://localhost:5000";
+const TEST_TOKEN = generateToken({ userId: "admin", roles: ["admin"] });
 
 async function runLiveDocstatusWiringTests() {
   console.log("==================================================");
@@ -35,7 +37,10 @@ async function runLiveDocstatusWiringTests() {
   console.log("\n[1] Switching active source to erpnext_v16...");
   const switchRes = await fetch(`${BASE_URL}/api/database/sources/switch`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${TEST_TOKEN}`
+    },
     body: JSON.stringify({ sourceId: "erpnext_v16" })
   });
   assert.strictEqual(switchRes.status, 200, "Switch to erpnext_v16 must return 200");
@@ -48,7 +53,10 @@ async function runLiveDocstatusWiringTests() {
     await test("Master DocType (Customer) count has NO docstatus filter and returns 9 records", async () => {
       const res = await fetch(`${BASE_URL}/api/ai/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${TEST_TOKEN}`
+        },
         body: JSON.stringify({
           query: "how many customers do we have?",
           sessionId: "live-wiring-test-customer"
@@ -68,7 +76,10 @@ async function runLiveDocstatusWiringTests() {
     await test("Master DocType (Item) count has NO docstatus filter", async () => {
       const res = await fetch(`${BASE_URL}/api/ai/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${TEST_TOKEN}`
+        },
         body: JSON.stringify({
           query: "how many items do we have?",
           sessionId: "live-wiring-test-item"
@@ -87,7 +98,10 @@ async function runLiveDocstatusWiringTests() {
     await test("Submittable DocType (Sales Invoice) count DOES inject docstatus filter", async () => {
       const res = await fetch(`${BASE_URL}/api/ai/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${TEST_TOKEN}`
+        },
         body: JSON.stringify({
           query: "how many sales invoices do we have?",
           sessionId: "live-wiring-test-sales-inv"
@@ -106,7 +120,10 @@ async function runLiveDocstatusWiringTests() {
     await test("Submittable DocType (Sales Order) count DOES inject docstatus filter", async () => {
       const res = await fetch(`${BASE_URL}/api/ai/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${TEST_TOKEN}`
+        },
         body: JSON.stringify({
           query: "how many sales orders do we have?",
           sessionId: "live-wiring-test-sales-ord"
@@ -126,7 +143,10 @@ async function runLiveDocstatusWiringTests() {
     console.log("\n[Teardown] Reverting active source to sqlite_default...");
     await fetch(`${BASE_URL}/api/database/sources/switch`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${TEST_TOKEN}`
+      },
       body: JSON.stringify({ sourceId: "sqlite_default" })
     });
     console.log("  ✅ Reverted active source to SQLite");

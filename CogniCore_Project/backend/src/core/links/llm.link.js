@@ -161,7 +161,11 @@ export async function executeLlmLink(ctx) {
         console.log("📝 [LLM Link] Validated SQL:", finalSql);
       } else if (gate.type === "execute") {
         try {
-          rows = await gate.run(finalSql, { capabilities });
+          if (gate.name === "readonly-executor" && gate.run.name === "executeReadOnlySql") {
+            rows = await gate.run(finalSql, capabilities?.params || []);
+          } else {
+            rows = await gate.run(finalSql, { capabilities });
+          }
         } catch (dbErr) {
           console.log(`ℹ️ [LLM Cascade] SQL execution error: ${dbErr.message}`);
           return PASS("llm_execution_error");
@@ -217,7 +221,11 @@ export async function executeLlmLink(ctx) {
             return BUG("llm_gate_chain_missing_validator");
           }
           try {
-            retryRows = await gate.run(retryFinalSql, { capabilities });
+            if (gate.name === "readonly-executor" && gate.run.name === "executeReadOnlySql") {
+              retryRows = await gate.run(retryFinalSql, capabilities?.params || []);
+            } else {
+              retryRows = await gate.run(retryFinalSql, { capabilities });
+            }
           } catch (dbErr) {
             console.log(`ℹ️ [LLM Corrective Retry] Retry SQL execution error: ${dbErr.message}`);
             return PASS("corrective_retry_exhausted:llm_execution_error");

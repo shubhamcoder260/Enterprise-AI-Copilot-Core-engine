@@ -9,9 +9,12 @@ import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { generateToken } from "../src/middleware/auth.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = "http://localhost:5000";
 const CONFIG_FILE = path.join(__dirname, "..", "active-database.json");
+const TEST_TOKEN = generateToken({ userId: "admin", roles: ["admin"] });
 
 async function main() {
   console.log("==========================================");
@@ -39,7 +42,10 @@ async function main() {
     const promises = queries.map((q, i) =>
       fetch(`${BASE_URL}/api/ai/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${TEST_TOKEN}`
+        },
         body: JSON.stringify(q)
       })
         .then(async (res) => {

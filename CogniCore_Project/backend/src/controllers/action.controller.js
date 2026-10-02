@@ -9,6 +9,11 @@ import { actionAuditLog } from "../store/action.audit.log.js";
 import { listTemplates, getTemplate } from "../security/write.templates.js";
 
 function resolveIdentity(req) {
+  // Cryptographic Identity (VULN-06): Verified JWT identity takes absolute precedence
+  if (req.user && typeof req.user === "object") {
+    return req.user;
+  }
+  // Fallback for direct unit tests or headers
   if (req.body?.identity && typeof req.body.identity === "object") {
     return req.body.identity;
   }
@@ -172,12 +177,25 @@ export async function listActionTemplates(req, res) {
 
 export async function getActionAuditLog(req, res) {
   const integrity = actionAuditLog.verifyIntegrity();
-  const entries = actionAuditLog.getEntries();
+  const rawLimit = parseInt(req.query?.limit, 10);
+  const rawOffset = parseInt(req.query?.offset, 10);
+
+  const limit = !isNaN(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50;
+  const offset = !isNaN(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+
+  const allFiltered = actionAuditLog.getEntries();
+  const total = allFiltered.length;
+  const paginatedEntries = allFiltered.slice(offset, offset + limit);
+  const hasMore = offset + paginatedEntries.length < total;
 
   return res.status(200).json({
     success: true,
     integrity,
-    entriesCount: entries.length,
-    entries
+    entriesCount: paginatedEntries.length,
+    total,
+    limit,
+    offset,
+    hasMore,
+    entries: paginatedEntries
   });
 }

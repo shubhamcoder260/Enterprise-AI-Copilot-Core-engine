@@ -37,11 +37,13 @@ class ActionAuditLog {
           try {
             const entry = JSON.parse(line);
             this._entries.push(Object.freeze(entry));
-          } catch (_) {}
+          } catch (parseErr) {
+            console.warn("⚠️ [ActionAuditLog] Corrupt audit entry skipped:", parseErr.message);
+          }
         }
       }
-    } catch (_) {
-      // Safe fallback to in-memory if filesystem is restricted
+    } catch (fsErr) {
+      console.warn("⚠️ [ActionAuditLog] Failed to read audit log file from disk:", fsErr.message);
     }
   }
 
@@ -101,7 +103,9 @@ class ActionAuditLog {
     if (this._autoPersist) {
       try {
         fs.appendFileSync(this._logFilePath, JSON.stringify(finalizedEntry) + "\n", "utf-8");
-      } catch (_) {}
+      } catch (appendErr) {
+        console.warn("⚠️ [ActionAuditLog] Failed to persist entry to disk:", appendErr.message);
+      }
     }
 
     return finalizedEntry;

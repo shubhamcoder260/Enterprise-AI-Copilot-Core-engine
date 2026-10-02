@@ -38,7 +38,7 @@ export function createMariaDbWriteAdapter(config = {}) {
       const host = sourceDescriptor.host || creds.host || process.env.ERPNEXT_WRITE_DB_HOST || "127.0.0.1";
       const port = Number(sourceDescriptor.port || creds.port || process.env.ERPNEXT_WRITE_DB_PORT || 3306);
       const user = sourceDescriptor.user || creds.user || process.env.ERPNEXT_WRITE_DB_USER || "cognicore_write";
-      const password = sourceDescriptor.password || creds.password || process.env.ERPNEXT_WRITE_DB_PASSWORD || "cognicore_write_password";
+      const password = sourceDescriptor.password || creds.password || process.env.ERPNEXT_WRITE_DB_PASSWORD;
       const database = sourceDescriptor.database || creds.database || process.env.ERPNEXT_WRITE_DB_NAME || "_4e5d6a7b8c9d0e1f";
 
       if (pool) {

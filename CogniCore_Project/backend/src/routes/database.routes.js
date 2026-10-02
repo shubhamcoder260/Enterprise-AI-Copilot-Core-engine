@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
+import { authenticate } from "../middleware/auth.js";
 
 import {
   uploadDatabase,
@@ -12,6 +13,7 @@ import {
 } from "../controllers/database.controller.js";
 
 const router = express.Router();
+router.use(authenticate());
 
 router.get("/active", getActiveDatabase);
 router.post("/switch", switchActiveDatabase);

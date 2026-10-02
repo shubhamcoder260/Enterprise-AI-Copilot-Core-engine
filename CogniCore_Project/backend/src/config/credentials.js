@@ -1,13 +1,19 @@
 // ============================================================
 // CREDENTIALS PROVIDER (LAYER 1)
-// Resolves database and API secrets from process.env via credentialRef.
-// Invariant: Secrets live ONLY in backend/.env; NEVER in descriptors or logs.
+// Resolves database and API secrets from process.env or encrypted vault via credentialRef.
+// Invariant: Secrets live ONLY in backend/.env or AES-256-GCM vault; NEVER in descriptors or logs.
 // ============================================================
 
 import "dotenv/config";
+import { resolveCredential } from "../security/credential.vault.js";
 
 export function resolveCredentials(credentialRef) {
   if (!credentialRef) return {};
+
+  if (typeof credentialRef === "string" && credentialRef.startsWith("vault:")) {
+    const sourceId = credentialRef.slice(6);
+    return resolveCredential(sourceId) || {};
+  }
 
   switch (credentialRef) {
     case "env:erpnext":
@@ -16,7 +22,7 @@ export function resolveCredentials(credentialRef) {
         host: process.env.ERPNEXT_DB_HOST || "127.0.0.1",
         port: parseInt(process.env.ERPNEXT_DB_PORT || "3306", 10),
         user: process.env.ERPNEXT_DB_USER || "cognicore_ro",
-        password: process.env.ERPNEXT_DB_PASSWORD || "cognicore_ro_password",
+        password: process.env.ERPNEXT_DB_PASSWORD,
         database: process.env.ERPNEXT_DB_NAME || "_4e5d6a7b8c9d0e1f",
         apiKey: process.env.ERPNEXT_API_KEY || "",
         apiSecret: process.env.ERPNEXT_API_SECRET || ""
@@ -38,7 +44,7 @@ export function resolveCredentials(credentialRef) {
         host: process.env.PGHOST || process.env.POSTGRES_HOST || "127.0.0.1",
         port: parseInt(process.env.PGPORT || process.env.POSTGRES_PORT || "5432", 10),
         user: process.env.PGUSER || process.env.POSTGRES_USER || "cognicore_ro",
-        password: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || "cognicore_ro_password",
+        password: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD,
         database: process.env.PGDATABASE || process.env.POSTGRES_DB || "cognicore_pg_test"
       };
 
@@ -48,7 +54,7 @@ export function resolveCredentials(credentialRef) {
         host: process.env.ERPNEXT_WRITE_DB_HOST || process.env.ERPNEXT_DB_HOST || "127.0.0.1",
         port: parseInt(process.env.ERPNEXT_WRITE_DB_PORT || process.env.ERPNEXT_DB_PORT || "3306", 10),
         user: process.env.ERPNEXT_WRITE_DB_USER || "cognicore_write",
-        password: process.env.ERPNEXT_WRITE_DB_PASSWORD || "cognicore_write_password",
+        password: process.env.ERPNEXT_WRITE_DB_PASSWORD,
         database: process.env.ERPNEXT_WRITE_DB_NAME || process.env.ERPNEXT_DB_NAME || "_4e5d6a7b8c9d0e1f"
       };
 
@@ -58,7 +64,7 @@ export function resolveCredentials(credentialRef) {
         host: process.env.PG_WRITE_HOST || process.env.PGHOST || "127.0.0.1",
         port: parseInt(process.env.PG_WRITE_PORT || process.env.PGPORT || "5432", 10),
         user: process.env.PG_WRITE_USER || "cognicore_write",
-        password: process.env.PG_WRITE_PASSWORD || "cognicore_write_password",
+        password: process.env.PG_WRITE_PASSWORD,
         database: process.env.PG_WRITE_DB || process.env.PGDATABASE || "cognicore_pg_test"
       };
 
@@ -70,4 +76,3 @@ export function resolveCredentials(credentialRef) {
       return {};
   }
 }
-

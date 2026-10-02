@@ -8,6 +8,9 @@
 import { deepFreeze, getDialect } from '../adapters/dialects/index.js';
 import { quoteIdentifier } from '../core/sql.builder.js';
 import { getTemplate } from './write.templates.js';
+import pkg from "node-sql-parser";
+const { Parser } = pkg;
+const rlsParser = new Parser();
 
 export const RLS_VERDICT = deepFreeze({
   ALLOW: 'ALLOW',
@@ -104,10 +107,25 @@ export const OPEN_TABLES_ALLOWLIST = freezeSet(new Set([
   "tabgl entry",
   "tabuser",
 
-  // PostgreSQL standard tables
+  // PostgreSQL & Benchmark standard tables
   "customers",
   "items",
   "orders",
+  "products",
+  "product",
+  "artists",
+  "suppliers",
+  "albums",
+  "assignments",
+  "playlist_track",
+  "invoices",
+  "invoice_items",
+  "genres",
+  "media_types",
+  "playlists",
+  "tracks",
+  "reviews",
+  "employees",
 
   // SQLite College realm
   "students",
@@ -255,14 +273,41 @@ export function evaluateRlsPolicy({ tableName, identity, queryIntent = {}, diale
 }
 
 /**
- * Injects an RLS predicate into a SQL WHERE clause safely.
+ * Injects an RLS predicate into a SQL WHERE clause at the AST level.
  *
  * @param {string} sql - Original SQL statement
  * @param {string} predicate - SQL predicate string to inject
+ * @param {string} [dialect='mariadb'] - Database dialect
  * @returns {string} Transformed SQL
  */
-export function injectRlsPredicate(sql, predicate) {
+export function injectRlsPredicate(sql, predicate, dialect = 'mariadb') {
   if (!predicate || typeof sql !== 'string') return sql;
+
+  const dbDialect = dialect === 'sqlite' ? 'sqlite' : (dialect === 'postgres' ? 'postgresql' : 'mariadb');
+
+  // AST-based injection (VULN-04)
+  try {
+    const ast = rlsParser.astify(sql, { database: dbDialect });
+    const targetAst = Array.isArray(ast) ? ast[0] : ast;
+    const predAst = rlsParser.astify(`SELECT * FROM t WHERE ${predicate}`, { database: dbDialect });
+    const targetPredAst = Array.isArray(predAst) ? predAst[0] : predAst;
+
+    if (targetAst && targetAst.type === 'select' && targetPredAst && targetPredAst.where) {
+      if (targetAst.where) {
+        targetAst.where = {
+          type: 'binary_expr',
+          operator: 'AND',
+          left: targetPredAst.where,
+          right: targetAst.where
+        };
+      } else {
+        targetAst.where = targetPredAst.where;
+      }
+      return rlsParser.sqlify(ast, { database: dbDialect });
+    }
+  } catch (err) {
+    // Fallback only if AST parser cannot parse dialect-specific vendor extensions
+  }
 
   const whereRegex = /\bWHERE\b/i;
   if (whereRegex.test(sql)) {
@@ -326,7 +371,7 @@ export function enforceRlsOnAst({ tables = [], sql = '', identity = null, dialec
     }
 
     if (evalRes.verdict === RLS_VERDICT.INJECT_PREDICATE && evalRes.injectedPredicate) {
-      activeSql = injectRlsPredicate(activeSql, evalRes.injectedPredicate);
+      activeSql = injectRlsPredicate(activeSql, evalRes.injectedPredicate, dialect);
       overallVerdict = RLS_VERDICT.INJECT_PREDICATE;
     }
   }

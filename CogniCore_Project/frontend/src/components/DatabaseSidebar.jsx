@@ -6,6 +6,8 @@ import {
   fetchSources,
   switchSource
 } from "../lib/api.js";
+import ConnectionWizardModal from "./ConnectionWizardModal.jsx";
+import SourceManagerModal from "./SourceManagerModal.jsx";
 
 export default function DatabaseSidebar({
   sessionId,
@@ -29,6 +31,8 @@ export default function DatabaseSidebar({
   ]);
   const [activeSource, setActiveSource] = useState({ id: "sqlite_default", dialect: "sqlite" });
   const [switchingSource, setSwitchingSource] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isManagerOpen, setIsManagerOpen] = useState(false);
 
   async function loadSources() {
     try {
@@ -202,7 +206,42 @@ export default function DatabaseSidebar({
 
       {/* DATA SOURCE SELECTOR (CAP v2.2 L7) */}
       <div className="sidebar-section" style={{ marginBottom: "16px" }}>
-        <p className="sidebar-title">DATA SOURCE</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <p className="sidebar-title" style={{ margin: 0 }}>DATA SOURCE</p>
+          <div style={{ display: "flex", gap: "6px" }}>
+            <button
+              onClick={() => setIsWizardOpen(true)}
+              title="Add new database/ERP connection"
+              style={{
+                background: "rgba(99, 102, 241, 0.2)",
+                border: "1px solid rgba(99, 102, 241, 0.4)",
+                borderRadius: "4px",
+                color: "#a5b4fc",
+                fontSize: "11px",
+                fontWeight: "600",
+                padding: "2px 7px",
+                cursor: "pointer"
+              }}
+            >
+              + Add
+            </button>
+            <button
+              onClick={() => setIsManagerOpen(true)}
+              title="Manage all connections"
+              style={{
+                background: "rgba(255, 255, 255, 0.06)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                borderRadius: "4px",
+                color: "#94a3b8",
+                fontSize: "11px",
+                padding: "2px 6px",
+                cursor: "pointer"
+              }}
+            >
+              ⚙️
+            </button>
+          </div>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
           {sources.map((src) => {
             const isActive = activeSource?.id === src.id;
@@ -352,6 +391,33 @@ export default function DatabaseSidebar({
         </div>
         <p>CogniCore AI v1.0</p>
       </div>
+
+      <ConnectionWizardModal
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onSourceAdded={(newSrc) => {
+          loadSources();
+          if (newSrc && newSrc.id) {
+            handleSourceSwitch(newSrc.id);
+          }
+        }}
+      />
+
+      <SourceManagerModal
+        isOpen={isManagerOpen}
+        onClose={() => setIsManagerOpen(false)}
+        sources={sources}
+        activeSource={activeSource}
+        onSourceSwitched={(src) => {
+          setActiveSource(src);
+          if (typeof onDatabaseActivated === "function") {
+            onDatabaseActivated(src.name || src.id);
+          }
+          loadSources();
+        }}
+        onRefreshSources={loadSources}
+        onOpenWizard={() => setIsWizardOpen(true)}
+      />
     </aside>
   );
 }

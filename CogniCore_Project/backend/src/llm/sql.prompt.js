@@ -17,14 +17,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const NOTES_PATH = path.join(__dirname, "schema.notes.json");
 
+let cachedNotes = null;
 function loadSchemaNotes() {
+  if (cachedNotes) return cachedNotes;
   try {
     if (fs.existsSync(NOTES_PATH)) {
       const raw = fs.readFileSync(NOTES_PATH, "utf8");
-      return JSON.parse(raw);
+      cachedNotes = JSON.parse(raw);
+      return cachedNotes;
     }
-  } catch {}
-  return {};
+  } catch (err) {
+    console.warn("⚠️ [SqlPrompt] Failed to load schema notes:", err.message);
+  }
+  cachedNotes = {};
+  return cachedNotes;
 }
 
 /**

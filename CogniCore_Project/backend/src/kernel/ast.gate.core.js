@@ -205,6 +205,17 @@ export function validateAstCore(sql, options = {}) {
     allQueryTables = fromTables.map((f) => f.name);
   }
 
+  // 1.5 SCHEMA TABLE EXISTENCE CHECK (prior to RLS evaluation)
+  if (schemaTables.length > 0) {
+    for (const tbl of allQueryTables) {
+      const isCte = cteNames.has(norm(tbl));
+      const exists = isCte || schemaTables.some((st) => norm(st.name) === norm(tbl));
+      if (!exists) {
+        return { valid: false, reason: `ast_table_not_in_schema:${tbl}` };
+      }
+    }
+  }
+
   // 2. ROW-LEVEL SECURITY (RLS) POLICY ENFORCEMENT
   const rlsCheck = enforceRlsOnAst({
     tables: allQueryTables,
@@ -228,13 +239,6 @@ export function validateAstCore(sql, options = {}) {
   }
 
   if (schemaTables.length > 0) {
-    for (const tbl of allQueryTables) {
-      const isCte = cteNames.has(norm(tbl));
-      const exists = isCte || schemaTables.some((st) => norm(st.name) === norm(tbl));
-      if (!exists) {
-        return { valid: false, reason: `ast_table_not_in_schema:${tbl}` };
-      }
-    }
 
     let invalidCol = null;
     walkAst(stmt, (node) => {

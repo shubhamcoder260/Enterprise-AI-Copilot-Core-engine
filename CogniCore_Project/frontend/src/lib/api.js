@@ -142,3 +142,90 @@ export async function switchSource(sourceId) {
   if (!res.ok) throw new Error("Failed to switch source");
   return await res.json();
 }
+
+/**
+ * Test a database connection descriptor without persisting
+ */
+export async function testSourceConnection(descriptor) {
+  const res = await fetch(`${API_BASE}/api/sources/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(descriptor)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { success: false, ...data };
+  }
+  return data;
+}
+
+/**
+ * Generate DBA grant script
+ */
+export async function generateGrantScript(params) {
+  const res = await fetch(`${API_BASE}/api/sources/generate-grant-script`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || data.message || "Failed to generate script");
+  }
+  return data;
+}
+
+/**
+ * Auto-provision read-only user using temporary elevated credentials
+ */
+export async function autoProvisionSource(params) {
+  const res = await fetch(`${API_BASE}/api/sources/auto-provision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { success: false, ...data };
+  }
+  return data;
+}
+
+/**
+ * Persist and register a new data source
+ */
+export async function createSource(sourceData) {
+  const res = await fetch(`${API_BASE}/api/sources`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(sourceData)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { success: false, ...data };
+  }
+  return data;
+}
+
+/**
+ * Re-test an existing saved source
+ */
+export async function retestSource(sourceId) {
+  const res = await fetch(`${API_BASE}/api/sources/${encodeURIComponent(sourceId)}/test`, {
+    method: "POST"
+  });
+  const data = await res.json().catch(() => ({}));
+  return { success: res.ok && data.success, ...data };
+}
+
+/**
+ * Delete a source and its vaulted credential
+ */
+export async function deleteSource(sourceId) {
+  const res = await fetch(`${API_BASE}/api/sources/${encodeURIComponent(sourceId)}`, {
+    method: "DELETE"
+  });
+  const data = await res.json().catch(() => ({}));
+  return { success: res.ok && data.success, ...data };
+}
+

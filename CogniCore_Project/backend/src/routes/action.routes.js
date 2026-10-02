@@ -4,6 +4,7 @@
 // ============================================================================
 
 import express from "express";
+import { authenticate } from "../middleware/auth.js";
 import {
   proposeAction,
   approveAction,
@@ -13,6 +14,7 @@ import {
 } from "../controllers/action.controller.js";
 
 const router = express.Router();
+router.use(authenticate());
 
 router.get("/templates", listActionTemplates);
 router.get("/audit", getActionAuditLog);

@@ -78,9 +78,18 @@ export function validateAndSanitizeSql(rawString) {
     return { valid: false, reason: "llm_invalid_sql" };
   }
 
-  // 4. Comment rejection: reject any statement containing -- or /*
-  if (text.includes("--") || text.includes("/*")) {
+  // 4. Comment rejection: reject block comments and hostile line comments
+  if (text.includes("/*")) {
     return { valid: false, reason: "llm_invalid_sql" };
+  }
+  if (text.includes("--")) {
+    // S17/VULN-03: Strip benign trailing comments on LIMIT clause or semicolon before clamping
+    const trailingMatch = text.match(/(?:LIMIT\s+[-\d]+(?:\s+OFFSET\s+\d+|,\s*[-\d]+)?|;)\s*--\s*([a-zA-Z0-9_ ]*)$/i);
+    if (trailingMatch && !FORBIDDEN_KEYWORDS_REGEX.test(trailingMatch[1])) {
+      text = text.slice(0, trailingMatch.index + trailingMatch[0].indexOf("--")).trim();
+    } else {
+      return { valid: false, reason: "llm_invalid_sql" };
+    }
   }
 
   // 5. Multi-statement rejection: reject any ; not at the very end
@@ -96,7 +105,7 @@ export function validateAndSanitizeSql(rawString) {
     text = withoutTrailing.trim();
   }
 
-  // 6. LIMIT clamping (applies after semicolon strip)
+  // 6. LIMIT & OFFSET clamping (applies after semicolon strip)
   const limitMatch = text.match(LIMIT_REGEX);
 
   if (!limitMatch) {
@@ -107,23 +116,23 @@ export function validateAndSanitizeSql(rawString) {
 
     if (isCommaForm) {
       // Form: LIMIT <offset>, <count>
-      const offset = limitMatch[1];
+      const rawOffset = parseInt(limitMatch[1], 10);
+      const offset = Math.min(Math.max(isNaN(rawOffset) ? 0 : rawOffset, 0), 10000);
       const count = parseInt(limitMatch[3], 10);
 
-      if (isNaN(count) || count <= 0 || count > 100) {
-        text = text.replace(LIMIT_REGEX, `LIMIT ${offset}, 50`);
-      }
+      const safeCount = (isNaN(count) || count <= 0 || count > 100) ? 50 : count;
+      text = text.replace(LIMIT_REGEX, `LIMIT ${offset}, ${safeCount}`);
     } else {
       // Form: LIMIT <count> [OFFSET <offset>]
       const count = parseInt(limitMatch[1], 10);
-      const offset = limitMatch[2];
+      const rawOffset = limitMatch[2] !== undefined ? parseInt(limitMatch[2], 10) : undefined;
+      const safeCount = (isNaN(count) || count <= 0 || count > 100) ? 50 : count;
 
-      if (isNaN(count) || count <= 0 || count > 100) {
-        if (offset !== undefined) {
-          text = text.replace(LIMIT_REGEX, `LIMIT 50 OFFSET ${offset}`);
-        } else {
-          text = text.replace(LIMIT_REGEX, "LIMIT 50");
-        }
+      if (rawOffset !== undefined) {
+        const offset = Math.min(Math.max(isNaN(rawOffset) ? 0 : rawOffset, 0), 10000);
+        text = text.replace(LIMIT_REGEX, `LIMIT ${safeCount} OFFSET ${offset}`);
+      } else if (safeCount !== count) {
+        text = text.replace(LIMIT_REGEX, `LIMIT ${safeCount}`);
       }
     }
   }

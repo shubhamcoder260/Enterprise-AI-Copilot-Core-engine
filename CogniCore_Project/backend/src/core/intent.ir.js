@@ -274,17 +274,21 @@ export function parseIntentIR(query, context = {}) {
       return tokens.some((t) => cn.includes(t) || t.includes(cn));
     });
 
-    if (tokenCols.length === 1) {
-      ir.targetColumn = tokenCols[0].name;
-    } else if (tokenCols.length > 1) {
+    const activeTokenCols = tokenCols.filter((c) => !/_id$|^id$/i.test(c.name)).length > 0
+      ? tokenCols.filter((c) => !/_id$|^id$/i.test(c.name))
+      : tokenCols;
+
+    if (activeTokenCols.length === 1) {
+      ir.targetColumn = activeTokenCols[0].name;
+    } else if (activeTokenCols.length > 1) {
       // Prioritize canonical totals (e.g. grand_total over net_total)
-      const preferred = tokenCols.find((c) => /grand_total|total_amount|total$/i.test(c.name));
+      const preferred = activeTokenCols.find((c) => /grand_total|total_amount|total$/i.test(c.name));
       if (preferred) {
         ir.targetColumn = preferred.name;
       } else {
         // Multiple candidate metric columns without clear priority
         ir.confidence = "AMBIGUOUS";
-        ir.clarificationPrompt = `Multiple columns match your request: ${tokenCols.map((c) => c.name).join(", ")}. Which metric should be aggregated?`;
+        ir.clarificationPrompt = `Multiple columns match your request: ${activeTokenCols.map((c) => c.name).join(", ")}. Which metric should be aggregated?`;
         return ir;
       }
     } else if (numCols.length === 1) {

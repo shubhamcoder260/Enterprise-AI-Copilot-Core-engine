@@ -9,7 +9,9 @@ import { ANSWERED } from "../../kernel/handler-result.js";
   try {
     const schema = await readDatabaseSchema();
     tables = Object.keys(schema);
-  } catch (e) {}
+  } catch (e) {
+    console.warn("⚠️ [FallbackLink] Schema inspection failed during fallback:", e.message);
+  }
 
   const tablesText =
     tables.length > 0
