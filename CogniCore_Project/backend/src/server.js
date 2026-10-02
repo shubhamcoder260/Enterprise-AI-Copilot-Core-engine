@@ -8,6 +8,7 @@ import databaseRoutes from "./routes/database.routes.js";
 import actionRoutes from "./routes/action.routes.js";
 import sourceRoutes from "./routes/source.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import academicRoutes from "./routes/academic.routes.js";
 
 dotenv.config();
 
@@ -15,7 +16,7 @@ const app = express();
 
 const allowedOrigins = process.env.COGNICORE_ALLOWED_ORIGINS
   ? process.env.COGNICORE_ALLOWED_ORIGINS.split(",").map((s) => s.trim())
-  : ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"];
+  : ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:5174", "http://127.0.0.1:3000"];
 
 app.use(
   cors({
@@ -47,6 +48,9 @@ app.get("/health", (req, res) =>
 
 // Authentication Routes (VULN-05)
 app.use("/api/auth", authRoutes);
+
+// Intelligent Student Academic Monitoring & Governance Routes (Hackathon)
+app.use("/api/academic", academicRoutes);
 
 // AI Query & LLM Routes
 app.use("/api/ai", aiRoutes);
