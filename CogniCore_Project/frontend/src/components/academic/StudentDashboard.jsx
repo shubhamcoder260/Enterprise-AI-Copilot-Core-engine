@@ -131,9 +131,10 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
       {activeTab === "courses" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px" }}>
           {courses.map((c) => {
-            const att = c.attendance;
+            const att = c.attendance || { alertLevel: "SAFE", currentPct: 100, held: 0, attended: 0, missBuffer: 0, recoveryNeeded: 0, projectedFinalPct: 100, recentRate: 100, explanation: "" };
             const badge = getAlertBadgeStyle(att.alertLevel);
-            const riskBadge = getRiskBadgeStyle(c.risk.riskLevel);
+            const risk = c.risk || { riskLevel: "LOW", totalRiskScore: 0, reasons: [] };
+            const riskBadge = getRiskBadgeStyle(risk.riskLevel);
             const isExpanded = expandedRiskCourse === c.course_id;
 
             return (
@@ -227,7 +228,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span style={{ fontSize: "12px", color: "#94a3b8" }}>Academic Risk:</span>
                       <span style={{ fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "6px", background: riskBadge.bg, color: riskBadge.text }}>
-                        {c.risk.riskLevel} (Score: {c.risk.totalRiskScore}/100)
+                        {risk.riskLevel} (Score: {risk.totalRiskScore}/100)
                       </span>
                     </div>
                     <button
@@ -243,7 +244,7 @@ export default function StudentDashboard({ profile, onRefresh, loading }) {
                     <div style={{ background: "#0f172a", borderRadius: "8px", padding: "10px 12px", marginTop: "10px", fontSize: "12px", color: "#cbd5e1" }}>
                       <div style={{ fontWeight: "600", marginBottom: "6px", color: "#94a3b8" }}>35/30/20/15 Weighted Formula Drivers:</div>
                       <ul style={{ margin: 0, paddingLeft: "18px", lineHeight: "1.6" }}>
-                        {c.risk.reasons.map((r, i) => (
+                        {(risk.reasons || []).map((r, i) => (
                           <li key={i}>{r}</li>
                         ))}
                       </ul>

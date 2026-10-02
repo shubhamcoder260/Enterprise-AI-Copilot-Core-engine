@@ -190,8 +190,16 @@ export async function demoLogin(req, res) {
  */
 export async function getStudentDashboard(req, res) {
   try {
-    const studentId = req.query.studentId || (req.user && req.user.role === "student" ? req.user.id : 1);
-    const profile = await getStudentAcademicProfile(Number(studentId));
+    const rawStudentId = req.query.studentId || (req.user && req.user.role === "student" ? req.user.id : 1);
+    const strId = String(rawStudentId).trim();
+    if (!/^\d+$/.test(strId)) {
+      return res.status(400).json({ success: false, error: "Invalid studentId parameter. Must be a pure positive integer." });
+    }
+    const studentId = parseInt(strId, 10);
+    if (studentId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid studentId parameter. Must be greater than zero." });
+    }
+    const profile = await getStudentAcademicProfile(studentId);
 
     if (!profile) {
       return res.status(404).json({ success: false, error: "Student profile not found" });
@@ -244,6 +252,14 @@ export async function getFacultyCourses(req, res) {
 export async function getCourseRoster(req, res) {
   try {
     const { offeringId } = req.params;
+    const strOffering = String(offeringId || "").trim();
+    if (!/^\d+$/.test(strOffering)) {
+      return res.status(400).json({ success: false, error: "Invalid offeringId parameter. Must be a pure positive integer." });
+    }
+    const parsedOfferingId = parseInt(strOffering, 10);
+    if (parsedOfferingId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid offeringId parameter. Must be greater than zero." });
+    }
     const assessmentName = req.query.assessmentName || "Internal 1";
     const db = await getAcademicDb();
 
@@ -255,12 +271,12 @@ export async function getCourseRoster(req, res) {
        LEFT JOIN internal_marks im ON e.enrollment_id = im.enrollment_id AND im.assessment_name = ?
        WHERE e.offering_id = ?
        ORDER BY s.register_number ASC`,
-      [assessmentName, offeringId]
+      [assessmentName, parsedOfferingId]
     );
 
     return res.status(200).json({
       success: true,
-      offeringId: Number(offeringId),
+      offeringId: parsedOfferingId,
       assessmentName,
       totalStudents: roster.length,
       roster
@@ -280,8 +296,16 @@ export async function parseVoiceMarks(req, res) {
     if (!transcript || typeof transcript !== "string") {
       return res.status(400).json({ success: false, error: "Missing speech transcript string" });
     }
-    if (!offeringId) {
-      return res.status(400).json({ success: false, error: "Missing offeringId" });
+    if (transcript.length > 10000) {
+      return res.status(400).json({ success: false, error: "Transcript exceeds maximum supported length (10,000 characters)" });
+    }
+    const strOffering = String(offeringId || "").trim();
+    if (!/^\d+$/.test(strOffering)) {
+      return res.status(400).json({ success: false, error: "Invalid offeringId. Must be a pure positive integer." });
+    }
+    const parsedOfferingId = parseInt(strOffering, 10);
+    if (parsedOfferingId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid offeringId. Must be greater than zero." });
     }
 
     const db = await getAcademicDb();
@@ -292,14 +316,14 @@ export async function parseVoiceMarks(req, res) {
        JOIN students s ON e.student_id = s.student_id
        LEFT JOIN internal_marks im ON e.enrollment_id = im.enrollment_id AND im.assessment_name = ?
        WHERE e.offering_id = ?`,
-      [assessmentName, offeringId]
+      [assessmentName, parsedOfferingId]
     );
 
     const parsedBatch = parseVoiceMarksBatch(transcript, roster, Number(defaultMaxMarks));
 
     return res.status(200).json({
       success: true,
-      offeringId: Number(offeringId),
+      offeringId: parsedOfferingId,
       assessmentName,
       batch: parsedBatch
     });
@@ -309,7 +333,7 @@ export async function parseVoiceMarks(req, res) {
 }
 
 /**
- * Submit / Confirm Verified Marks (R3, R4)
+ * Submit / Confirm Verified Marks with ACID Transaction (R3, R4)
  */
 export async function submitMarks(req, res) {
   try {
@@ -319,21 +343,30 @@ export async function submitMarks(req, res) {
       return res.status(400).json({ success: false, error: "Entries must be a non-empty array" });
     }
 
-    const results = [];
-    for (const entry of entries) {
-      const { enrollmentId, obtainedMarks, maxMarks = 50 } = entry;
-      if (!enrollmentId || obtainedMarks === null || obtainedMarks === undefined) {
-        continue;
-      }
+    const db = await getAcademicDb();
+    await db.run("BEGIN TRANSACTION");
 
-      const saveRes = await saveOrUpdateMark({
-        enrollmentId,
-        assessmentName: entry.assessmentName || assessmentName,
-        obtainedMarks,
-        maxMarks,
-        facultyName
-      });
-      results.push(saveRes);
+    const results = [];
+    try {
+      for (const entry of entries) {
+        const { enrollmentId, obtainedMarks, maxMarks = 50 } = entry;
+        if (!enrollmentId || obtainedMarks === null || obtainedMarks === undefined) {
+          continue;
+        }
+
+        const saveRes = await saveOrUpdateMark({
+          enrollmentId: Number(enrollmentId),
+          assessmentName: String(entry.assessmentName || assessmentName).slice(0, 100),
+          obtainedMarks: Number(obtainedMarks),
+          maxMarks: Number(maxMarks),
+          facultyName: String(facultyName).slice(0, 100)
+        });
+        results.push(saveRes);
+      }
+      await db.run("COMMIT");
+    } catch (saveErr) {
+      await db.run("ROLLBACK");
+      throw saveErr;
     }
 
     return res.status(200).json({
@@ -352,6 +385,14 @@ export async function submitMarks(req, res) {
 export async function getCourseAtRisk(req, res) {
   try {
     const { offeringId } = req.params;
+    const strOffering = String(offeringId || "").trim();
+    if (!/^\d+$/.test(strOffering)) {
+      return res.status(400).json({ success: false, error: "Invalid offeringId parameter. Must be a pure positive integer." });
+    }
+    const parsedOfferingId = parseInt(strOffering, 10);
+    if (parsedOfferingId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid offeringId parameter. Must be greater than zero." });
+    }
     const db = await getAcademicDb();
 
     const enrollments = await db.all(
@@ -359,7 +400,7 @@ export async function getCourseAtRisk(req, res) {
        FROM enrollments e
        JOIN students s ON e.student_id = s.student_id
        WHERE e.offering_id = ?`,
-      [offeringId]
+      [parsedOfferingId]
     );
 
     const atRiskList = [];
