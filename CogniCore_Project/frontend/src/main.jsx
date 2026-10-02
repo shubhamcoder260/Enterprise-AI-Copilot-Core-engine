@@ -15,6 +15,7 @@ import StudentDashboard from "./components/academic/StudentDashboard.jsx";
 import FacultyConsole from "./components/academic/FacultyConsole.jsx";
 import AdminDashboard from "./components/academic/AdminDashboard.jsx";
 import { UniversitySeal, GraduationCapIcon, UserCheckIcon, ShieldBuildingIcon, BookOpenIcon } from "./components/academic/Icons.jsx";
+import { academicFetch, setAuthToken } from "./lib/academicApi.js";
 
 function App() {
   // Navigation & View Mode
@@ -88,15 +89,16 @@ function App() {
       const res = await fetch("http://localhost:5000/api/academic/auth/demo-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, studentId: id || 1, facultyId: id || 150 })
+        body: JSON.stringify({ role, studentId: id || 1, facultyId: id || 1 })
       });
       const data = await res.json();
       if (data.success && data.user) {
+        if (data.token) setAuthToken(data.token);
         setAcademicUser(data.user);
         setAcademicRole(role);
 
         if (role === "student") {
-          const profRes = await fetch(`http://localhost:5000/api/academic/student/dashboard?studentId=${data.user.id}`);
+          const profRes = await academicFetch(`http://localhost:5000/api/academic/student/dashboard?studentId=${data.user.id}`);
           const profData = await profRes.json();
           if (profData.profile) setAcademicStudentProfile(profData.profile);
         }
@@ -122,13 +124,13 @@ function App() {
         return { success: false, error: data.error || "Authentication failed." };
       }
       if (data.token) {
-        try { localStorage.setItem("cognicore_auth_token", data.token); } catch {}
+        setAuthToken(data.token);
       }
       setAcademicUser(data.user);
       setAcademicRole(data.user.role);
 
       if (data.user.role === "student") {
-        const profRes = await fetch(`http://localhost:5000/api/academic/student/dashboard?studentId=${data.user.id}`);
+        const profRes = await academicFetch(`http://localhost:5000/api/academic/student/dashboard?studentId=${data.user.id}`);
         const profData = await profRes.json();
         if (profData.profile) setAcademicStudentProfile(profData.profile);
       }
@@ -144,7 +146,7 @@ function App() {
   async function refreshStudentProfile() {
     if (!academicUser || academicUser.role !== "student") return;
     try {
-      const res = await fetch(`http://localhost:5000/api/academic/student/dashboard?studentId=${academicUser.id}`);
+      const res = await academicFetch(`http://localhost:5000/api/academic/student/dashboard?studentId=${academicUser.id}`);
       const data = await res.json();
       if (data.profile) setAcademicStudentProfile(data.profile);
     } catch (err) {

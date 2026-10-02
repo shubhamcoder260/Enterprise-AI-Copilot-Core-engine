@@ -79,11 +79,14 @@ export function authenticate(requiredRole = null) {
         : (decoded.role ? [decoded.role] : []);
 
       req.user = {
-        userId: String(decoded.userId || decoded.sub || "anonymous"),
+        id: decoded.id,
+        userId: String(decoded.userId || decoded.id || "anonymous"),
+        role: decoded.role || roles[0] || "user",
         employeeId: decoded.employeeId ? String(decoded.employeeId) : null,
         roles,
         company: decoded.company || null,
-        identitySource: "jwt"
+        identitySource: "jwt",
+        ...decoded
       };
 
       if (requiredRole) {

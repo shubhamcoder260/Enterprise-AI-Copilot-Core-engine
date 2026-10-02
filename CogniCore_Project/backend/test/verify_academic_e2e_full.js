@@ -28,15 +28,35 @@ async function runComprehensiveE2ETests() {
     body: JSON.stringify({ role: "student", studentId: 1 })
   });
   const authData = await authRes.json();
+  const studentToken = authData.token;
   assert(authRes.status === 200, "R1.1: 1-Click login returns HTTP 200");
   assert(authData.user && authData.user.role === "student", "R1.2: Authenticated role is strictly 'student'");
   assert(authData.user.registerNumber === "2026030001", "R1.3: User record bound to student register number");
+
+  // Obtain Faculty and Admin tokens for subsequent role checks
+  const facAuthRes = await fetch(`${BASE_URL}/auth/demo-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "faculty", facultyId: 1 })
+  });
+  const facAuthData = await facAuthRes.json();
+  const facultyToken = facAuthData.token;
+
+  const adminAuthRes = await fetch(`${BASE_URL}/auth/demo-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "admin" })
+  });
+  const adminAuthData = await adminAuthRes.json();
+  const adminToken = adminAuthData.token;
 
   // ------------------------------------------------------------------
   // R2: ATTENDANCE TREND ANALYSIS & PRE-75% PROACTIVE WARNINGS
   // ------------------------------------------------------------------
   console.log("\n--- [R2] Attendance Projections & Early-Warning Math ---");
-  const dashRes = await fetch(`${BASE_URL}/student/dashboard?studentId=1`);
+  const dashRes = await fetch(`${BASE_URL}/student/dashboard?studentId=1`, {
+    headers: { "Authorization": `Bearer ${studentToken}` }
+  });
   const dashData = await dashRes.json();
   assert(dashRes.status === 200, "R2.1: Student dashboard loads successfully");
   assert(dashData.profile.courses.length >= 2, `R2.2: Loaded ${dashData.profile.courses.length} enrolled academic courses`);
@@ -53,13 +73,15 @@ async function runComprehensiveE2ETests() {
   // R3: AUTOMATIC NOTIFICATIONS & AUDIT TRAIL
   // ------------------------------------------------------------------
   console.log("\n--- [R3] Marks Change Notifications & Audit ---");
-  const initialNotifCount = dashData.profile.notifications.length;
   
-  // Submit a mark update
+  // Submit a mark update (using faculty token)
   const testEnrollment = course1.enrollment_id;
   const submitRes = await fetch(`${BASE_URL}/faculty/submit-marks`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${facultyToken}`
+    },
     body: JSON.stringify({
       facultyName: "Dr. Robert Smith",
       assessmentName: "Internal 1",
@@ -76,7 +98,9 @@ async function runComprehensiveE2ETests() {
   assert(submitRes.status === 200 && submitData.savedCount === 1, "R3.1: Mark successfully committed via API");
 
   // Re-fetch student dashboard to verify notification delivery
-  const refreshRes = await fetch(`${BASE_URL}/student/dashboard?studentId=1`);
+  const refreshRes = await fetch(`${BASE_URL}/student/dashboard?studentId=1`, {
+    headers: { "Authorization": `Bearer ${studentToken}` }
+  });
   const refreshData = await refreshRes.json();
   const latestNotif = refreshData.profile.notifications[0];
   assert(latestNotif !== undefined, "R3.2: Immediate in-app notification delivered to student drawer");
@@ -89,7 +113,10 @@ async function runComprehensiveE2ETests() {
   const voiceSpeech = "roll forty-five, forty-two out of fifty; Sneha, fifty-five out of fifty; Vivek Reddy, 38";
   const voiceRes = await fetch(`${BASE_URL}/faculty/parse-voice-marks`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${facultyToken}`
+    },
     body: JSON.stringify({
       offeringId: 219,
       transcript: voiceSpeech
@@ -131,12 +158,16 @@ async function runComprehensiveE2ETests() {
   // R6: ATTENTION INSIGHTS (FACULTY & ADMIN VIEWS)
   // ------------------------------------------------------------------
   console.log("\n--- [R6] Insights & Attention Lists ---");
-  const atRiskRes = await fetch(`${BASE_URL}/faculty/course/219/at-risk`);
+  const atRiskRes = await fetch(`${BASE_URL}/faculty/course/219/at-risk`, {
+    headers: { "Authorization": `Bearer ${facultyToken}` }
+  });
   const atRiskData = await atRiskRes.json();
   assert(atRiskRes.status === 200, "R6.1: Loaded course at-risk list for faculty");
   assert(atRiskData.highRiskCount !== undefined && atRiskData.mediumRiskCount !== undefined, "R6.2: Segmented high-risk and medium-risk student counts");
 
-  const heatmapRes = await fetch(`${BASE_URL}/admin/heatmap`);
+  const heatmapRes = await fetch(`${BASE_URL}/admin/heatmap`, {
+    headers: { "Authorization": `Bearer ${adminToken}` }
+  });
   const heatmapData = await heatmapRes.json();
   assert(heatmapRes.status === 200, "R6.3: Admin campus heatmap loaded");
   assert(heatmapData.summary.total_students === 3000, "R6.4: Campus analytics covers full 3,000 student body");

@@ -4,7 +4,12 @@ import {
   getStudentAcademicProfile,
   calculateAttendanceMetrics,
   calculateSubjectRisk,
-  saveOrUpdateMark
+  saveOrUpdateMark,
+  getDebarmentForecast,
+  getBacktestAnalysis,
+  verifyAcademicAuditLog,
+  getSimulatedOutbox,
+  simulateStudentRecovery
 } from "../services/academic.service.js";
 import { parseVoiceMarksBatch } from "../services/voice.mark.service.js";
 
@@ -124,6 +129,12 @@ export async function loginWithCredentials(req, res) {
  */
 export async function demoLogin(req, res) {
   try {
+    if (process.env.DEMO_MODE !== "true") {
+      return res.status(403).json({
+        success: false,
+        error: "Demo login is disabled in strict production mode. Set DEMO_MODE=true in .env to enable."
+      });
+    }
     const { role = "student", studentId = 1, facultyId = 150 } = req.body || {};
     const db = await getAcademicDb();
 
@@ -199,6 +210,18 @@ export async function getStudentDashboard(req, res) {
     if (studentId <= 0) {
       return res.status(400).json({ success: false, error: "Invalid studentId parameter. Must be greater than zero." });
     }
+
+    // Object-Level Authorization (IDOR Defense)
+    if (req.user && req.user.role === "student") {
+      const callerId = Number(req.user.id || req.user.userId);
+      if (callerId !== studentId) {
+        return res.status(403).json({
+          success: false,
+          error: `Unauthorized access: Student (ID: ${callerId}) cannot access records of Student (ID: ${studentId}).`
+        });
+      }
+    }
+
     const profile = await getStudentAcademicProfile(studentId);
 
     if (!profile) {
@@ -219,7 +242,7 @@ export async function getStudentDashboard(req, res) {
  */
 export async function getFacultyCourses(req, res) {
   try {
-    const facultyId = req.query.facultyId || (req.user && req.user.role === "faculty" ? req.user.id : 150);
+    const facultyId = req.query.facultyId || (req.user && req.user.role === "faculty" ? req.user.id : 1);
     const db = await getAcademicDb();
 
     const courses = await db.all(
@@ -232,6 +255,7 @@ export async function getFacultyCourses(req, res) {
        LEFT JOIN enrollments e ON co.offering_id = e.offering_id
        WHERE co.faculty_id = ?
        GROUP BY co.offering_id
+       HAVING COUNT(e.enrollment_id) > 0
        ORDER BY enrolled_count DESC`,
       [facultyId]
     );
@@ -337,6 +361,13 @@ export async function parseVoiceMarks(req, res) {
  */
 export async function submitMarks(req, res) {
   try {
+    if (req.user && req.user.role === "student") {
+      return res.status(403).json({
+        success: false,
+        error: "Unauthorized: Students are strictly forbidden from submitting or modifying marks."
+      });
+    }
+
     const { entries = [], facultyName = "Faculty", assessmentName = "Internal 1" } = req.body || {};
 
     if (!Array.isArray(entries) || entries.length === 0) {
@@ -502,6 +533,81 @@ export async function getAdminHeatmap(req, res) {
       summary: totals,
       departments: deptStats
     });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * Admin Debarment Forecast (USP 1)
+ */
+export async function getDebarmentForecastHandler(req, res) {
+  try {
+    const plannedTotal = parseInt(req.query.plannedTotal || "60", 10);
+    const forecast = await getDebarmentForecast(plannedTotal);
+    return res.status(200).json({ success: true, ...forecast });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * Semester Replay Backtest Analysis (USP 2)
+ */
+export async function getBacktestHandler(req, res) {
+  try {
+    const analysis = await getBacktestAnalysis();
+    return res.status(200).json({ success: true, ...analysis });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * Cryptographic Audit Ledger Verification (USP 3)
+ */
+export async function verifyAuditLogHandler(req, res) {
+  try {
+    const verification = await verifyAcademicAuditLog();
+    return res.status(200).json({ success: true, ...verification });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * Student & Admin Outbox Messages (USP 4)
+ */
+export async function getOutboxHandler(req, res) {
+  try {
+    let studentId = null;
+    if (req.user && req.user.role === "student") {
+      studentId = req.user.id;
+    } else if (req.query.studentId) {
+      studentId = parseInt(req.query.studentId, 10);
+    }
+    const limit = parseInt(req.query.limit || "50", 10);
+    const messages = await getSimulatedOutbox(studentId, limit);
+    return res.status(200).json({ success: true, count: messages.length, messages });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * Student What-If Recovery Simulator (USP 5)
+ */
+export function simulateRecoveryHandler(req, res) {
+  try {
+    const { attended, held, futureAttended, futureHeld, plannedTotal = 60 } = req.body || {};
+    const result = simulateStudentRecovery({
+      attended: Number(attended),
+      held: Number(held),
+      futureAttended: Number(futureAttended),
+      futureHeld: Number(futureHeld),
+      plannedTotal: Number(plannedTotal)
+    });
+    return res.status(200).json({ success: true, simulation: result });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
