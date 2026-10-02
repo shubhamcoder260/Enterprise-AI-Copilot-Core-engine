@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ShieldBuildingIcon, DownloadIcon, CheckCircleIcon, AlertCircleIcon } from "./Icons.jsx";
 
 export default function AdminDashboard() {
   const [heatmapData, setHeatmapData] = useState(null);
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
       if (data.profile) {
         setDrilldownProfile(data.profile);
       } else {
-        alert("Student not found");
+        alert("Student record not found");
       }
     } catch (err) {
       alert("Error: " + err.message);
@@ -41,142 +42,237 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "24px 20px" }}>
-      {/* Header */}
-      <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "16px", padding: "24px", marginBottom: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
-          <h1 style={{ fontSize: "22px", fontWeight: "700", color: "#f8fafc", margin: 0 }}>
-            🏛️ Institutional Academic Intelligence & Health Heatmap
-          </h1>
-          <span style={{ fontSize: "12px", background: "rgba(168, 85, 247, 0.2)", color: "#c084fc", padding: "4px 10px", borderRadius: "999px", fontWeight: "600" }}>
-            Admin Console
-          </span>
+    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "28px 20px", color: "#0f172a" }}>
+      
+      {/* Executive Header */}
+      <div style={{
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "10px",
+        padding: "24px",
+        marginBottom: "24px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "16px"
+      }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+            <h1 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", margin: 0 }}>
+              Office of the Provost & University Registrar
+            </h1>
+            <span style={{ fontSize: "11px", fontWeight: "700", background: "#f3e8ff", color: "#6b21a8", padding: "3px 8px", borderRadius: "4px", border: "1px solid #d8b4fe" }}>
+              INSTITUTIONAL GOVERNANCE
+            </span>
+          </div>
+          <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
+            Campus-wide academic metrics, multi-department risk distribution, and individual student audit drilldown.
+          </p>
         </div>
-        <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0 }}>
-          Campus-wide academic indicators, department-level risk distributions, and individual student drilldown.
-        </p>
+
+        {/* CSV Export Button */}
+        <button
+          onClick={() => {
+            if (!heatmapData?.departments) return;
+            const csvRows = [
+              ["Department Code", "Department Name", "Total Students", "Average CGPA", "Status"],
+              ...heatmapData.departments.map((d) => [
+                d.department_code,
+                `"${d.department_name}"`,
+                d.student_count,
+                d.avg_cgpa,
+                d.avg_cgpa >= 7.0 ? "OPTIMAL" : "ATTENTION"
+              ])
+            ];
+            const blob = new Blob([csvRows.map((r) => r.join(",")).join("\n")], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `academic_governance_report_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "9px 16px",
+            borderRadius: "6px",
+            background: "#0f2942",
+            color: "#ffffff",
+            fontSize: "13px",
+            fontWeight: "600",
+            border: "none",
+            cursor: "pointer"
+          }}
+        >
+          <DownloadIcon size={15} color="#ffffff" />
+          Export Institutional CSV
+        </button>
       </div>
 
-      {/* Summary KPI Cards */}
+      {/* KPI Cards */}
       {heatmapData?.summary && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", marginBottom: "24px" }}>
-          <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "12px", padding: "20px" }}>
-            <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "600", marginBottom: "4px" }}>TOTAL STUDENTS</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#38bdf8" }}>{heatmapData.summary.total_students?.toLocaleString()}</div>
-            <div style={{ fontSize: "11px", color: "#64748b" }}>Across 8 degree programs</div>
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
+              Total Enrollment
+            </div>
+            <div style={{ fontSize: "26px", fontWeight: "800", color: "#0f2942" }}>
+              {heatmapData.summary.total_students?.toLocaleString()}
+            </div>
+            <div style={{ fontSize: "12px", color: "#64748b" }}>Across 8 degree programs</div>
           </div>
-          <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "12px", padding: "20px" }}>
-            <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "600", marginBottom: "4px" }}>ACTIVE COURSES</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#34d399" }}>{heatmapData.summary.total_courses}</div>
-            <div style={{ fontSize: "11px", color: "#64748b" }}>Current Academic Year</div>
+
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
+              Active Course Offerings
+            </div>
+            <div style={{ fontSize: "26px", fontWeight: "800", color: "#065f46" }}>
+              {heatmapData.summary.total_courses}
+            </div>
+            <div style={{ fontSize: "12px", color: "#64748b" }}>Current Semester I</div>
           </div>
-          <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "12px", padding: "20px" }}>
-            <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "600", marginBottom: "4px" }}>FACULTY MEMBERS</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#fbbf24" }}>{heatmapData.summary.total_faculty}</div>
-            <div style={{ fontSize: "11px", color: "#64748b" }}>Teaching faculty & staff</div>
+
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
+              Appointed Faculty
+            </div>
+            <div style={{ fontSize: "26px", fontWeight: "800", color: "#1e3a8a" }}>
+              {heatmapData.summary.total_faculty}
+            </div>
+            <div style={{ fontSize: "12px", color: "#64748b" }}>Instructors & lecturers</div>
           </div>
-          <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "12px", padding: "20px" }}>
-            <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "600", marginBottom: "4px" }}>DEPARTMENTS</div>
-            <div style={{ fontSize: "28px", fontWeight: "800", color: "#a855f7" }}>{heatmapData.summary.total_departments}</div>
-            <div style={{ fontSize: "11px", color: "#64748b" }}>Academic divisions</div>
+
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "18px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+            <div style={{ fontSize: "11px", color: "#64748b", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px" }}>
+              Academic Divisions
+            </div>
+            <div style={{ fontSize: "26px", fontWeight: "800", color: "#581c87" }}>
+              {heatmapData.summary.total_departments}
+            </div>
+            <div style={{ fontSize: "12px", color: "#64748b" }}>Faculties & schools</div>
           </div>
         </div>
       )}
 
-      {/* Department Academic Heatmap Table */}
-      <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "16px", padding: "24px", marginBottom: "28px" }}>
-        <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#f8fafc", margin: "0 0 16px 0" }}>
-          Department Academic & Attendance Distribution
-        </h2>
+      {/* Department Heatmap Table */}
+      <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", marginBottom: "28px" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+          <h2 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 2px 0" }}>
+            Departmental Academic & Attendance Distribution
+          </h2>
+          <div style={{ fontSize: "12px", color: "#64748b" }}>
+            Aggregated institutional indicators across all schools for academic session 2025–26.
+          </div>
+        </div>
+
         {heatmapData?.departments && (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", color: "#cbd5e1" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
               <thead>
-                <tr style={{ background: "#0f172a", borderBottom: "1px solid #334155", textAlign: "left" }}>
-                  <th style={{ padding: "12px 14px" }}>Dept Code</th>
-                  <th style={{ padding: "12px 14px" }}>Department Name</th>
-                  <th style={{ padding: "12px 14px" }}>Student Enrollment</th>
-                  <th style={{ padding: "12px 14px" }}>Average CGPA</th>
-                  <th style={{ padding: "12px 14px" }}>Health Status</th>
+                <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Code</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Academic Department</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Student Enrollment</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Average CGPA</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Compliance Status</th>
                 </tr>
               </thead>
               <tbody>
-                {heatmapData.departments.map((d) => (
-                  <tr key={d.department_id} style={{ borderBottom: "1px solid #334155" }}>
-                    <td style={{ padding: "12px 14px", fontWeight: "700", color: "#38bdf8" }}>{d.department_code}</td>
-                    <td style={{ padding: "12px 14px", color: "#f8fafc" }}>{d.department_name}</td>
-                    <td style={{ padding: "12px 14px" }}>{d.student_count} students</td>
-                    <td style={{ padding: "12px 14px", fontWeight: "600" }}>{d.avg_cgpa} / 10.0</td>
-                    <td style={{ padding: "12px 14px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: "700", padding: "3px 10px", borderRadius: "999px", background: "rgba(16, 185, 129, 0.15)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
-                        Healthy (91% Eligible)
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {heatmapData.departments.map((dept) => {
+                  const isOptimal = Number(dept.avg_cgpa) >= 7.0;
+                  return (
+                    <tr key={dept.department_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 14px", fontWeight: "700", color: "#0f172a" }}>
+                        {dept.department_code}
+                      </td>
+                      <td style={{ padding: "12px 14px", color: "#0f172a" }}>
+                        {dept.department_name}
+                      </td>
+                      <td style={{ padding: "12px 14px", color: "#475569" }}>
+                        {dept.student_count} Students
+                      </td>
+                      <td style={{ padding: "12px 14px", fontWeight: "600", color: "#0f172a" }}>
+                        {Number(dept.avg_cgpa).toFixed(2)}
+                      </td>
+                      <td style={{ padding: "12px 14px" }}>
+                        {isOptimal ? (
+                          <span style={{ fontSize: "11px", fontWeight: "700", color: "#065f46", background: "#ecfdf5", padding: "2px 6px", borderRadius: "4px", border: "1px solid #a7f3d0" }}>
+                            OPTIMAL STANDING
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: "11px", fontWeight: "700", color: "#92400e", background: "#fffbeb", padding: "2px 6px", borderRadius: "4px", border: "1px solid #fde68a" }}>
+                            ADVISORY MONITORING
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Student Deep Drill-Down Inspector */}
-      <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "16px", padding: "24px" }}>
-        <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#f8fafc", margin: "0 0 6px 0" }}>
-          Single-Student Academic Drill-Down Inspector (R7)
-        </h2>
-        <p style={{ fontSize: "13px", color: "#94a3b8", margin: "0 0 16px 0" }}>
-          Inspect the full attendance trajectory, multi-factor risk scores, and internal marks for any student across the university.
+      {/* Student Audit Drilldown Section */}
+      <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+        <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 4px 0" }}>
+          Individual Student Record Audit
+        </h3>
+        <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 14px 0" }}>
+          Inspect any student's statutory attendance ledger, internal assessments, and decomposition risk factors.
         </p>
 
-        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+        <div style={{ display: "flex", gap: "10px", marginBottom: "16px", maxWidth: "420px" }}>
           <input
-            type="number"
+            type="text"
             value={drilldownId}
             onChange={(e) => setDrilldownId(e.target.value)}
-            placeholder="Student ID (e.g. 1)"
-            style={{ width: "160px", background: "#0f172a", border: "1px solid #334155", borderRadius: "8px", padding: "8px 12px", color: "#f8fafc", fontSize: "14px" }}
+            placeholder="Enter Student ID (e.g. 1, 2, 19)"
+            style={{ flex: 1, padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "13px" }}
           />
           <button
             onClick={handleDrilldown}
             disabled={drillLoading}
-            style={{ padding: "8px 18px", borderRadius: "8px", background: "#7c3aed", color: "#fff", fontWeight: "700", fontSize: "13px", border: "none", cursor: "pointer" }}
+            style={{ padding: "8px 16px", borderRadius: "6px", background: "#0f2942", color: "#ffffff", fontSize: "13px", fontWeight: "600", border: "none", cursor: "pointer" }}
           >
-            {drillLoading ? "Loading..." : "🔎 Inspect Academic File"}
+            {drillLoading ? "Searching..." : "Inspect Record"}
           </button>
         </div>
 
         {drilldownProfile && (
-          <div style={{ background: "#0f172a", border: "1px solid #334155", borderRadius: "12px", padding: "20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <div>
-                <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#f8fafc", margin: "0 0 4px 0" }}>
+                <strong style={{ fontSize: "14px", color: "#0f172a" }}>
                   {drilldownProfile.student.first_name} {drilldownProfile.student.last_name}
-                </h3>
-                <div style={{ fontSize: "12px", color: "#94a3b8" }}>
-                  Roll: {drilldownProfile.student.register_number} • {drilldownProfile.student.program_name} • CGPA: {drilldownProfile.student.cgpa}
-                </div>
+                </strong>
+                <span style={{ fontSize: "12px", color: "#64748b", marginLeft: "8px" }}>
+                  (Reg: {drilldownProfile.student.register_number} • CGPA: {drilldownProfile.student.cgpa})
+                </span>
               </div>
+              <span style={{ fontSize: "11px", fontWeight: "700", color: "#065f46", background: "#ecfdf5", padding: "2px 6px", borderRadius: "4px", border: "1px solid #a7f3d0" }}>
+                RECORD VERIFIED
+              </span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "10px" }}>
               {drilldownProfile.courses.map((c) => (
-                <div key={c.course_id} style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "8px", padding: "12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                    <strong style={{ color: "#f8fafc", fontSize: "13px" }}>{c.course_code}</strong>
-                    <span style={{ fontSize: "11px", fontWeight: "700", color: c.attendance.alertLevel === "SAFE" ? "#10b981" : "#f59e0b" }}>
-                      {c.attendance.currentPct}% ({c.attendance.alertLevel})
-                    </span>
-                  </div>
-                  <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "4px" }}>
-                    Buffer: {c.attendance.missBuffer} class(es) • Risk: {c.risk.riskLevel}
-                  </div>
+                <div key={c.course_id} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "10px 12px", fontSize: "12px" }}>
+                  <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "2px" }}>{c.course_code}: {c.course_name}</div>
+                  <div style={{ color: "#64748b" }}>Attendance: <strong>{c.attendance.currentPct}%</strong> ({c.attendance.alertLevel})</div>
+                  <div style={{ color: "#64748b" }}>Absence Buffer: {c.attendance.missBuffer} classes</div>
+                  <div style={{ color: "#64748b", marginTop: "4px" }}>Risk Level: <strong>{c.risk.riskLevel}</strong> ({c.risk.totalRiskScore}/100)</div>
                 </div>
               ))}
             </div>
           </div>
         )}
       </div>
+
     </div>
   );
 }

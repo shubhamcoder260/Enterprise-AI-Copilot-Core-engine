@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { MicIcon, UserCheckIcon, AlertCircleIcon, CheckCircleIcon, BookOpenIcon, ChevronDownIcon } from "./Icons.jsx";
 
 export default function FacultyConsole({ facultyUser, onLogout }) {
   const [courses, setCourses] = useState([]);
@@ -22,7 +23,7 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch("http://localhost:5000/api/academic/faculty/courses?facultyId=" + (facultyUser?.id || 150));
+        const res = await fetch("http://localhost:5000/api/academic/faculty/courses?facultyId=" + (facultyUser?.id || 1));
         const data = await res.json();
         if (data.courses && data.courses.length > 0) {
           setCourses(data.courses);
@@ -158,8 +159,7 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
         }));
 
       if (payloadEntries.length === 0) {
-        alert("No valid entries ready to submit. Please resolve ambiguity and range errors first.");
-        setSubmitting(false);
+        alert("No valid entries ready to submit. Please resolve ambiguous or out-of-range rows.");
         return;
       }
 
@@ -167,351 +167,405 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          facultyName: facultyUser?.name || "Prof. Harish Menon",
-          assessmentName,
-          entries: payloadEntries
+          entries: payloadEntries,
+          facultyName: facultyUser?.name || "Prof. Karthik Menon",
+          assessmentName
         })
       });
+
       const data = await res.json();
       if (data.success) {
         setCommitStatus({
-          type: "success",
-          message: `Successfully committed ${data.savedCount} mark(s) and dispatched instant in-app notifications to students!`
+          count: data.savedCount,
+          message: `Successfully verified and committed ${data.savedCount} marks to the institutional ledger. Student notifications dispatched.`
         });
-        setParsedBatch(null);
         setTranscript("");
+        setParsedBatch(null);
+
+        // Refresh roster
+        const rosRes = await fetch(`http://localhost:5000/api/academic/faculty/course/${selectedOffering.offering_id}/roster?assessmentName=${encodeURIComponent(assessmentName)}`);
+        const rosData = await rosRes.json();
+        if (rosData.roster) setRoster(rosData.roster);
       }
     } catch (err) {
-      setCommitStatus({ type: "error", message: err.message });
+      console.error(err);
+      alert("Failed to submit marks: " + err.message);
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "24px 20px" }}>
-      {/* Faculty Console Header Bar */}
-      <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "16px", padding: "24px", marginBottom: "24px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+    <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "28px 20px", color: "#0f172a" }}>
+      
+      {/* Faculty Console Identity Bar */}
+      <div style={{
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "10px",
+        padding: "24px",
+        marginBottom: "24px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "18px"
+      }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "6px" }}>
-            <h1 style={{ fontSize: "22px", fontWeight: "700", color: "#f8fafc", margin: 0 }}>
-              {facultyUser?.name || "Prof. Harish Menon"}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+            <h1 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", margin: 0 }}>
+              {facultyUser?.name || "Prof. Karthik Menon"}
             </h1>
-            <span style={{ fontSize: "12px", background: "rgba(5, 150, 105, 0.2)", color: "#34d399", padding: "4px 10px", borderRadius: "999px", fontWeight: "600" }}>
-              Faculty Portal
+            <span style={{ fontSize: "12px", background: "#f1f5f9", color: "#334155", padding: "3px 8px", borderRadius: "4px", fontWeight: "600", border: "1px solid #e2e8f0" }}>
+              NetID: {facultyUser?.employeeNumber || "FAC0001"}
+            </span>
+            <span style={{ fontSize: "12px", background: "#ecfdf5", color: "#065f46", padding: "3px 8px", borderRadius: "4px", fontWeight: "600", border: "1px solid #a7f3d0" }}>
+              Faculty of Engineering & Technology
             </span>
           </div>
-          <div style={{ fontSize: "13px", color: "#94a3b8" }}>
-            Department of Information Technology • {courses.length} Assigned Course Offerings
+          <div style={{ fontSize: "13px", color: "#64748b" }}>
+            Official Course Gradebook & Statutory Academic Monitoring System
           </div>
         </div>
 
-        {/* Course Selector Dropdown */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <label style={{ fontSize: "13px", color: "#cbd5e1", fontWeight: "600" }}>Course Offering:</label>
-          <select
-            value={selectedOffering?.offering_id || ""}
-            onChange={(e) => {
-              const off = courses.find((c) => String(c.offering_id) === e.target.value);
-              setSelectedOffering(off);
-              setParsedBatch(null);
-            }}
-            style={{ background: "#0f172a", color: "#f8fafc", border: "1px solid #334155", borderRadius: "8px", padding: "8px 14px", fontSize: "13px", fontWeight: "600" }}
-          >
-            {courses.map((c) => (
-              <option key={c.offering_id} value={c.offering_id}>
-                {c.course_code} - {c.course_name} (Section {c.section}, {c.enrolled_count} Students)
-              </option>
-            ))}
-          </select>
+        {/* Course & Assessment Selectors */}
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", marginBottom: "3px" }}>
+              Course Offering
+            </label>
+            <select
+              value={selectedOffering?.offering_id || ""}
+              onChange={(e) => {
+                const found = courses.find((c) => String(c.offering_id) === e.target.value);
+                if (found) setSelectedOffering(found);
+              }}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+                background: "#ffffff",
+                color: "#0f172a",
+                fontSize: "13px",
+                fontWeight: "600",
+                outline: "none"
+              }}
+            >
+              {courses.map((c) => (
+                <option key={c.offering_id} value={c.offering_id}>
+                  {c.course_code}: {c.course_name} (Sec {c.section})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", marginBottom: "3px" }}>
+              Assessment Component
+            </label>
+            <select
+              value={assessmentName}
+              onChange={(e) => setAssessmentName(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+                background: "#ffffff",
+                color: "#0f172a",
+                fontSize: "13px",
+                fontWeight: "600",
+                outline: "none"
+              }}
+            >
+              <option value="Internal 1">Internal Assessment 1 (50 Marks)</option>
+              <option value="Internal 2">Internal Assessment 2 (50 Marks)</option>
+              <option value="Assignment 1">Lab Assignment 1 (25 Marks)</option>
+              <option value="Assignment 2">Lab Assignment 2 (25 Marks)</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
+      {/* Tabs */}
+      <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", marginBottom: "24px" }}>
         <button
           onClick={() => setActiveTab("voice")}
           style={{
-            padding: "10px 20px",
-            borderRadius: "10px",
-            fontSize: "14px",
-            fontWeight: "600",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "12px 18px",
             border: "none",
-            cursor: "pointer",
-            background: activeTab === "voice" ? "#2563eb" : "#1e293b",
-            color: "#fff"
+            borderBottom: activeTab === "voice" ? "2px solid #0f2942" : "2px solid transparent",
+            background: "transparent",
+            color: activeTab === "voice" ? "#0f2942" : "#64748b",
+            fontSize: "13px",
+            fontWeight: "700",
+            cursor: "pointer"
           }}
         >
-          🎙️ Voice Mark Entry (R4)
-        </button>
-        <button
-          onClick={() => setActiveTab("at-risk")}
-          style={{
-            padding: "10px 20px",
-            borderRadius: "10px",
-            fontSize: "14px",
-            fontWeight: "600",
-            border: "none",
-            cursor: "pointer",
-            background: activeTab === "at-risk" ? "#2563eb" : "#1e293b",
-            color: "#fff"
-          }}
-        >
-          🚨 At-Risk Students ({atRiskList.length})
+          <MicIcon size={16} color={activeTab === "voice" ? "#0f2942" : "#64748b"} />
+          Speech-Assisted Mark Dictation
         </button>
         <button
           onClick={() => setActiveTab("roster")}
           style={{
-            padding: "10px 20px",
-            borderRadius: "10px",
-            fontSize: "14px",
-            fontWeight: "600",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "12px 18px",
             border: "none",
-            cursor: "pointer",
-            background: activeTab === "roster" ? "#2563eb" : "#1e293b",
-            color: "#fff"
+            borderBottom: activeTab === "roster" ? "2px solid #0f2942" : "2px solid transparent",
+            background: "transparent",
+            color: activeTab === "roster" ? "#0f2942" : "#64748b",
+            fontSize: "13px",
+            fontWeight: "700",
+            cursor: "pointer"
           }}
         >
-          👥 Enrolled Roster ({roster.length})
+          <BookOpenIcon size={16} color={activeTab === "roster" ? "#0f2942" : "#64748b"} />
+          Course Roster & Gradebook ({roster.length} Students)
+        </button>
+        <button
+          onClick={() => setActiveTab("at-risk")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "12px 18px",
+            border: "none",
+            borderBottom: activeTab === "at-risk" ? "2px solid #0f2942" : "2px solid transparent",
+            background: "transparent",
+            color: activeTab === "at-risk" ? "#0f2942" : "#64748b",
+            fontSize: "13px",
+            fontWeight: "700",
+            cursor: "pointer"
+          }}
+        >
+          <AlertCircleIcon size={16} color={activeTab === "at-risk" ? "#0f2942" : "#64748b"} />
+          Statutory Intervention Required ({atRiskList.length})
         </button>
       </div>
 
-      {/* TAB 1: Voice Mark Entry Console (Killer Feature R4) */}
-      {activeTab === "voice" && (
-        <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "16px", padding: "24px" }}>
-          <div style={{ marginBottom: "20px" }}>
-            <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#f8fafc", margin: "0 0 6px 0" }}>
-              AI Audio-Assisted Mark Entry Console (R4)
-            </h2>
-            <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0 }}>
-              Speak or type student marks in natural batches. The engine matches students by roll number or fuzzy name, prompts for ambiguity, and alerts on range errors.
-            </p>
-          </div>
+      {/* Success Notification Alert */}
+      {commitStatus && (
+        <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", padding: "14px 18px", marginBottom: "24px", color: "#065f46", fontSize: "13px", display: "flex", alignItems: "center", gap: "10px" }}>
+          <CheckCircleIcon size={18} color="#059669" />
+          <span>{commitStatus.message}</span>
+        </div>
+      )}
 
-          {/* Assessment & Max Mark Configuration */}
-          <div style={{ display: "flex", gap: "16px", marginBottom: "20px", flexWrap: "wrap" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "12px", color: "#94a3b8", marginBottom: "4px" }}>Assessment:</label>
-              <select
-                value={assessmentName}
-                onChange={(e) => setAssessmentName(e.target.value)}
-                style={{ background: "#0f172a", color: "#f8fafc", border: "1px solid #334155", borderRadius: "8px", padding: "8px 12px", fontSize: "13px" }}
-              >
-                <option value="Internal 1">Internal 1</option>
-                <option value="Internal 2">Internal 2</option>
-                <option value="Midterm Exam">Midterm Exam</option>
-                <option value="Assignment 1">Assignment 1</option>
-              </select>
+      {/* TAB 1: Voice Dictation */}
+      {activeTab === "voice" && (
+        <div>
+          {/* Auditory Assistant Suite Card */}
+          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "24px", marginBottom: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+              <div>
+                <h2 style={{ fontSize: "16px", fontWeight: "700", color: "#0f172a", margin: "0 0 4px 0" }}>
+                  Auditory Mark Dictation Suite
+                </h2>
+                <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
+                  Dictate continuous marks for students verbally. The engine maps spoken names and roll numbers, verifies grade boundaries, and flags homophonic ambiguities.
+                </p>
+              </div>
+
+              {/* Speech Controls */}
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  onClick={toggleSpeechRecognition}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "9px 16px",
+                    borderRadius: "6px",
+                    background: isRecording ? "#be123c" : "#0f2942",
+                    color: "#ffffff",
+                    border: "none",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    boxShadow: isRecording ? "0 0 10px rgba(190, 18, 60, 0.4)" : "none"
+                  }}
+                >
+                  <MicIcon size={16} color="#ffffff" />
+                  {isRecording ? "Listening (Click to Stop)..." : "Start Voice Dictation"}
+                </button>
+              </div>
             </div>
-            <div>
-              <label style={{ display: "block", fontSize: "12px", color: "#94a3b8", marginBottom: "4px" }}>Maximum Marks:</label>
-              <input
-                type="number"
-                value={maxMarks}
-                onChange={(e) => setMaxMarks(Number(e.target.value))}
-                style={{ background: "#0f172a", color: "#f8fafc", border: "1px solid #334155", borderRadius: "8px", padding: "8px 12px", fontSize: "13px", width: "100px" }}
+
+            {/* Transcript Textarea */}
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#334155", marginBottom: "6px" }}>
+                Spoken Speech Transcript / Typed Fallback
+              </label>
+              <textarea
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder="Example: Roll 101 forty-five out of fifty; Sneha Rao 48; Roll 103 42.5"
+                rows={3}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "6px",
+                  border: "1px solid #cbd5e1",
+                  fontSize: "13px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  fontFamily: "inherit"
+                }}
               />
             </div>
-          </div>
 
-          {/* Speech Control & Transcript Box */}
-          <div style={{ marginBottom: "20px" }}>
-            <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "10px" }}>
-              <button
-                onClick={toggleSpeechRecognition}
-                style={{
-                  padding: "10px 18px",
-                  borderRadius: "10px",
-                  fontSize: "13px",
-                  fontWeight: "700",
-                  border: "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  background: isRecording ? "#ef4444" : "#2563eb",
-                  color: "#fff"
-                }}
-              >
-                {isRecording ? "⏹️ Stop Recording" : "🎙️ Click & Dictate Marks"}
-              </button>
-              {isRecording && (
-                <span style={{ fontSize: "13px", color: "#ef4444", fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span style={{ width: "8px", height: "8px", background: "#ef4444", borderRadius: "50%" }}></span>
-                  Listening to microphone...
-                </span>
-              )}
-            </div>
-
-            <textarea
-              rows={3}
-              value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
-              placeholder='Spoken or typed speech transcript, e.g.: "roll forty-five, forty-two out of fifty; Vivek Reddy, 38; Sneha, fifty-five out of fifty"'
-              style={{ width: "100%", background: "#0f172a", border: "1px solid #334155", borderRadius: "10px", padding: "12px", color: "#f8fafc", fontSize: "14px", boxSizing: "border-box" }}
-            />
-
-            {/* Quick Demo Voice Sample Buttons */}
-            <div style={{ marginTop: "8px", display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "12px", color: "#64748b" }}>Quick Pitch Samples:</span>
-              <button
-                onClick={() => setTranscript("roll forty-five, forty-two out of fifty; Vivek Reddy, 38; Sneha, fifty-five out of fifty")}
-                style={{ background: "#334155", border: "none", color: "#93c5fd", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
-              >
-                Sample 1 (Roll 45, Vivek 38, Sneha 55 out-of-range)
-              </button>
-              <button
-                onClick={() => setTranscript("Sneha, forty-two; Nisha Das, thirty-five out of fifty")}
-                style={{ background: "#334155", border: "none", color: "#93c5fd", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
-              >
-                Sample 2 (Sneha Ambiguity Trigger)
-              </button>
-            </div>
-          </div>
-
-          {/* Parse Button */}
-          <div style={{ marginBottom: "24px" }}>
-            <button
-              onClick={handleParseMarks}
-              disabled={loading || !transcript.trim()}
-              style={{ padding: "12px 24px", borderRadius: "10px", background: "#059669", color: "#fff", fontWeight: "700", fontSize: "14px", border: "none", cursor: "pointer" }}
-            >
-              {loading ? "Parsing Voice Input..." : "⚡ Parse & Match Against Roster"}
-            </button>
-          </div>
-
-          {/* Commit Status Alert Banner */}
-          {commitStatus && (
-            <div style={{ background: commitStatus.type === "success" ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)", border: `1px solid ${commitStatus.type === "success" ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`, borderRadius: "10px", padding: "14px 18px", marginBottom: "20px", color: commitStatus.type === "success" ? "#34d399" : "#f87171", fontSize: "14px", fontWeight: "600" }}>
-              {commitStatus.message}
-            </div>
-          )}
-
-          {/* Confirmation & Ambiguity Resolution Table */}
-          {parsedBatch && (
-            <div style={{ borderTop: "1px solid #334155", paddingTop: "20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <div>
-                  <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#f8fafc", margin: "0 0 4px 0" }}>
-                    Review & Confirmation Table ({parsedBatch.totalEntries} entries)
-                  </h3>
-                  <div style={{ fontSize: "12px", color: "#94a3b8" }}>
-                    {parsedBatch.needsAttention > 0 && (
-                      <span style={{ color: "#f59e0b", fontWeight: "600" }}>
-                        ⚠️ {parsedBatch.needsAttention} item(s) require review (ambiguity, overwrite, or range warning).
-                      </span>
-                    )}
-                  </div>
-                </div>
-
+            {/* Evaluation Simulation Presets */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>Evaluation Test Prompts:</span>
                 <button
-                  onClick={handleCommitMarks}
-                  disabled={submitting}
-                  style={{ padding: "10px 20px", borderRadius: "8px", background: "#2563eb", color: "#fff", fontWeight: "700", fontSize: "13px", border: "none", cursor: "pointer" }}
+                  type="button"
+                  onClick={() => setTranscript("Roll 2026030001, forty-seven out of fifty; Roll 2025060002, 38; Sneha, forty")}
+                  style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer", color: "#1e293b" }}
                 >
-                  {submitting ? "Saving & Notifying..." : "✅ Confirm & Submit Marks to Database"}
+                  Load Roster & Ambiguity Sample
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTranscript("Roll 2026030001, fifty-eight out of fifty")}
+                  style={{ background: "#fef2f2", border: "1px solid #fecdd3", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer", color: "#991b1b" }}
+                >
+                  Test Range Error (58 &gt; 50)
                 </button>
               </div>
 
-              {/* Table */}
+              <button
+                type="button"
+                onClick={handleParseMarks}
+                disabled={loading || !transcript.trim()}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: "6px",
+                  background: "#0f2942",
+                  color: "#ffffff",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  border: "none",
+                  cursor: loading || !transcript.trim() ? "not-allowed" : "pointer"
+                }}
+              >
+                {loading ? "Parsing Speech Stream..." : "Process Transcript"}
+              </button>
+            </div>
+          </div>
+
+          {/* Parsed Review Ledger Table */}
+          {parsedBatch && (
+            <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", marginBottom: "24px" }}>
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 2px 0" }}>
+                    Speech Parsing Verification Ledger
+                  </h3>
+                  <div style={{ fontSize: "12px", color: "#64748b" }}>
+                    Review matches and resolve any candidate ambiguities before committing to official records.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCommitMarks}
+                  disabled={submitting}
+                  style={{
+                    padding: "9px 18px",
+                    borderRadius: "6px",
+                    background: "#059669",
+                    color: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    border: "none",
+                    cursor: submitting ? "not-allowed" : "pointer"
+                  }}
+                >
+                  {submitting ? "Committing Ledger..." : "Commit Verified Marks"}
+                </button>
+              </div>
+
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", color: "#cbd5e1" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                   <thead>
-                    <tr style={{ background: "#0f172a", borderBottom: "1px solid #334155", textAlign: "left" }}>
-                      <th style={{ padding: "10px" }}>Spoken Clause</th>
-                      <th style={{ padding: "10px" }}>Matched Student</th>
-                      <th style={{ padding: "10px" }}>Match Method</th>
-                      <th style={{ padding: "10px" }}>Mark / Max</th>
-                      <th style={{ padding: "10px" }}>Safety Warnings</th>
+                    <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Spoken Identifier</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Roster Match</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Obtained Score</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Max</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Integrity Status</th>
+                      <th style={{ padding: "10px 14px", color: "#475569" }}>Resolution Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedBatch.entries.map((entry, idx) => (
-                      <tr key={idx} style={{ borderBottom: "1px solid #334155" }}>
-                        <td style={{ padding: "10px", color: "#94a3b8", fontStyle: "italic" }}>
-                          "{entry.originalClause}"
-                        </td>
-
-                        {/* Matched Student Column with Ambiguity Selector */}
-                        <td style={{ padding: "10px" }}>
-                          {entry.isAmbiguous ? (
-                            <div>
-                              <div style={{ color: "#f59e0b", fontWeight: "700", marginBottom: "4px" }}>
-                                ⚠️ Ambiguous Match — Select Student:
+                    {parsedBatch.entries.map((entry, idx) => {
+                      return (
+                        <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "12px 14px", fontWeight: "600", color: "#0f172a" }}>
+                            "{entry.rawClause}"
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            {entry.matchedStudent ? (
+                              <div>
+                                <strong style={{ color: "#0f172a" }}>{entry.matchedStudent.first_name} {entry.matchedStudent.last_name}</strong>
+                                <div style={{ fontSize: "11px", color: "#64748b" }}>Reg: {entry.matchedStudent.register_number}</div>
                               </div>
-                              <select
-                                onChange={(e) => {
-                                  const cand = entry.ambiguousCandidates.find((c) => String(c.student_id) === e.target.value);
-                                  if (cand) handleSelectAmbiguousCandidate(idx, cand);
-                                }}
-                                style={{ background: "#0f172a", color: "#f8fafc", border: "1px solid #f59e0b", borderRadius: "6px", padding: "6px 10px", fontSize: "12px" }}
-                              >
-                                <option value="">-- Choose Candidate --</option>
-                                {entry.ambiguousCandidates.map((cand) => (
-                                  <option key={cand.student_id} value={cand.student_id}>
-                                    {cand.first_name} {cand.last_name} (Roll: {cand.register_number})
-                                  </option>
+                            ) : (
+                              <span style={{ color: "#991b1b", fontWeight: "600" }}>Ambiguity: Unresolved</span>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <input
+                              type="number"
+                              value={entry.obtainedMarks}
+                              onChange={(e) => handleEditMarkValue(idx, e.target.value)}
+                              style={{ width: "64px", padding: "4px 8px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "13px", fontWeight: "600" }}
+                            />
+                          </td>
+                          <td style={{ padding: "12px 14px", color: "#64748b" }}>
+                            / {entry.maxMarks}
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            {entry.hasRangeError ? (
+                              <span style={{ color: "#991b1b", fontSize: "11px", fontWeight: "700", background: "#fef2f2", padding: "2px 6px", borderRadius: "4px", border: "1px solid #fecdd3" }}>
+                                RANGE ERROR (&gt;{entry.maxMarks})
+                              </span>
+                            ) : entry.isAmbiguous ? (
+                              <span style={{ color: "#92400e", fontSize: "11px", fontWeight: "700", background: "#fffbeb", padding: "2px 6px", borderRadius: "4px", border: "1px solid #fde68a" }}>
+                                CONFLICT ({entry.ambiguousCandidates?.length} MATCHES)
+                              </span>
+                            ) : (
+                              <span style={{ color: "#065f46", fontSize: "11px", fontWeight: "700", background: "#ecfdf5", padding: "2px 6px", borderRadius: "4px", border: "1px solid #a7f3d0" }}>
+                                VERIFIED
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            {entry.isAmbiguous && entry.ambiguousCandidates ? (
+                              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                                {entry.ambiguousCandidates.slice(0, 3).map((cand) => (
+                                  <button
+                                    key={cand.student_id}
+                                    type="button"
+                                    onClick={() => handleSelectAmbiguousCandidate(idx, cand)}
+                                    style={{ background: "#ffffff", border: "1px solid #0f2942", color: "#0f2942", padding: "3px 6px", borderRadius: "4px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
+                                  >
+                                    Assign: {cand.first_name} {cand.last_name} ({cand.register_number})
+                                  </button>
                                 ))}
-                              </select>
-                            </div>
-                          ) : entry.matchedStudent ? (
-                            <div>
-                              <strong style={{ color: "#f8fafc" }}>
-                                {entry.matchedStudent.first_name} {entry.matchedStudent.last_name}
-                              </strong>
-                              <div style={{ fontSize: "11px", color: "#64748b" }}>
-                                Roll: {entry.matchedStudent.register_number}
                               </div>
-                            </div>
-                          ) : (
-                            <span style={{ color: "#ef4444" }}>No match found</span>
-                          )}
-                        </td>
-
-                        {/* Match Type Badge */}
-                        <td style={{ padding: "10px" }}>
-                          <span style={{ fontSize: "11px", background: "rgba(59, 130, 246, 0.15)", color: "#60a5fa", padding: "2px 8px", borderRadius: "4px" }}>
-                            {entry.matchType}
-                          </span>
-                        </td>
-
-                        {/* Editable Mark Column */}
-                        <td style={{ padding: "10px" }}>
-                          <input
-                            type="number"
-                            value={entry.obtainedMarks}
-                            onChange={(e) => handleEditMarkValue(idx, e.target.value)}
-                            style={{
-                              width: "60px",
-                              background: entry.hasRangeError ? "rgba(239, 68, 68, 0.2)" : "#0f172a",
-                              border: `1px solid ${entry.hasRangeError ? "#ef4444" : "#334155"}`,
-                              color: "#f8fafc",
-                              padding: "4px 8px",
-                              borderRadius: "6px",
-                              fontWeight: "700"
-                            }}
-                          />
-                          <span style={{ color: "#94a3b8" }}> / {entry.maxMarks}</span>
-                        </td>
-
-                        {/* Warnings */}
-                        <td style={{ padding: "10px" }}>
-                          {entry.hasRangeError && (
-                            <span style={{ display: "inline-block", fontSize: "11px", background: "rgba(239, 68, 68, 0.2)", color: "#ef4444", padding: "2px 8px", borderRadius: "4px", marginRight: "6px" }}>
-                              {entry.rangeErrorMsg}
-                            </span>
-                          )}
-                          {entry.isOverwrite && (
-                            <span style={{ display: "inline-block", fontSize: "11px", background: "rgba(245, 158, 11, 0.2)", color: "#f59e0b", padding: "2px 8px", borderRadius: "4px" }}>
-                              Overwrite (Prev: {entry.previousMark})
-                            </span>
-                          )}
-                          {!entry.hasRangeError && !entry.isOverwrite && !entry.isAmbiguous && (
-                            <span style={{ fontSize: "11px", color: "#10b981" }}>Ready to save</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                            ) : (
+                              <span style={{ fontSize: "12px", color: "#64748b" }}>Ready to commit</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -520,82 +574,59 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
         </div>
       )}
 
-      {/* TAB 2: At-Risk Students List (R5, R6) */}
-      {activeTab === "at-risk" && (
-        <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "16px", padding: "24px" }}>
-          <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#f8fafc", margin: "0 0 16px 0" }}>
-            At-Risk Students in {selectedOffering?.course_code} (35/30/20/15 Formula)
-          </h2>
-          {atRiskList.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
-              🎉 No at-risk students identified in this course! All students meeting academic thresholds.
-            </div>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", color: "#cbd5e1" }}>
-                <thead>
-                  <tr style={{ background: "#0f172a", borderBottom: "1px solid #334155", textAlign: "left" }}>
-                    <th style={{ padding: "10px" }}>Roll Number</th>
-                    <th style={{ padding: "10px" }}>Student Name</th>
-                    <th style={{ padding: "10px" }}>Attendance</th>
-                    <th style={{ padding: "10px" }}>Risk Level & Score</th>
-                    <th style={{ padding: "10px" }}>Top Driver Reasons</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {atRiskList.map((st) => (
-                    <tr key={st.studentId} style={{ borderBottom: "1px solid #334155" }}>
-                      <td style={{ padding: "10px", color: "#94a3b8" }}>{st.registerNumber}</td>
-                      <td style={{ padding: "10px", fontWeight: "700", color: "#f8fafc" }}>{st.name}</td>
-                      <td style={{ padding: "10px" }}>
-                        <span style={{ fontWeight: "700", color: st.attendance.alertLevel === "SAFE" ? "#10b981" : "#ef4444" }}>
-                          {st.attendance.currentPct}% ({st.attendance.alertLevel})
-                        </span>
-                      </td>
-                      <td style={{ padding: "10px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "700", padding: "3px 8px", borderRadius: "6px", background: st.risk.riskLevel === "HIGH" ? "rgba(239, 68, 68, 0.2)" : "rgba(245, 158, 11, 0.2)", color: st.risk.riskLevel === "HIGH" ? "#ef4444" : "#f59e0b" }}>
-                          {st.risk.riskLevel} ({st.risk.totalRiskScore}/100)
-                        </span>
-                      </td>
-                      <td style={{ padding: "10px", fontSize: "12px", color: "#94a3b8" }}>
-                        {st.risk.reasons.join("; ")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 3: Enrolled Roster */}
+      {/* TAB 2: Course Roster */}
       {activeTab === "roster" && (
-        <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "16px", padding: "24px" }}>
-          <h2 style={{ fontSize: "18px", fontWeight: "700", color: "#f8fafc", margin: "0 0 16px 0" }}>
-            Enrolled Students in {selectedOffering?.course_code} ({roster.length} Total)
-          </h2>
-          <div style={{ overflowX: "auto", maxHeight: "500px" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", color: "#cbd5e1" }}>
+        <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 2px 0" }}>
+                Official Enrolled Roster — {selectedOffering?.course_code} (Section {selectedOffering?.section})
+              </h3>
+              <div style={{ fontSize: "12px", color: "#64748b" }}>
+                Total Enrolled Students: {roster.length}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
               <thead>
-                <tr style={{ background: "#0f172a", borderBottom: "1px solid #334155", textAlign: "left", position: "sticky", top: 0 }}>
-                  <th style={{ padding: "10px" }}>Roll Number</th>
-                  <th style={{ padding: "10px" }}>Student Name</th>
-                  <th style={{ padding: "10px" }}>Email</th>
-                  <th style={{ padding: "10px" }}>Current Mark ({assessmentName})</th>
+                <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Reg. Number</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Student Full Name</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Institutional Email</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Recorded {assessmentName}</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {roster.map((s) => (
-                  <tr key={s.student_id} style={{ borderBottom: "1px solid #334155" }}>
-                    <td style={{ padding: "8px 10px", color: "#94a3b8" }}>{s.register_number}</td>
-                    <td style={{ padding: "8px 10px", fontWeight: "600", color: "#f8fafc" }}>{s.first_name} {s.last_name}</td>
-                    <td style={{ padding: "8px 10px", color: "#64748b" }}>{s.email}</td>
-                    <td style={{ padding: "8px 10px", fontWeight: "700" }}>
+                  <tr key={s.enrollment_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "12px 14px", fontWeight: "600", color: "#0f172a" }}>
+                      {s.register_number}
+                    </td>
+                    <td style={{ padding: "12px 14px", color: "#0f172a" }}>
+                      {s.first_name} {s.last_name}
+                    </td>
+                    <td style={{ padding: "12px 14px", color: "#64748b" }}>
+                      {s.email}
+                    </td>
+                    <td style={{ padding: "12px 14px" }}>
                       {s.current_mark !== null && s.current_mark !== undefined ? (
-                        <span style={{ color: "#34d399" }}>{s.current_mark} / {s.max_marks || 50}</span>
+                        <strong style={{ color: "#0f172a" }}>{s.current_mark} / {s.max_marks || 50}</strong>
                       ) : (
-                        <span style={{ color: "#64748b", fontStyle: "italic" }}>Not Entered</span>
+                        <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Recorded</span>
+                      )}
+                    </td>
+                    <td style={{ padding: "12px 14px" }}>
+                      {s.current_mark !== null && s.current_mark !== undefined ? (
+                        <span style={{ fontSize: "11px", fontWeight: "700", color: "#065f46", background: "#ecfdf5", padding: "2px 6px", borderRadius: "4px", border: "1px solid #a7f3d0" }}>
+                          ENTERED
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: "11px", fontWeight: "700", color: "#92400e", background: "#fffbeb", padding: "2px 6px", borderRadius: "4px", border: "1px solid #fde68a" }}>
+                          PENDING
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -605,6 +636,60 @@ export default function FacultyConsole({ facultyUser, onLogout }) {
           </div>
         </div>
       )}
+
+      {/* TAB 3: At-Risk Students */}
+      {activeTab === "at-risk" && (
+        <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+            <h3 style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", margin: "0 0 2px 0" }}>
+              Statutory Intervention Roster — Students Below 75% or Moderate Risk
+            </h3>
+            <div style={{ fontSize: "12px", color: "#64748b" }}>
+              Identified through the 35/30/20/15 decomposition formula. Immediate academic counseling recommended.
+            </div>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", textAlign: "left" }}>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Reg. Number</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Student Name</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Attendance %</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Risk Score</th>
+                  <th style={{ padding: "10px 14px", color: "#475569" }}>Key Risk Drivers</th>
+                </tr>
+              </thead>
+              <tbody>
+                {atRiskList.map((st) => (
+                  <tr key={st.student_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "12px 14px", fontWeight: "600", color: "#0f172a" }}>
+                      {st.register_number}
+                    </td>
+                    <td style={{ padding: "12px 14px", color: "#0f172a" }}>
+                      {st.first_name} {st.last_name}
+                    </td>
+                    <td style={{ padding: "12px 14px" }}>
+                      <span style={{ color: st.attendancePct < 75.0 ? "#991b1b" : "#b45309", fontWeight: "700" }}>
+                        {st.attendancePct}%
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 14px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: st.riskLevel === "HIGH" ? "#fef2f2" : "#fffbeb", color: st.riskLevel === "HIGH" ? "#991b1b" : "#92400e", border: "1px solid #e2e8f0" }}>
+                        {st.riskLevel} ({st.totalRiskScore}/100)
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 14px", fontSize: "12px", color: "#475569" }}>
+                      {(st.reasons || []).join("; ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

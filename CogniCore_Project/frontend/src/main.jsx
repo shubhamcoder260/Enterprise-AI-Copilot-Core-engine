@@ -14,6 +14,7 @@ import AcademicPortalHome from "./components/academic/AcademicPortalHome.jsx";
 import StudentDashboard from "./components/academic/StudentDashboard.jsx";
 import FacultyConsole from "./components/academic/FacultyConsole.jsx";
 import AdminDashboard from "./components/academic/AdminDashboard.jsx";
+import { UniversitySeal, GraduationCapIcon, UserCheckIcon, ShieldBuildingIcon, BookOpenIcon } from "./components/academic/Icons.jsx";
 
 function App() {
   // Navigation & View Mode
@@ -181,82 +182,84 @@ function App() {
   }
 
   return (
-    <div className="app-container" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#0b1120", color: "#f8fafc" }}>
-      {/* Global Top Navbar */}
-      <header style={{ height: "64px", background: "#0f172a", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", position: "sticky", top: 0, zIndex: 50 }}>
+    <div className="app-container" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f8fafc", color: "#0f172a" }}>
+      {/* Global Institutional Top Navbar */}
+      <header style={{ height: "60px", background: "#0f2942", borderBottom: "1px solid #1e3a5f", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", position: "sticky", top: 0, zIndex: 50, color: "#ffffff" }}>
         {/* Brand */}
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }} onClick={() => { setActiveView("academic"); setAcademicRole(null); }}>
-            <span style={{ fontSize: "24px" }}>🏛️</span>
+            <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: "#1e3a5f", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <UniversitySeal size={22} color="#ffffff" />
+            </div>
             <div>
-              <div style={{ fontSize: "16px", fontWeight: "800", letterSpacing: "-0.3px", color: "#f8fafc" }}>University X Academic Portal</div>
-              <div style={{ fontSize: "11px", color: "#60a5fa", fontWeight: "600" }}>Powered by CogniCore Intelligence</div>
+              <div style={{ fontSize: "14px", fontWeight: "800", letterSpacing: "0.5px", color: "#ffffff" }}>UNIVERSITY X</div>
+              <div style={{ fontSize: "11px", color: "#93c5fd", fontWeight: "500" }}>Academic Information System (AIS)</div>
             </div>
           </div>
 
           {/* Primary View Switcher */}
-          <div style={{ display: "flex", gap: "6px", marginLeft: "20px", background: "#1e293b", padding: "4px", borderRadius: "8px" }}>
+          <div style={{ display: "flex", gap: "4px", marginLeft: "16px", background: "#0a1c2e", padding: "3px", borderRadius: "6px", border: "1px solid #1e3a5f" }}>
             <button
               onClick={() => setActiveView("academic")}
               style={{
-                padding: "6px 14px",
-                borderRadius: "6px",
+                padding: "5px 12px",
+                borderRadius: "4px",
                 fontSize: "12px",
-                fontWeight: "700",
+                fontWeight: "600",
                 border: "none",
                 cursor: "pointer",
-                background: activeView === "academic" ? "#2563eb" : "transparent",
-                color: activeView === "academic" ? "#fff" : "#94a3b8"
+                background: activeView === "academic" ? "#1e3a5f" : "transparent",
+                color: activeView === "academic" ? "#ffffff" : "#94a3b8"
               }}
             >
-              🎓 Academic Monitoring Portal
+              Academic Records
             </button>
             <button
               onClick={() => setActiveView("enterprise")}
               style={{
-                padding: "6px 14px",
-                borderRadius: "6px",
+                padding: "5px 12px",
+                borderRadius: "4px",
                 fontSize: "12px",
-                fontWeight: "700",
+                fontWeight: "600",
                 border: "none",
                 cursor: "pointer",
-                background: activeView === "enterprise" ? "#2563eb" : "transparent",
-                color: activeView === "enterprise" ? "#fff" : "#94a3b8"
+                background: activeView === "enterprise" ? "#1e3a5f" : "transparent",
+                color: activeView === "enterprise" ? "#ffffff" : "#94a3b8"
               }}
             >
-              ⚙️ Enterprise Data Copilot
+              Data Terminal
             </button>
           </div>
         </div>
 
-        {/* Right Section: 1-Click Role Switcher & Copilot Dock Toggle */}
+        {/* Right Section: Evaluator Quick-Role Switcher & Query Terminal Toggle */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {activeView === "academic" && academicRole && (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#1e293b", padding: "4px 12px", borderRadius: "999px", border: "1px solid #334155" }}>
-              <span style={{ fontSize: "12px", color: "#94a3b8" }}>Demo Switch:</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#0a1c2e", padding: "4px 8px", borderRadius: "6px", border: "1px solid #1e3a5f" }}>
+              <span style={{ fontSize: "11px", color: "#94a3b8", marginRight: "4px" }}>Evaluation Switch:</span>
               <button
                 onClick={() => handleQuickLogin("student", 1)}
-                style={{ background: academicRole === "student" ? "#2563eb" : "transparent", color: "#fff", border: "none", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
+                style={{ background: academicRole === "student" ? "#1e3a8a" : "transparent", color: "#fff", border: "none", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
               >
-                🎓 Student
+                Student
               </button>
               <button
-                onClick={() => handleQuickLogin("faculty", 150)}
-                style={{ background: academicRole === "faculty" ? "#059669" : "transparent", color: "#fff", border: "none", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
+                onClick={() => handleQuickLogin("faculty", 1)}
+                style={{ background: academicRole === "faculty" ? "#065f46" : "transparent", color: "#fff", border: "none", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
               >
-                👨‍🏫 Faculty
+                Faculty
               </button>
               <button
                 onClick={() => handleQuickLogin("admin")}
-                style={{ background: academicRole === "admin" ? "#7c3aed" : "transparent", color: "#fff", border: "none", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
+                style={{ background: academicRole === "admin" ? "#581c87" : "transparent", color: "#fff", border: "none", borderRadius: "4px", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
               >
-                🏛️ Admin
+                Registrar
               </button>
               <button
                 onClick={() => { setAcademicRole(null); setAcademicUser(null); }}
-                style={{ background: "transparent", color: "#f87171", border: "none", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
+                style={{ background: "transparent", color: "#fca5a5", border: "none", padding: "4px 8px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}
               >
-                🚪 Exit
+                Sign Out
               </button>
             </div>
           )}
@@ -266,11 +269,11 @@ function App() {
             <button
               onClick={() => setShowCopilotDock(!showCopilotDock)}
               style={{
-                padding: "8px 16px",
-                borderRadius: "8px",
-                background: showCopilotDock ? "#2563eb" : "#334155",
-                color: "#fff",
-                fontWeight: "700",
+                padding: "6px 14px",
+                borderRadius: "6px",
+                background: showCopilotDock ? "#1e3a8a" : "#1e3a5f",
+                color: "#ffffff",
+                fontWeight: "600",
                 fontSize: "12px",
                 border: "none",
                 cursor: "pointer",
@@ -279,7 +282,8 @@ function App() {
                 gap: "6px"
               }}
             >
-              💬 {showCopilotDock ? "Hide AI Copilot" : "Open AI Copilot"}
+              <BookOpenIcon size={14} color="#ffffff" />
+              {showCopilotDock ? "Close Data Terminal" : "Query Terminal"}
             </button>
           )}
         </div>
