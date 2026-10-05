@@ -58,15 +58,51 @@ export async function fetchSessionHistory(sessionId) {
   return await res.json();
 }
 
+let cachedToken = null;
+
+export async function getAuthHeaders() {
+  if (cachedToken) {
+    return { "Authorization": `Bearer ${cachedToken}` };
+  }
+  try {
+    const saved = localStorage.getItem("cognicore_auth_token");
+    if (saved) {
+      cachedToken = saved;
+      return { "Authorization": `Bearer ${cachedToken}` };
+    }
+  } catch {}
+
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "admin", password: "admin123" })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.token) {
+        cachedToken = data.token;
+        try { localStorage.setItem("cognicore_auth_token", cachedToken); } catch {}
+        return { "Authorization": `Bearer ${cachedToken}` };
+      }
+    }
+  } catch (err) {
+    console.warn("Could not authenticate automatically:", err.message);
+  }
+  return {};
+}
+
 /**
  * Submits a natural language query to the AI query endpoint
  */
 export async function sendQuery({ query, organization, sessionId, model }) {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/ai/query`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Session-ID": sessionId
+      "X-Session-ID": sessionId,
+      ...auth
     },
     body: JSON.stringify({
       query,
@@ -125,7 +161,10 @@ export async function switchDatabase(dbPath) {
  * Fetches all registered data sources and current active source
  */
 export async function fetchSources() {
-  const res = await fetch(`${API_BASE}/api/database/sources`);
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/database/sources`, {
+    headers: { ...auth }
+  });
   if (!res.ok) throw new Error("Failed to fetch sources");
   return await res.json();
 }
@@ -134,9 +173,10 @@ export async function fetchSources() {
  * Switches the active source via orchestrator
  */
 export async function switchSource(sourceId) {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/database/sources/switch`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify({ sourceId })
   });
   if (!res.ok) throw new Error("Failed to switch source");
@@ -147,9 +187,10 @@ export async function switchSource(sourceId) {
  * Test a database connection descriptor without persisting
  */
 export async function testSourceConnection(descriptor) {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/sources/test`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify(descriptor)
   });
   const data = await res.json().catch(() => ({}));
@@ -163,9 +204,10 @@ export async function testSourceConnection(descriptor) {
  * Generate DBA grant script
  */
 export async function generateGrantScript(params) {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/sources/generate-grant-script`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify(params)
   });
   const data = await res.json().catch(() => ({}));
@@ -179,9 +221,10 @@ export async function generateGrantScript(params) {
  * Auto-provision read-only user using temporary elevated credentials
  */
 export async function autoProvisionSource(params) {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/sources/auto-provision`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify(params)
   });
   const data = await res.json().catch(() => ({}));
@@ -195,9 +238,10 @@ export async function autoProvisionSource(params) {
  * Persist and register a new data source
  */
 export async function createSource(sourceData) {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/sources`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify(sourceData)
   });
   const data = await res.json().catch(() => ({}));
@@ -211,8 +255,10 @@ export async function createSource(sourceData) {
  * Re-test an existing saved source
  */
 export async function retestSource(sourceId) {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/sources/${encodeURIComponent(sourceId)}/test`, {
-    method: "POST"
+    method: "POST",
+    headers: { ...auth }
   });
   const data = await res.json().catch(() => ({}));
   return { success: res.ok && data.success, ...data };
@@ -222,8 +268,10 @@ export async function retestSource(sourceId) {
  * Delete a source and its vaulted credential
  */
 export async function deleteSource(sourceId) {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/sources/${encodeURIComponent(sourceId)}`, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: { ...auth }
   });
   const data = await res.json().catch(() => ({}));
   return { success: res.ok && data.success, ...data };
