@@ -365,8 +365,8 @@ const ALLOWED_AGG_FUNCTIONS = new Set(["COUNT", "SUM", "AVG", "MIN", "MAX"]);
 const SAFE_DERIVED_EXPR_REGEX = /^[A-Z_0-9\s()+\-*/".,]+$/i;
 
 export function compile(act, table, filters, dialect = "sqlite") {
-  const d = getDialect(dialect);
-  const quote = d && typeof d.quote === "function" ? d.quote : (val) => `"${val}"`;
+  const d = getDialect(dialect) || DIALECTS[dialect] || DIALECTS.sqlite;
+  const quote = d.quote;
   const where = filters.length ? filters : [];
 
   // Validate all operators in filters against strict whitelist

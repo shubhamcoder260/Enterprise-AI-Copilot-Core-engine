@@ -5,6 +5,7 @@
 
 import crypto from "crypto";
 import { connectDatabase, registerDatabaseSwitchHook, getActiveDatabasePath } from "../config/database.js";
+import { DIALECTS } from "../adapters/dialects/index.js";
 
 // In-memory schema cache: cacheKey -> { hash, schema, builtAt }
 const schemaCache = new Map();
@@ -130,15 +131,16 @@ async function getEnrichedSchema(dbInstance, options = {}) {
 
   for (const tableRow of tables) {
     const table = tableRow.name;
-    const escapedTable = table.replace(/"/g, '""');
+    const quote = DIALECTS.sqlite.quote;
+    const qTable = quote(table.replace(/"/g, '""'));
     cacheStats.pragmaCalls++;
 
-    const columns = await queryAll(db, `PRAGMA table_info("${escapedTable}")`);
+    const columns = await queryAll(db, `PRAGMA table_info(${qTable})`);
     
     let fks = [];
     try {
       cacheStats.pragmaCalls++;
-      const fkRows = await queryAll(db, `PRAGMA foreign_key_list("${escapedTable}")`);
+      const fkRows = await queryAll(db, `PRAGMA foreign_key_list(${qTable})`);
       if (Array.isArray(fkRows)) {
         fks = fkRows.map((fk) => ({
           from: fk.from,
@@ -151,7 +153,7 @@ async function getEnrichedSchema(dbInstance, options = {}) {
     // Guard: skip sampling on huge tables to avoid slow full scans
     let rowCount = 0;
     try {
-      const rowCountRow = await queryGet(db, `SELECT COUNT(*) AS c FROM "${escapedTable}"`);
+      const rowCountRow = await queryGet(db, `SELECT COUNT(*) AS c FROM ${qTable}`);
       rowCount = rowCountRow?.c ?? rowCountRow?.["COUNT(*)"] ?? 0;
     } catch {
       rowCount = 0;
@@ -165,10 +167,10 @@ async function getEnrichedSchema(dbInstance, options = {}) {
       // BLOB/binary guard: only sample string/text columns
       if (shouldSample && (/CHAR|TEXT|CLOB|VARCHAR/i.test(col.type) || (!col.type && col.type !== null))) {
         try {
-          const escapedCol = col.name.replace(/"/g, '""');
+          const qCol = quote(col.name.replace(/"/g, '""'));
           const rows = await queryAll(
             db,
-            `SELECT DISTINCT "${escapedCol}" AS v FROM "${escapedTable}" WHERE "${escapedCol}" IS NOT NULL AND "${escapedCol}" != '' LIMIT ?`,
+            `SELECT DISTINCT ${qCol} AS v FROM ${qTable} WHERE ${qCol} IS NOT NULL AND ${qCol} != '' LIMIT ?`,
             [maxSampleValues]
           );
           if (Array.isArray(rows) && rows.length > 0) {

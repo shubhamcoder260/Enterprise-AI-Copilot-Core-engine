@@ -7,14 +7,11 @@
 import { findBestNumericColumn, isNumericColumn, findMatchingColumn } from "./schema.resolver.js";
 import { checkGroupByRequired } from "./guard-markers.js";
 import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
-import { getDialect } from "../adapters/dialects/index.js";
+import { DIALECTS, getDialect } from "../adapters/dialects/index.js";
 
 export function quoteIdentifier(name, dialect = "sqlite") {
-  const d = getDialect(dialect);
-  if (d && typeof d.quote === "function") {
-    return d.quote(name);
-  }
-  return `"${String(name).replace(/"/g, '""')}"`;
+  const d = getDialect(dialect) || DIALECTS[dialect] || DIALECTS.sqlite;
+  return d.quote(name);
 }
 
 function hasUnboundCriteria(q, tableName, getDistinct) {
