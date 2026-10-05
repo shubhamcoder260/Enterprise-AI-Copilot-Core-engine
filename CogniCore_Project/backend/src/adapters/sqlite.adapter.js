@@ -8,7 +8,7 @@
 import * as databaseModule from "../config/database.js";
 import { deepFreeze } from "./dialects/index.js";
 
-export function createSqliteAdapter() {
+function createSqliteAdapter() {
   const adapter = {
     dialect: "sqlite",
 

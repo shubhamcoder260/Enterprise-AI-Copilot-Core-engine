@@ -6,7 +6,7 @@
 
 import { clampLimitOffset } from "./limit.clamp.js";
 
-export function validateMariaDbSql(sql, options = {}) {
+function validateMariaDbSql(sql, options = {}) {
   if (!sql || typeof sql !== "string") {
     return { valid: false, reason: "validator_empty_input" };
   }

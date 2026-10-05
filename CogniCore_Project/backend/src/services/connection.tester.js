@@ -13,7 +13,7 @@ import { createPostgresAdapter } from "../adapters/postgres.adapter.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const ERROR_CATEGORIES = Object.freeze({
+const ERROR_CATEGORIES = Object.freeze({
   NETWORK_UNREACHABLE: "network_unreachable",
   AUTH_FAILED: "auth_failed",
   INSUFFICIENT_PRIVILEGES: "insufficient_privileges",
@@ -22,7 +22,7 @@ export const ERROR_CATEGORIES = Object.freeze({
   INVALID_PARAMETERS: "invalid_parameters"
 });
 
-export function classifyDriverError(err, dialect) {
+function classifyDriverError(err, dialect) {
   if (!err) return { category: "unknown_error", message: "Unknown error occurred" };
 
   const code = String(err.code || err.sqlState || "");

@@ -19,7 +19,7 @@ import { SEMANTIC_PROFILE } from "../config/semantic.profile.js";
  * @param {object} schema - Full database schema map
  * @returns {Map<string, Set<string>>} Table name -> Set of neighboring table names
  */
-export function buildRelationshipGraph(schema = {}) {
+function buildRelationshipGraph(schema = {}) {
   const adj = new Map();
   const tableNames = Object.keys(schema);
 
@@ -119,7 +119,7 @@ function findShortestPath(start, goal, adj) {
  * @param {string} question
  * @returns {Map<string, number>} Table name -> relevance score
  */
-export function scoreTables(schema = {}, question = "") {
+function scoreTables(schema = {}, question = "") {
   const words = getWords(question).map(normalizeWord);
   const wordSet = new Set(words);
   const scores = new Map();
@@ -175,7 +175,7 @@ const STOP_WORDS = new Set([
   "give", "me", "all", "there", "be", "do", "does", "did", "and", "or"
 ]);
 
-export function getInformativeTokens(question = "") {
+function getInformativeTokens(question = "") {
   const words = getWords(question).map(normalizeWord);
   return words.filter((w) => w.length > 2 && !STOP_WORDS.has(w));
 }

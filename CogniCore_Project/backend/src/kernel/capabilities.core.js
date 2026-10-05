@@ -12,7 +12,7 @@ import { postgresAdapter, createPostgresAdapter } from "../adapters/postgres.ada
 
 const sourceAdapters = new Map();
 
-export function getAdapterForSource(descriptor) {
+function getAdapterForSource(descriptor) {
   if (!descriptor || !descriptor.id) return null;
   const key = `${descriptor.dialect}:${descriptor.id}`;
   if (!sourceAdapters.has(key)) {

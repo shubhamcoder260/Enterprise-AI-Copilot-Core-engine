@@ -214,7 +214,7 @@ export async function getSessionHistory(req, res) {
  * @param {Array<object>} records
  * @returns {Array<{ label: string, value: number }>|null}
  */
-export function seriesFromRecords(records) {
+function seriesFromRecords(records) {
   if (!Array.isArray(records) || records.length < 1) return null;
 
   // Find first string column and first numeric column across keys of first record
@@ -278,7 +278,7 @@ export function seriesFromRecords(records) {
  * @param {Array<object>} records
  * @returns {boolean}
  */
-export function checkGroupingGuard(sql, rowCount, chartType = "bar", records = []) {
+function checkGroupingGuard(sql, rowCount, chartType = "bar", records = []) {
   if (rowCount === 1) return true;
   const sqlStr = typeof sql === "string" ? sql : "";
   const hasGroupBy = /\bGROUP\s+BY\b/i.test(sqlStr);

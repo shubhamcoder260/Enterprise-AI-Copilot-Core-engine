@@ -176,7 +176,7 @@ export const ERPNEXT_PROFILE = deepFreeze({
  * Resolves the docstatus kind ('submittable' | 'master' | null) for a table or DocType.
  * Unknown doctypes default to null / no filter (fail-honest direction: never zero out a master).
  */
-export function getDocstatusKind(tableNameOrDoctype) {
+function getDocstatusKind(tableNameOrDoctype) {
   if (!tableNameOrDoctype) return null;
   const raw = String(tableNameOrDoctype).replace(/[`"]/g, '').trim();
   const clean = raw.startsWith('tab') ? raw.slice(3) : raw;
@@ -195,7 +195,7 @@ export function isSubmittable(tableNameOrDoctype) {
   return getDocstatusKind(tableNameOrDoctype) === 'submittable';
 }
 
-export function isMaster(tableNameOrDoctype) {
+function isMaster(tableNameOrDoctype) {
   return getDocstatusKind(tableNameOrDoctype) === 'master';
 }
 

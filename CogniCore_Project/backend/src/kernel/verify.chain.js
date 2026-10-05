@@ -56,7 +56,7 @@ export function extractNumericTokens(text) {
  * @param {object} [data] - Optional execution data payload containing { value, record, records, ... }
  * @returns {Set<number>}
  */
-export function collectRecordNumbers(records, data = null, options = {}) {
+function collectRecordNumbers(records, data = null, options = {}) {
   const numbers = new Set();
 
   function addVal(val) {
@@ -167,7 +167,7 @@ export function collectRecordNumbers(records, data = null, options = {}) {
  * @param {string} query
  * @returns {Set<number>}
  */
-export function collectQueryNumbers(query) {
+function collectQueryNumbers(query) {
   const numbers = new Set();
   if (!query || typeof query !== "string") return numbers;
 

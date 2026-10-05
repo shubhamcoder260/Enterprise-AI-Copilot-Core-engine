@@ -134,7 +134,7 @@ export function detectGrain(q, table) {
 /**
  * Score and resolve table candidates from schema
  */
-export function resolveEntityCandidates(tokens, tables, getDistinct) {
+function resolveEntityCandidates(tokens, tables, getDistinct) {
   const scored = [];
 
   for (const t of tables) {
@@ -186,7 +186,7 @@ export function resolveEntityCandidates(tokens, tables, getDistinct) {
 /**
  * Detect Metric / Action
  */
-export function detectMetric(queryStr) {
+function detectMetric(queryStr) {
   const q = String(queryStr || "").toLowerCase();
 
   if (/\b(total|sum)\b/i.test(q)) return "SUM";

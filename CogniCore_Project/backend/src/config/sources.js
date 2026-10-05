@@ -120,7 +120,7 @@ export async function removeSource(id) {
   return await deletePersistedSource(id);
 }
 
-export function getHydratedSource(id) {
+function getHydratedSource(id) {
   const source = getSourceById(id);
   if (!source) return null;
   const creds = resolveCredentials(source.credentialRef);

@@ -11,7 +11,7 @@ for f in \
   verifyPipelineOverride \
   verifyGateIntegrity \
   verifyBypass \
-  verifyLitmusNewTool \
+  verifyLitmusGeneralization \
   verifyTraceEvidence \
   verify_unpolicied_table_rls \
   verifyFastIntentGolden \

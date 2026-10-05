@@ -41,7 +41,7 @@ function editDistance(a, b) {
 }
 
 // Typo tolerance: "attendence" → "attendance", "absent percentage" → "absent_percentage". distance <= 2
-export function bestColumn(phrase, cols) {
+function bestColumn(phrase, cols) {
   const t = norm(phrase);
   for (const c of cols) {
     if (norm(c) === t) return c;
@@ -75,7 +75,7 @@ export function tokenize(q) {
     .filter((t) => t && !STOP.has(t) && !/^\d+$/.test(t));
 }
 
-export function pickTable(tokens, schema, getDistinct) {
+function pickTable(tokens, schema, getDistinct) {
   let best = null;
   let bestScore = 0;
   let bestTokenCount = 0;
@@ -173,7 +173,7 @@ export function pickTable(tokens, schema, getDistinct) {
   return !best || bestScore < 2 || tie ? null : best;
 }
 
-export function detectAction(q) {
+function detectAction(q) {
   const queryStr = String(q || "").toLowerCase();
 
   const isBottom = /\b(bottom|lowest|min(?:imum)?)\b/i.test(queryStr);
@@ -207,7 +207,7 @@ export function detectAction(q) {
 
 // "student id = 80" | "student id 80" | "id 80" → { column, op:"=", value }
 // "more than|above|over|greater than N" → { op:">" } ; "at least N" → { op:">=" }
-export function extractFilters(q, table, getDistinct, dialect = "sqlite") {
+function extractFilters(q, table, getDistinct, dialect = "sqlite") {
   const filters = [];
   const queryStr = String(q || "");
 
@@ -438,7 +438,7 @@ export function compile(act, table, filters, dialect = "sqlite") {
 }
 
 // SEMANTIC GUARDS — polarity and granularity. Wrong-but-confident is worse than null.
-export function resolveOrderedCol(q, table) {
+function resolveOrderedCol(q, table) {
   const queryStr = String(q || "").toLowerCase();
   const wantAbsent = /\b(absent\w*|absence|miss\w*)\b/i.test(queryStr);
   const wantPresent = /\b(present\w*|attend\w*)\b/i.test(queryStr);

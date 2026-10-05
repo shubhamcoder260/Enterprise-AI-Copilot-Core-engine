@@ -8,7 +8,7 @@
 import { deepFreeze } from '../adapters/dialects/index.js';
 import { ERPNEXT_PROFILE } from '../config/profiles/erpnext.profile.js';
 
-export const CANONICAL_CONCEPTS = deepFreeze([
+const CANONICAL_CONCEPTS = deepFreeze([
   'customer',
   'order',
   'invoice',
@@ -186,7 +186,7 @@ export function resolveConcept(concept, dialectOrSource = 'sqlite') {
  * @param {string} query
  * @returns {string[]} matched canonical concept names
  */
-export function detectConceptsInQuery(query = '') {
+function detectConceptsInQuery(query = '') {
   const text = String(query).toLowerCase();
   const matches = [];
 
@@ -227,6 +227,6 @@ export function getDocstatusDoctrine(tableName = '', dialect = 'mariadb') {
 /**
  * Returns canonical concepts list.
  */
-export function getCanonicalConcepts() {
+function getCanonicalConcepts() {
   return CANONICAL_CONCEPTS;
 }

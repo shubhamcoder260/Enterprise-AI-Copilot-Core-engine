@@ -73,7 +73,7 @@ export function truncate(str, n = 60) {
 /**
  * Computes deterministic MD5 hash of the database DDL from sqlite_master
  */
-export async function computeSchemaHash(db) {
+async function computeSchemaHash(db) {
   const raw = await queryAll(
     db,
     `SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name`
@@ -94,7 +94,7 @@ export async function computeSchemaHash(db) {
  * @param {object} [options] - Configuration options
  * @returns {Promise<object>} Enriched schema map
  */
-export async function getEnrichedSchema(dbInstance, options = {}) {
+async function getEnrichedSchema(dbInstance, options = {}) {
   const db = dbInstance || (await connectDatabase());
   const {
     maxSampleValues = 8,

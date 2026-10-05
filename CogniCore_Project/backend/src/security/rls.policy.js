@@ -38,7 +38,7 @@ export const RLS_VERDICT = deepFreeze({
  * @param {string} [params.targetEmployeeName] - Target employee name for probe detection (CEO/Victoria Stirling)
  * @returns {{ allowed: boolean, isExecutiveOrHr: boolean, callerEmpId?: string, error?: string, reason?: string }}
  */
-export function verifyEmployeeScopeAuthorization({ identity, targetEmployeeId, targetEmployeeName }) {
+function verifyEmployeeScopeAuthorization({ identity, targetEmployeeId, targetEmployeeName }) {
   const roles = new Set(identity?.roles || []);
   const isExecutiveOrHr = roles.has('Executive') || roles.has('HR Manager');
 

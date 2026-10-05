@@ -125,7 +125,7 @@ export async function getFullHistory(sessionId, limit = 100) {
   }
 }
 
-export async function closeHistoryStore() {
+async function closeHistoryStore() {
   if (historyDb) {
     try {
       await historyDb.close();

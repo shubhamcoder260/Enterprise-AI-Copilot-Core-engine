@@ -188,7 +188,7 @@ export async function fetchDocTypeMeta(doctypeName, options = {}) {
  * Generates a semantic profile fragment from extracted DocType metadata.
  * Suitable for incorporation into erpnext.profile.js.
  */
-export function generateSemanticProfileFragment(meta) {
+function generateSemanticProfileFragment(meta) {
   if (!meta || !meta.name) {
     throw new Error("generateSemanticProfileFragment requires extracted DocType metadata");
   }
@@ -217,13 +217,13 @@ export function generateSemanticProfileFragment(meta) {
 /**
  * Clears the in-memory metadata cache. Useful for test isolation.
  */
-export function clearMetaCache() {
+function clearMetaCache() {
   metaCache.clear();
 }
 
 /**
  * Returns the current count of cached DocType metadata entries.
  */
-export function getMetaCacheSize() {
+function getMetaCacheSize() {
   return metaCache.size;
 }

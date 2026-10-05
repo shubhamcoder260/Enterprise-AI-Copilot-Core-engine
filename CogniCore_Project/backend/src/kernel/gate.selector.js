@@ -14,7 +14,7 @@ import { astGatePostgres } from "./ast.gate.postgres.js";
 import { postgresAdapter } from "../adapters/postgres.adapter.js";
 import { deepFreeze } from "../adapters/dialects/index.js";
 
-export const readonlyExecutorMariaDB = {
+const readonlyExecutorMariaDB = {
   name: "readonly-executor",
   type: "execute",
   run: async (sql, options = {}) => {
@@ -24,7 +24,7 @@ export const readonlyExecutorMariaDB = {
   }
 };
 
-export const readonlyExecutorPostgres = {
+const readonlyExecutorPostgres = {
   name: "readonly-executor",
   type: "execute",
   run: async (sql, options = {}) => {

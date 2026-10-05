@@ -54,7 +54,7 @@ function isCategoricalColumn(col) {
   return false;
 }
 
-export function formatSchemaForPrompt(schema = {}) {
+function formatSchemaForPrompt(schema = {}) {
   const lines = [];
   const tableNames = Object.keys(schema).sort();
   const notes = loadSchemaNotes();
@@ -111,7 +111,7 @@ export function formatSchemaForPrompt(schema = {}) {
  * @param {object} schema - In-memory schema map from schema.reader.js
  * @returns {string[]} List of relationship descriptions
  */
-export function detectRelationships(schema = {}) {
+function detectRelationships(schema = {}) {
   const relationships = [];
   const seen = new Set();
 

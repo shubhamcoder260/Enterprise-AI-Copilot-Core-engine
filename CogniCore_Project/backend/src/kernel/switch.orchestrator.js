@@ -77,7 +77,7 @@ export function getActiveSource() {
 /**
  * Sets the active source descriptor (internal or testing).
  */
-export function setActiveSource(source) {
+function setActiveSource(source) {
   activeSource = { ...source };
 }
 

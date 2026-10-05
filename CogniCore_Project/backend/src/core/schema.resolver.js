@@ -68,7 +68,7 @@ export function isNumericColumn(column) {
   );
 }
 
-export function findMatchingTable(query, schema = {}) {
+function findMatchingTable(query, schema = {}) {
   const words = getWords(query).map(normalizeWord);
 
   // Direct table name match
@@ -109,11 +109,11 @@ export function findMatchingColumn(query, columns = []) {
   return null;
 }
 
-export function getTableColumns(tableData) {
+function getTableColumns(tableData) {
   return tableData?.columns || [];
 }
 
-export function findTableFromColumn(query, schema = {}) {
+function findTableFromColumn(query, schema = {}) {
   const words = getWords(query).map(normalizeWord);
   const matches = [];
 
