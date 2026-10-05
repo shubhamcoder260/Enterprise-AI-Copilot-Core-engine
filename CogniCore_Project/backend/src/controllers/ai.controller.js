@@ -44,10 +44,10 @@ export async function handleQuery(req, res) {
     const activeSource = requestedSourceId ? (getSourceById(requestedSourceId) || getActiveSource()) : getActiveSource();
     const capabilities = createCapabilitiesForSource(activeSource);
 
-    // Cryptographic Identity Provider (VULN-06):
-    // Prioritize req.user populated by authenticate() middleware (JWT).
-    // Client-supplied body identity is ignored when req.user exists.
-    const rawIdentity = req.user || req.body?.identity;
+    // V6 closure: identity comes EXCLUSIVELY from verified JWT (req.user,
+    // populated by auth middleware). Client-supplied identity is never
+    // trusted. Missing token → null identity → RLS fails closed.
+    const rawIdentity = req.user || null;
     const identity = rawIdentity ? {
       userId: rawIdentity.userId || null,
       employeeId: rawIdentity.employeeId || null,
@@ -59,6 +59,8 @@ export async function handleQuery(req, res) {
       roles: [],
       company: null
     };
+
+    capabilities.identity = identity;
 
     const result = await runCoreEngine(
       { query, organization, role, sessionId, model, identity },
