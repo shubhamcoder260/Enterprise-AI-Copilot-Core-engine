@@ -1,170 +1,169 @@
-# COGNICORE — MASTER CONTEXT v2.0
+# CogniCore Master Context
 
-> **Canon Declaration:** Part A (reliability) complete; Part B (expressiveness) begins.  
-> **Changelog:** v1.0 → v1.1 → v1.2 (Step 0 measured freeze) → v1.4 (base complete) → v2.0 (Part A lock).  
-> **How to use:** Read this file and treat it as canonical. Anything not stated here must be verified live — never invented.
+## 1. Project Summary
 
----
+CogniCore is an on-premises, air-gapped natural language to SQL (NL→SQL) enterprise analytics engine designed for structured business databases. It connects directly to live ERP platforms (notably ERPNext v14/v15/v16 running on MariaDB) as well as PostgreSQL and SQLite instances. Rather than acting as a lightweight prototype or toy SQLite interface, CogniCore is built as an enterprise-grade analytical copilot with strict truth-and-safety gates, deterministic Row-Level Security (RLS) enforcement, a governed write pathway, and an empirical honesty verification chain that prevents LLM hallucinations.
 
-## 1. Identity & Mission
-
-- **CogniCore** — On-premises natural-language-to-SQL analytics copilot engine. Upload any SQLite file → ask questions in plain English → get answers with exact executed SQL displayed, verified through a multi-tier safety gate and executed strictly in physical read-only mode with zero cloud data egress.
-- **Academic & Publication Target:** Final-year academic project (Review 2 verified); targeting an IEEE-indexed conference publication.
-- **Repo Directory:** `~/Documents/project/cognicore/Cognicore/` (core app in `CogniCore_Project/backend/` and `CogniCore_Project/frontend/`).
-- **Development Doctrine:** Structure beats vigilance. Honesty and correctness before polish and expressiveness.
+The application couples an Express/Node.js backend with a reactive Vite/React frontend, executing queries against local open-weights LLMs (such as Gemma 3 4B via Ollama) without data egress.
 
 ---
 
-## 2. Canonical Stack & Operational Configuration
+## 2. Repository Structure
 
-| Component | Specification | Details / Invariants |
-|---|---|---|
-| **Backend** | Node.js + Express | Port **5000** (`/health` verified) |
-| **Database Engine** | **SQLite only** | Uploads land in `backend/uploads/` with sanitized timestamped names |
-| **SQLite Driver** | `sqlite3` + async wrapper | **Strictly NOT better-sqlite3** |
-| **Local LLM** | Ollama at `http://localhost:11434` | Model: `gemma3:4b`; Keep-alive: `60m` |
-| **LLM Timeout** | `LOCAL_LLM_TIMEOUT_MS=75000` | **Decision O6:** 75s budget accommodates multi-table DDL schemas on CPU |
-| **Frontend** | React SPA (Vite) | Single `main.jsx` (Part B Step 8 splits into modular components) |
-| **Active DB Pointer** | `backend/active-database.json` | Absolute path; persists across reboots; snapshot/restore hygiene mandatory |
-| **Conversation Memory** | `backend/data/cognicore_history.db` | Dedicated SQLite instance in WAL mode |
-| **Response Contract** | `{ answer, source, data, meta }` | `meta = { sessionId, engineMode, model, contextTurns, processingMs, pipelineTrace }` |
-| **Source Values** | `tool` \| `dynamic` \| `llm` \| `fallback` | Explicit cascade provenance |
+The active application implementation resides under [`Cognicore/CogniCore_Project/`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/):
 
----
-
-## 3. Current Architecture (Part A Locked Bedrock)
-
-CogniCore operates as a **4-link soft cascade** driven by pipeline configuration, verified by a **3-tier Gate Chain**:
-
+```text
+Cognicore/
+├── ARCHITECTURE.md                  # System architecture & 7-layer CAP specification
+├── MASTER_CONTEXT.md                # Master codebase truth and execution context
+├── SECURITY.md                      # Security guardrails & vulnerability remediation log
+├── GETTING_STARTED.md               # Developer environment onboarding
+├── TESTING.md                       # Test suites & verification instructions
+├── ROADMAP.md                       # Architectural evolution milestones
+├── docs/                            # Ground truth reports & phase records (D0-D6)
+│   ├── GROUND_TRUTH_REPORT.md       # Comprehensive D0-D5 verification report
+│   ├── CONNECTIVITY_ARCHITECTURE_PLAN.md # CAP v2.2 specification
+│   ├── PART_D_RECORD.md             # Record of D0-D5 implementation
+│   └── SESSION_STATE.md             # Active session ledgers and milestones
+└── CogniCore_Project/
+    ├── PROJECT_CONTEXT.md           # Definitive per-module inventory
+    ├── backend/
+    │   ├── .env.example             # Exhaustive environment configuration spec
+    │   ├── src/
+    │   │   ├── server.js            # Express server, CORS, rate limits, route mounting
+    │   │   ├── adapters/            # Protocol drivers (sqlite, mariadb, postgres)
+    │   │   │   ├── dialects/        # Dialect pack (identifier quoting, date functions)
+    │   │   │   └── write/           # Governed write adapters (sqlite, mariadb, postgres)
+    │   │   ├── config/              # Source definitions, profiles, database config
+    │   │   │   └── profiles/        # ERPNext and SQLite domain concept profiles
+    │   │   ├── controllers/         # AI, database, source, and action controllers
+    │   │   ├── core/                # Core engine, fastIntent, Intent-IR, grounding
+    │   │   │   └── links/           # Pipeline link handlers (dynamic, llm, fallback, tool)
+    │   │   ├── kernel/              # Gate selector, AST gates, verify.chain, orchestrator
+    │   │   ├── llm/                 # Ollama client, multi-dialect prompt builders, validators
+    │   │   ├── middleware/          # JWT authentication and identity propagation
+    │   │   ├── routes/              # Express API routers (ai, database, source, action, auth)
+    │   │   ├── security/            # RLS policy engine, action gateway, credential vault
+    │   │   ├── services/            # Connection tester, auto-provisioner, grant generator
+    │   │   ├── store/               # History store, source store, SHA-256 action audit log
+    │   │   └── tools/               # Legacy specialized analytical tools
+    │   └── test/                    # 94 test files, 26 canonical suites, golden corpora
+    └── frontend/
+        ├── src/
+        │   ├── main.jsx             # React composition root
+        │   ├── components/          # UI components (sidebar, modals, visualizer, chat)
+        │   └── lib/                 # API client (api.js) and format renderers
+        └── package.json
 ```
-Browser (main.jsx) ──► POST /api/ai/query {query, sessionId, organization, role}
-        ▼
-Express: server.js → ai.controller.js ──► history.store.js (WAL-mode conversation memory)
-        ▼
-core.engine.js — 4-LINK SOFT-CASCADE (Data-Driven Configuration)
-  [1] Configured Tools:      Deterministic intent detector → hardcoded tools (e.g. CGPA, fees)
-  [2] Dynamic Query Engine:  fastIntent.js (Deterministic NL router, FIRST)
-                             ├─ SEMANTIC_PROFILE derivations (e.g. absent% = 100 - AVG(attendance))
-                             ├─ Single-table ratio recognizer (S11: COUNT(...) * 100.0 / COUNT(*))
-                             ├─ Categorical value exact-match cache (distinct.cache.js)
-                             └─ sql.builder.js baseline shapes (null on any doubt → cascade)
-  [3] Local LLM Link:        History injection (last 3 turns) → sql.prompt.js
-                             └─ GATE CHAIN EVALUATION (see below)
-                                 ├─ Pass: executeReadOnlySql (OPEN_READONLY) → result.sanity.js
-                                 └─ AST / Group-By Rejection: ONE-SHOT CORRECTIVE RETRY (M1)
-  [4] Helpful Fallback:      Schema table/column inspection + suggested valid queries
+
+---
+
+## 3. Architecture & Execution Flows
+
+### 3.1 7-Layer CAP Architecture
+```
+L7: Source Experience       (DatabaseSidebar, ConnectionWizardModal, Visualizer, Chat)
+L6: Truth & Safety          (gate.selector, rls.policy, verify.chain, action.gateway)
+L5: Semantic Mapping        (semantic.profile, erpnext.profile, concept.layer)
+L4: Schema Introspection    (schema.reader, mariadb/postgres readers, schema.pruner)
+L3: Dialect Engine          (dialects/index.js, quoting, date syntax, AST grammar)
+L2: Protocol Adapters       (sqlite, mariadb, postgres read and write adapters)
+L1: Source Registry         (sources.js, credentials.js, credential.vault.js)
 ```
 
-### The 3-Tier Gate Chain (`gate.chain.js`)
-All SQL generated by dynamic engines or LLM must pass sequentially through `GATE_CHAIN`:
-1. **Layer 1 — `sql.validator.js` (FROZEN):** Strips `<think>` tags and markdown fences; requires SELECT/WITH; blocks 16 destructive keywords; rejects comments (`--`, `/* */`) and multi-statement `;`; clamps LIMIT to 50 (max 100). Byte-identical to baseline.
-2. **Layer 2 — `ast.gate.js` (AST Structural Verifier):** Uses `node-sql-parser` to enforce `ONLY_FULL_GROUP_BY` and Primary Key Functional Dependency (PK-FD). Bare projected columns require grouping or the full composite primary key. Enforces strict function whitelist: `COUNT, SUM, AVG, MIN, MAX, ROUND, LOWER, UPPER, strftime`. Rejects schema-unknown tables and columns.
-3. **Layer 3 — Physical Read-Only Executor:** Queries execute strictly against an `OPEN_READONLY` SQLite handle. The SQLite driver physically rejects any write or mutation (`SQLITE_READONLY`), even if Layers 1 and 2 were bypassed.
+### 3.2 Read Pipeline Flow
+```
+User Query (Frontend)
+  │
+  ▼
+POST /api/ai/query ──► [auth.js] (Verify JWT & set req.user)
+  │
+  ▼
+[ai.controller.js] ──► Acquire query lease from [switch.orchestrator.js]
+  │
+  ▼
+[core.engine.js] Cascade:
+  ├── Link 1: fastIntent.js (Sub-millisecond direct match via Intent-IR)
+  ├── Link 2: dynamic.query.engine.js (Schema-guided dynamic query composition)
+  ├── Link 3: llm.link.js -> sql.prompt.js -> llm.client.js (Local Ollama inference)
+  └── Link 4: fallback.link.js (Graceful recovery on failure)
+  │
+  ▼
+Dialect Gate Chain ([kernel/gate.selector.js]):
+  ├── 1. Dialect Validator (Reject multiple statements, non-SELECT keywords, comments)
+  ├── 2. Dialect AST Gate (Strict AST parse via node-sql-parser, enforce SELECT)
+  └── 3. RLS Policy Gate ([security/rls.policy.js] Fail-closed check, predicate injection)
+  │
+  ▼
+Read-Only Execution ([adapters/mariadb.adapter.js] / postgres / sqlite)
+  │
+  ▼
+Honesty Verification Chain ([kernel/verify.chain.js]):
+  ├── Token Grounding (Verify every number/percentage/currency against raw DB records)
+  ├── Arithmetic Re-check (Recalculate sums/averages to block LLM mental math errors)
+  └── Honest Disclosures (Flag ungrounded tokens or downgrade confidence)
+  │
+  ▼
+Formatter Registry ([kernel/formatter.registry.js]) ──► Structured JSON to Frontend
+```
+
+### 3.3 Governed Write Flow
+Mutating actions never run through the open-ended AI generation loop. They follow a dedicated 3-stage lifecycle in [`security/action.gateway.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/security/action.gateway.js):
+1. **Propose:** The caller requests an action matching a strict, allowlisted template from [`security/write.templates.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/security/write.templates.js). Returns an execution preview and generates an HMAC-signed proposal token.
+2. **Approve:** A second authorized user approves the action (Separation of Duties enforced).
+3. **Execute:** The approved action runs through isolated write adapters in [`adapters/write/`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/adapters/write/) using `cognicore_write` credentials. Every transition is written to [`store/action.audit.log.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/store/action.audit.log.js) with forward SHA-256 hash chaining.
 
 ---
 
-## 4. The Corrections Ledger (Audited from A2/A3 Records)
+## 4. Frontend Responsibilities
 
-To ensure full honesty and prevent revisionist history, the following discrepancies from prior reports are codified:
+The React application delivers a complete administrative and analytical experience across 9 modules:
 
-1. **A2 Commit Count:** The A2 era spanned **9+ commits** (`26bc44d..5e10cc3`), not 6 as initially estimated.
-2. **Cross-Table PK-Name Collision:** Unqualified `GROUP BY id` across multi-table joins where both tables define `id` remains an **OPEN edge**. The previous claim of total isolation was falsified (grep count 0).
-3. **`verifyGateIntegrity.js` Enhancement:** Enhanced in commit `710484f` to test slot positions `[validator, ast, readonly-executor]`, though unnamed in the commit message.
-4. **AST Verification Matrix:** Formally covers **9 test cases / 12 assertions** (Cases 1–6, 7 expressions/ordinals, 8 subqueries, 9a–9d composite-PK functional dependencies including bracketed DDL and named constraints).
-5. **R3 Gate-Path Live Proof:** R3's live gate-rejection path was empirically proven by S5's `ast_column_not_in_schema:T1.Country` catch, not R3 itself.
-6. **Governance & Kernel Rule:**
-   - Prior commits `8225779` and `ff8cdca` expanded kernel code without explicit pre-approval (ratified post-hoc).
-   - Commit `c29e0dc` implemented an engine composite-PK fix under a test commit label (ratified post-hoc).
-   - **PERMANENT RULE:** Any diff touching kernel files (`src/kernel/`, `sql.validator.js`, `core.engine.js`, `pipeline.config.js`) requires a `feat(kernel)` or `fix(kernel)` prefix and explicit review BEFORE push.
-
----
-
-## 5. Current Canonical Numbers (Superseding All Prior)
-
-| Metric | Measured Value | Verification Source |
-|---|---|---|
-| **Part D Cross-Domain Benchmark** | **8 / 9 (89%)** | `test/runPartDEcommerceBenchmark.js` (Zero silent failures; Q4 cleanly abstains) |
-| **Hospital Realm Full Battery** | **15 / 19 (79%)** | `test/runRealmFull.js hospital` |
-| **SQL Security & Validator Matrix** | **37 / 37 (100%)** | `test/verifyLlm1ValidatorSecurity.js` (<0.05ms execution) |
-| **Validator Unit Matrix** | **13 / 13 (100%)** | `test/verifyValidatorUnit.js` |
-| **Categorical Value Precision (S13)** | **5,541 Exact** | `test/verify_categorical_value_precision.js` (Disambiguates `B` from `B-`) |
-| **College Attendance Acceptance** | **6 / 6 (100%)** | `test/verify_college_attendance.js` (Q5 sentinel green by name) |
-| **Follow-Up Multi-Turn Context (P3.2)** | **Turn 1: 213, Turn 2: 57** | `test/verifyP3_2FollowUp.js` (Chinook: Iron Maiden / Greatest Hits) |
-| **O15 Fast-Refusal Latency** | **5 ms – 23 ms** | Upstream rejection cuts dead-LLM cascade from 15s–45s to <30ms |
-| **Effective Timeout Policy (O6)** | **75,000 ms** | Documented in `ROADMAP.md`; verified by abort log at 75,013.84ms |
-| **Ollama Inference Prefill/Decode** | **36.7s prefill / 88.8ms tok** | Measured on CPU; Chinook 11-table DDL attempt-1 takes ~61.5s (owned by B2) |
+- [`main.jsx`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/main.jsx) (115 lines): Composition root and global layout.
+- [`components/ChatWindow.jsx`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/components/ChatWindow.jsx) (224 lines): Chat interface, honesty badge rendering, streaming message timeline, and timing metrics.
+- [`components/DatabaseSidebar.jsx`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/components/DatabaseSidebar.jsx) (423 lines): Source switcher (SQLite / MariaDB / PostgreSQL), table list viewer, and entry point to source management modals.
+- [`components/ConnectionWizardModal.jsx`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/components/ConnectionWizardModal.jsx) (973 lines): Phase D6 multi-step connection wizard with a 6-stage "Connection Doctor" (TCP probe, auth, DB discovery, schema inspection, write canary, RLS notice).
+- [`components/SourceManagerModal.jsx`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/components/SourceManagerModal.jsx) (339 lines): Dynamic source registration, credential update, connection re-testing, and source deletion.
+- [`components/Visualizer.jsx`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/components/Visualizer.jsx) (61 lines): Polymorphic data visualizer rendering Vega-Lite bar, line, and area charts based on backend `chartSpec`.
+- [`components/SqlModal.jsx`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/components/SqlModal.jsx) (270 lines): Transparent query inspection modal showing raw generated SQL, AST properties, and execution parameters.
+- [`lib/formatRenderers.jsx`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/lib/formatRenderers.jsx) (298 lines): Formatting engine for KPI numbers, responsive data tables, markdown analysis, and charts.
+- [`lib/api.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/frontend/src/lib/api.js) (231 lines): Central network client attaching JWT bearer tokens and routing calls to backend controllers.
 
 ---
 
-## 6. Specimen Disposition Ledger (Final Part A State)
+## 5. Validation and Safety Architecture
 
-- **S1 (Average product price per category):** CLOSED via AST Gate bare-column check; corrective retry exhausts cleanly to fallback without returning a fake global average.
-- **S1-LLM (Double-quoted category projection):** CLOSED via AST Gate CASE 3 rejection.
-- **S2 (Top 5 suppliers by count):** CLOSED via `COUNT_BY_MARKER_REGEX` blocking scalar plans lacking aggregation.
-- **S3 (Multi-attribute grouping):** CLOSED via preposition guards (`per`, `each`).
-- **S4 (Filter dropping / VIP status):** CLOSED via b2(a) bind-or-decline across both dynamic and LLM tiers.
-- **S5 (Chinook revenue per country):** CLOSED for safety (silent-wrong eliminated via `ast_column_not_in_schema:T1.Country`); recovery open (0/2 in-sample).
-- **S6 (Unhandled multi-join relations):** OPEN edge; backstopped by physical read-only safety.
-- **S9 (Boolean-column SUM):** CLOSED via `result.sanity.js` blocking scalar aggregates over `{0, 1}` flags.
-- **S10 (Semantic ranking without GROUP BY):** CLOSED via AST Gate structural rejection + M1 corrective retry.
-- **S11 (Cancellation ratio):** CLOSED via `fastIntent.js` single-table ratio compiler.
-- **S12 (Abbreviated enterprise aliases):** Formally DEFERRED to Part B Step 6 (Schema Extension Hook).
-- **S13 (Grade B vs B- precision):** CLOSED and locked at 5,541.
-- **S14 (Follow-up context alignment):** CLOSED; verified live in `verifyP3_2FollowUp.js`.
-- **S15 (Chinook track counts):** CLOSED; verified in AST Gate CASE 9c/9d composite-PK tests.
+CogniCore replaces probabilistic safeguards with deterministic code barriers:
+- **Dialect Gate Chains:** [`kernel/gate.selector.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/kernel/gate.selector.js) binds specific syntax validators and AST gates based on the active source's dialect (`sqlite`, `mariadb`, `postgres`). Unrecognized dialects fail closed.
+- **Fail-Closed RLS:** [`security/rls.policy.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/security/rls.policy.js) enforces `REJECT_FORBIDDEN` on any table not enumerated in `OPEN_TABLES_ALLOWLIST`. Cross-employee salary probes are refused with zero physical SQL executed. For authorized employees, it injects AST predicates (`WHERE employee = 'EMP-001' AND docstatus = 1`).
+- **Governed Writes & Templates:** All database mutations require hand-crafted, parameterized templates in [`security/write.templates.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/security/write.templates.js). Freeform LLM SQL generation for `INSERT`, `UPDATE`, `DELETE`, or `DROP` is blocked unconditionally.
+- **Cryptographic Audit Log:** [`store/action.audit.log.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/store/action.audit.log.js) records proposal, approval, and execution events using SHA-256 hash chains where each block seals the hash of the preceding record.
+- **Credential Vault at Rest:** [`security/credential.vault.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/security/credential.vault.js) encrypts DBMS credentials using AES-256-GCM backed by `VAULT_MASTER_KEY` in an internal SQLite database (`cognicore_vault.db`). Secrets are never logged or exposed over API endpoints.
+- **Honesty Verification Chain:** [`kernel/verify.chain.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/kernel/verify.chain.js) ensures that every number, percentage, and currency symbol in natural-language outputs is grounded in database records. It recomputes aggregations to prevent arithmetic hallucinations.
 
 ---
 
-## 7. Known Open Edges & Process Observations
+## 6. Authentication and Credential Management
 
-1. **Retry Recovery Rate (0/2 in-sample):** M1 corrective retry activates 100% on gate rejection, but `gemma3:4b` repeated hallucinated columns across retries. The mechanism guarantees honesty (abstain vs silent-wrong), not magical recovery.
-2. **CTE Column Check Softening:** Unqualified CTE column references can bypass subquery table validation.
-3. **Expression Bare-Column Escape:** Arithmetic expressions like `AVG(price) + category` can evade naive AST checks.
-4. **`a/an` STOP-Word Gap:** Tokenizer stripping the article `a` is currently dormant for pinned suites, but represents a known edge for free-text grade queries.
-5. **AST Whitelist Over-Decline Risk:** Functions not on the whitelist (`CAST`, `date`) are rejected by design until explicitly whitelisted.
+- **JWT Authentication:** [`middleware/auth.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/middleware/auth.js) validates JSON Web Tokens using HMAC-SHA256 (`COGNICORE_JWT_SECRET`). It extracts user credentials (`userId`, `roles`, `employeeId`) and attaches a verified identity object to requests.
+- **Encrypted Local User Store:** [`routes/auth.routes.js`](file:///home/shubh/Documents/project/cognicore/Cognicore/CogniCore_Project/backend/src/routes/auth.routes.js) stores users in `backend/data/users.enc`, encrypted with **AES-256-GCM**.
+- **Password Hashing:** Passwords are hashed using **PBKDF2-SHA512** with 10,000 iterations and a unique per-user 16-byte random salt (`crypto.pbkdf2Sync(password, salt, 10000, 64, "sha512")`). Comparisons use `crypto.timingSafeEqual` to prevent timing attacks. *(Note: Prior informal references to scrypt were inaccurate; the verified code uses PBKDF2).*
 
 ---
 
-## 8. Bug History (Carried Forward — All Marked Fixed)
+## 7. Source-of-Truth Hierarchy
 
-1. **(Fixed)** Tools assumed hardcoded column names → Soft-cascade on missing column added.
-2. **(Fixed)** Benchmark scripts mutated `active-database.json` → Standardized `try...finally` snapshot/restore hygiene pattern on all scripts.
-3. **(Fixed)** Residual database close in executor caused `SQLITE_MISUSE` → Singleton lifecycle cached and recycled exclusively on switch hooks.
-4. **(Fixed)** Multer file upload HTML 500 error → JSON error middleware + header validation + filename sanitization added.
-5. **(Fixed)** Intent detector "education" vs UI "college" discrepancy → Aligned across controllers and test fixtures.
-6. **(Fixed)** LLM prompt false-joined generic `id` to `id` across tables → Excluded generic `id` from auto-join inference.
-7. **(Fixed)** Duplicate "+ New Chat" buttons in UI → Deduplicated.
-8. **(Fixed)** Substring match in `fastIntent.js` matched filler 'A' to section 'A' (answering 40 instead of 80) → Hardened stopword tokenization and numeric coverage guards (`verify_college_attendance.js` Q1).
-9. **(Fixed - A4)** Hardcoded derivation rules and status markers in `fastIntent.js` and `sql.builder.js` → Migrated to `src/config/semantic.profile.js` honoring Promise #4.
+When evaluating system behavior or resolving conflicting information, enforce this hierarchy:
 
----
+1. **Active Implementation Source Files:** The actual executable code in `backend/src/` and `frontend/src/`.
+2. **Architecture and Security Specifications:** `ARCHITECTURE.md`, `SECURITY.md`, and `CONNECTIVITY_ARCHITECTURE_PLAN.md`.
+3. **Session Ledgers & Phase Records:** `GROUND_TRUTH_REPORT.md`, `PART_D_RECORD.md`, and `SESSION_STATE.md`.
+4. **Historical or Generated Narrative Artifacts:** Older progress summaries or deprecated documentation files.
 
-## 9. Old Mysteries (Honesty Archive)
-
-- **The "6 Weak Spots" List:** Referenced in early project notes; never located across all existing files or commits. Carried forward as unconfirmed historical lore, not fabricated.
-- **Few-Shot Wording Audit:** Early audit noted few-shot prompt discrepancies; unconfirmed against current template.
+Code is the ultimate authority.
 
 ---
 
-## 10. Part B Queue (Expressiveness Additions)
+## 8. Bottom Line
 
-With Part A reliability locked, Part B expands capabilities under strict safety invariants:
-
-1. **Step 5 (B1: Polymorphic Formatter Registry):** ✅ **COMPLETED** — Implemented `backend/src/kernel/formatter.registry.js` supporting `kpi`, `table`, `chartSpec` (Vega-Lite spec), `report`, and `csv` (with RFC 4180 formula injection neutralization). Wired via pure fail-safe `selectFormat()` in `ai.controller.js`. Fixed scalar prose in `llm.formatter.js` to emit `The result is <value>.` Existing response contract remains untouched and additive-only.
-2. **Step 6 (B2: Schema Extension Hook & Top-K Sub-Schema Pruner):** Implement `schemaExtensions` hook in `schema.reader.js` (business aliases `stus` → `students` closes S12). Implement Top-K table pruner to cut prompt size for 300+ table ERPs and resolve O2 latency wall.
-3. **Step 7 (B6: Generative Visualizer & Report Synthesis):** Teach prompt builder to assemble chart specifications and polymorphic payloads.
-   - *Safety Invariants:* Render strictly from gate-validated data; no runtime `registerGate()`; no client-controlled pipeline fields.
-4. **Step 8 (B7: Frontend Componentization):** Decompose monolithic `main.jsx` (815 lines) into `ChatWindow.jsx`, `Visualizer.jsx`, `SqlModal.jsx`, and `DatabaseSidebar.jsx`.
-
----
-
-## 11. Binding Rules for Any AI / Engineer Working on CogniCore
-
-1. **Never Touch Frozen Files:** `src/llm/sql.validator.js` and `src/kernel/ast.gate.js` are frozen. No edits without an explicit, approved audit.
-2. **Preserve Response Contract:** `{ answer, source, data, meta }` is immutable.
-3. **Snapshot/Restore Hygiene:** Every script or test that touches `active-database.json` MUST snapshot before switching and restore in a `finally` block.
-4. **Honesty Over Polish:** If a model cannot answer, an honest fallback refusal is a success. Fabricating numbers or silently dropping filters is an immediate critical bug.
-5. **Kernel Governance:** Any kernel-level change requires `feat(kernel)` or `fix(kernel)` commit prefix and review before push.
-
----
-*End of Master Context v2.0 — Part A complete; Part B begins.*
+CogniCore is a multi-dialect, ERP-connected analytics engine with enforced safety gates, governed write access, and an honesty verification chain. It is production-candidate software with known, documented limitations — not a toy prototype, and not a certified enterprise product.
