@@ -30,7 +30,7 @@ async function runVerification() {
   const res1 = await runCoreEngine({ query: c1.query, organization: "college", role: "admin", sessionId: "ce-01-v" });
   assert.strictEqual(res1.source, c1.expectedSource, "CE-01 source mismatch");
   assert.strictEqual(res1.answer.slice(0, 30), c1.expectedAnswerPrefix, "CE-01 answer prefix mismatch");
-  console.log("✅ CE-01: Tool path equivalence verified");
+  console.log("✅ CE-01: Schema-driven dynamic path equivalence verified");
   passed++;
 
   // CE-02

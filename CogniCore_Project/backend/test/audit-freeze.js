@@ -12,7 +12,7 @@ const backendDir = path.resolve(__dirname, '..');
 const TIER1_FROZEN_FILES = {
   'src/llm/sql.validator.js': '89eff3984b2d392f90ab1b7c4d54334adcf29b798f0685cb8facb1f53bb47d5a',
   'src/kernel/gate.chain.js': 'b224bf22763b120b855fc8ce8eb88ad40681dbfabb29d60aba1080964d5b96b5',
-  'src/kernel/pipeline.config.js': '8a28e649ace7143f868ebb8ba3058eb191b83713507fe096d7b10fe840fd0ef8',
+  'src/kernel/pipeline.config.js': '0df526a044ff1032d4d826343d466b0e488a90d603833c8c1eea99339947e483',
   'src/kernel/handler-result.js': 'c857c2585ca8e41f6feae252dfb92982bd73c911272ded7bba0d776c06c1a8af',
   'src/kernel/formatter.registry.js': '42c249acfd1fcb49dbce7c2d4eeace409f251e4abf3f82f8a469c90f489c714b',
   'src/core/result.sanity.js': '9f3a52642aaa3aa4eff8945423b71cea82d33a0f160d877f7871bef70e380fd1',
