@@ -112,14 +112,21 @@ class ActionAuditLog {
   }
 
   /**
-   * Retrieves all entries matching optional filter criteria.
+   * Retrieves entries matching optional filter criteria.
+   * Applies offset/limit slicing BEFORE mapping and freezing to avoid
+   * cloning the entire log in memory (V11).
    * Returns deep-frozen copies.
    *
    * @param {object} [filter]
+   * @param {string} [filter.actionId]
+   * @param {string} [filter.phase]
+   * @param {string} [filter.templateId]
+   * @param {number} [filter.offset]
+   * @param {number} [filter.limit]
    * @returns {Array<object>}
    */
   getEntries(filter = {}) {
-    let result = [...this._entries];
+    let result = this._entries;
 
     if (filter.actionId) {
       result = result.filter(e => e.actionId === filter.actionId);
@@ -131,7 +138,36 @@ class ActionAuditLog {
       result = result.filter(e => e.templateId === filter.templateId);
     }
 
+    const offset = typeof filter.offset === "number" && filter.offset >= 0 ? filter.offset : 0;
+    const limit = typeof filter.limit === "number" && filter.limit > 0 ? filter.limit : undefined;
+
+    if (offset > 0 || limit !== undefined) {
+      result = result.slice(offset, limit !== undefined ? offset + limit : undefined);
+    }
+
     return result.map(e => Object.freeze({ ...e }));
+  }
+
+  /**
+   * Returns total count of entries matching filter criteria.
+   *
+   * @param {object} [filter]
+   * @returns {number}
+   */
+  countEntries(filter = {}) {
+    let result = this._entries;
+
+    if (filter.actionId) {
+      result = result.filter(e => e.actionId === filter.actionId);
+    }
+    if (filter.phase) {
+      result = result.filter(e => e.phase === filter.phase);
+    }
+    if (filter.templateId) {
+      result = result.filter(e => e.templateId === filter.templateId);
+    }
+
+    return result.length;
   }
 
   /**

@@ -4,6 +4,8 @@
 // Rejects DDL/DML, dangerous Postgres functions, file ops, and system catalogs.
 // ==========================================
 
+import { clampLimitOffset } from "./limit.clamp.js";
+
 export function validatePostgresSql(sql, options = {}) {
   if (!sql || typeof sql !== "string") {
     return { valid: false, reason: "validator_empty_input" };
@@ -44,7 +46,10 @@ export function validatePostgresSql(sql, options = {}) {
     }
   }
 
-  return { valid: true, sql: cleanSql };
+  // 4. LIMIT & OFFSET clamping (V12)
+  const clampedSql = clampLimitOffset(cleanSql, options);
+
+  return { valid: true, sql: clampedSql };
 }
 
 export const postgresValidator = {

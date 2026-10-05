@@ -5,8 +5,13 @@
 // ============================================================
 
 import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 import { createMariaDbAdapter } from "../adapters/mariadb.adapter.js";
 import { createPostgresAdapter } from "../adapters/postgres.adapter.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const ERROR_CATEGORIES = Object.freeze({
   NETWORK_UNREACHABLE: "network_unreachable",
@@ -130,9 +135,35 @@ export async function testConnection(params = {}) {
         message: "Missing path parameter for SQLite database."
       };
     }
+
+    const forbiddenExtensions = [".enc", ".log", ".json", ".db.bak", ".vault", ".key", ".env"];
+    if (forbiddenExtensions.some((ext) => sqlitePath.toLowerCase().endsWith(ext))) {
+      return {
+        success: false,
+        errorCategory: ERROR_CATEGORIES.INVALID_PARAMETERS,
+        message: "Access to internal artifacts or encrypted files is forbidden."
+      };
+    }
+
+    const resolvedPath = path.resolve(sqlitePath);
+    const allowedDirs = [
+      path.resolve(__dirname, "../../uploads"),
+      path.resolve(__dirname, "../../fixtures"),
+      path.resolve(__dirname, "../../test/fixtures")
+    ];
+
+    const isAllowed = allowedDirs.some((dir) => resolvedPath.startsWith(dir));
+    if (!isAllowed) {
+      return {
+        success: false,
+        errorCategory: ERROR_CATEGORIES.INVALID_PARAMETERS,
+        message: "Requested database file is outside allowed directories."
+      };
+    }
+
     try {
-      await fs.access(sqlitePath);
-      const handle = await fs.open(sqlitePath, "r");
+      await fs.access(resolvedPath);
+      const handle = await fs.open(resolvedPath, "r");
       const buffer = Buffer.alloc(16);
       await handle.read(buffer, 0, 16, 0);
       await handle.close();
@@ -153,7 +184,7 @@ export async function testConnection(params = {}) {
       return {
         success: false,
         errorCategory: ERROR_CATEGORIES.NETWORK_UNREACHABLE,
-        message: `Cannot access SQLite file at ${sqlitePath}: ${err.message}`
+        message: `Cannot access SQLite file at ${resolvedPath}: ${err.message}`
       };
     }
   }

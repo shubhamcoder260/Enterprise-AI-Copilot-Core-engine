@@ -183,9 +183,8 @@ export async function getActionAuditLog(req, res) {
   const limit = !isNaN(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50;
   const offset = !isNaN(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
-  const allFiltered = actionAuditLog.getEntries();
-  const total = allFiltered.length;
-  const paginatedEntries = allFiltered.slice(offset, offset + limit);
+  const total = actionAuditLog.countEntries();
+  const paginatedEntries = actionAuditLog.getEntries({ offset, limit });
   const hasMore = offset + paginatedEntries.length < total;
 
   return res.status(200).json({
