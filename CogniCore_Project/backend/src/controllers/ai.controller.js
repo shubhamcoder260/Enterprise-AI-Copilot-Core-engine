@@ -83,7 +83,28 @@ export async function handleQuery(req, res) {
     // Fail-safe: format failure NEVER breaks an answer. Try/catch at wiring point.
     const finalResponse = selectFormat(result, req.body?.format, query);
 
-    // Returns standard { answer, source, data, meta, [format] }
+    // Provenance Tagging (Feature 1)
+    let provenance = "unresolved";
+    if (finalResponse.source === "dynamic" || finalResponse.source === "llm") {
+      provenance = "verified_data";
+    } else if (finalResponse.source === "fallback" || finalResponse.source === "error" || !finalResponse.source) {
+      provenance = "unresolved";
+    }
+    finalResponse.provenance = provenance;
+
+    // Grounding partial coverage notice
+    if (finalResponse.meta?.grounding?.partial === true || result.meta?.grounding?.partial === true) {
+      const notice =
+        finalResponse.meta?.grounding?.coverageNotice ||
+        result.meta?.grounding?.coverageNotice ||
+        finalResponse.data?.groundingNotice ||
+        result.data?.groundingNotice;
+      if (notice) {
+        finalResponse.coverageNotice = notice;
+      }
+    }
+
+    // Returns standard { answer, source, data, meta, [format], provenance }
     res.json(finalResponse);
   } catch (error) {
     console.error("AI Controller Error:", error);

@@ -69,6 +69,78 @@ export default function ChatWindow({
                   message.error ? "error-message" : ""
                 }`}
               >
+                {/* PROVENANCE CHIP (Feature 1) */}
+                {message.type === "ai" && message.result && (
+                  <div className="provenance-tag-wrapper" style={{ marginBottom: "8px" }}>
+                    {message.result.provenance === "verified_data" ? (
+                      <span
+                        className="provenance-chip verified"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          background: "#ecfdf5",
+                          color: "#059669",
+                          border: "1px solid #a7f3d0"
+                        }}
+                      >
+                        📊 Verified from database
+                      </span>
+                    ) : (
+                      <span
+                        className="provenance-chip unresolved"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          background: "#fffbeb",
+                          color: "#b45309",
+                          border: "1px solid #fde68a"
+                        }}
+                      >
+                        ⚠️ Could not determine
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* GROUNDING PARTIAL COVERAGE BANNER (Feature 1 / Feature 2d) */}
+                {message.type === "ai" &&
+                  (message.result?.coverageNotice ||
+                    message.result?.meta?.grounding?.coverageNotice ||
+                    message.result?.data?.groundingNotice) && (
+                    <div
+                      className="grounding-notice-banner"
+                      style={{
+                        background: "#fffbeb",
+                        border: "1px solid #fef08a",
+                        color: "#854d0e",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        marginBottom: "10px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}
+                    >
+                      <span>⚠️</span>
+                      <span>
+                        {message.result?.coverageNotice ||
+                          message.result?.meta?.grounding?.coverageNotice ||
+                          message.result?.data?.groundingNotice}
+                      </span>
+                    </div>
+                  )}
+
                 <p>{message.text}</p>
 
                 {message.result && (
