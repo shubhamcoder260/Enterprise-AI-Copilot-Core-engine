@@ -151,9 +151,11 @@ export const OPEN_TABLES_ALLOWLIST = freezeSet(new Set([
   "restaurants",
   "drivers",
 
-  // SQLite Realm Benchmarks (University, Bank, Food Delivery, Hospital, Industry)
+  // SQLite Realm Benchmarks (University, Bank, Food Delivery, Hospital, Industry, Library)
   "accounts",
   "accts",
+  "books",
+  "borrowers",
   "branches",
   "brs",
   "couriers",
