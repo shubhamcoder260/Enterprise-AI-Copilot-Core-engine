@@ -18,9 +18,10 @@ export * from "./response.formatter.js";
 export * from "./fastIntent.js";
 export * from "./distinct.cache.js";
 
-// Long-format helper (table has date/time columns or non-unique student_id)
+// Long-format helper (specifically attendance event tables with date columns and non-unique student_id)
 function isLongFormat(tableName, schema) {
   if (!schema) return false;
+  if (!/attend/i.test(tableName)) return false;
   const tableData =
     schema[tableName] ||
     (Array.isArray(schema.tables)

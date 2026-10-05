@@ -1,28 +1,42 @@
-# CogniCore — Enterprise AI Copilot Core Engine
+# CogniCore
 
-On-premises conversational analytics engine. Upload any SQLite database, ask
-questions in plain English, get grounded answers with the exact SQL shown —
-computed by a locally-hosted LLM (Ollama). **Zero data egress. Physically
-read-only execution.**
+CogniCore is a local analytics project built around a Node.js backend and a React frontend. The app is organized around natural-language database querying, LLM-assisted SQL generation, validation, and structured result presentation.
 
-## Why
-Choose between brittle BI dashboards and cloud-LLM tools that leak data.
-CogniCore is the third option: all intelligence local, mathematically grounded,
-structurally safe.
+The repository contains:
 
-## Features
-- 🗄️ Any SQLite DB — upload & runtime switch, no restart
-- 🧠 Local LLM via Ollama (model-agnostic seam)
-- 🛡️ Dual-layer safety: frozen SQL validator (37/37 adversarial) + driver-enforced read-only
-- 🔗 4-link soft-cascade: tools → dynamic router → LLM → schema-aware fallback (255ms failover)
-- 💬 Conversation memory: multi-turn context, session persistence, history hydration
-- 🔍 Transparency: every answer ships its SQL, source badge, latency
-- 🧪 Evidence-driven: 36+ verification scripts, 8-suite canonical regression
+- an Express API in the backend
+- a Vite + React frontend for chat and output rendering
+- SQLite database switching and configuration handling
+- local LLM integration hooks
+- validation and routing logic for generated SQL
+- project docs and verification scripts
 
-## Quick Start
-See [GETTING_STARTED.md](GETTING_STARTED.md) · Architecture: [ARCHITECTURE.md](ARCHITECTURE.md) ·
-Safety: [SECURITY.md](SECURITY.md) · Testing: [TESTING.md](TESTING.md)
+## Current project layout
+
+The active application code lives under:
+
+- [CogniCore_Project/backend](CogniCore_Project/backend)
+- [CogniCore_Project/frontend](CogniCore_Project/frontend)
+- [CogniCore_Project/docs](CogniCore_Project/docs)
+- [CogniCore_Project/test](CogniCore_Project/test)
+
+## Main project docs
+
+- [MASTER_CONTEXT.md](MASTER_CONTEXT.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [SECURITY.md](SECURITY.md)
+- [GETTING_STARTED.md](GETTING_STARTED.md)
+- [TESTING.md](TESTING.md)
+
+## What the codebase currently does
+
+- accepts user queries over HTTP
+- routes requests through backend logic and pipeline modules
+- sends query tasks to local model infrastructure when configured
+- validates generated SQL before execution
+- renders SQL and result data in the UI
+- allows switching the active database at runtime
 
 ## Status
-v1.5 — kernel base complete (4 enforced seams: handler vocabulary, pipeline-as-config,
-gate chain, capabilities). Feature era in progress.
+
+This is an active engineering project with a defined architecture and a working prototype structure. It is not presented here as a fully hardened production system.

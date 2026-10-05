@@ -308,10 +308,11 @@ export function extractFilters(q, table, getDistinct, dialect = "sqlite") {
                 queryStr.match(/\b(20\d\d|19\d\d)\b/);
   if (yearM) {
     const yr = +yearM[1];
-    const dateCol = (table.columns || []).find((c) =>
-      /posting_date|transaction_date|invoice_date|creation|date/i.test(c.name) ||
-      /date|time|timestamp/i.test(c.type)
-    );
+    const dateCol =
+      (table.columns || []).find((c) => /posting_date|transaction_date|invoice_date/i.test(c.name)) ||
+      (table.columns || []).find((c) => /date/i.test(c.name) && !/creation|modified/i.test(c.name)) ||
+      (table.columns || []).find((c) => /date|time|timestamp/i.test(c.type) && !/creation|modified/i.test(c.name)) ||
+      (table.columns || []).find((c) => /posting_date|transaction_date|invoice_date|creation|date/i.test(c.name) || /date|time|timestamp/i.test(c.type));
     if (dateCol) {
       filters.push({
         column: dateCol.name,
@@ -334,7 +335,13 @@ export function extractFilters(q, table, getDistinct, dialect = "sqlite") {
     table.columns.some((c) => c.name === "docstatus") &&
     !filters.some((f) => f.column === "docstatus")
   ) {
-    filters.push({ column: "docstatus", op: "=", value: 1 });
+    if (/\bdraft\b/i.test(queryStr)) {
+      filters.push({ column: "docstatus", op: "=", value: 0 });
+    } else if (/\bcancell?ed\b/i.test(queryStr)) {
+      filters.push({ column: "docstatus", op: "=", value: 2 });
+    } else {
+      filters.push({ column: "docstatus", op: "=", value: 1 });
+    }
   }
 
   // 6. Master "active" convention: Customer/Supplier/Item -> disabled = 0; Employee -> status = 'Active'

@@ -13,10 +13,12 @@
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { generateToken } from "../src/middleware/auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE_URL = "http://localhost:5000";
 const CONFIG_FILE = path.join(__dirname, "..", "active-database.json");
+const TEST_TOKEN = generateToken({ userId: "admin", roles: ["admin"] });
 const U3_DB = path.join(
   __dirname,
   "fixtures",
@@ -45,7 +47,10 @@ async function main() {
     console.log("🔄 Switching active database to U3_institute.db...");
     const switchRes = await fetch(`${BASE_URL}/api/database/switch`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${TEST_TOKEN}`
+      },
       body: JSON.stringify({ databasePath: U3_DB })
     });
 
@@ -62,7 +67,10 @@ async function main() {
 
     const queryRes = await fetch(`${BASE_URL}/api/ai/query`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${TEST_TOKEN}`
+      },
       body: JSON.stringify({
         query: question,
         sessionId: "verify-s13-precision"

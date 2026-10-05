@@ -126,7 +126,8 @@ export async function switchActiveDatabase(req, res) {
     const resolvedPath = path.resolve(databasePath);
     const allowedDirs = [
       path.resolve(__dirname, "../../uploads"),
-      path.resolve(__dirname, "../../fixtures")
+      path.resolve(__dirname, "../../fixtures"),
+      path.resolve(__dirname, "../../test/fixtures")
     ];
 
     const isAllowed = allowedDirs.some((dir) => resolvedPath.startsWith(dir));
