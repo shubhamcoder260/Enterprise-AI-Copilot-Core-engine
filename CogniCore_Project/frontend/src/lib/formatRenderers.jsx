@@ -3,6 +3,76 @@ import * as vega from "vega";
 import * as vegaLite from "vega-lite";
 
 /**
+ * Prettify database column/table names into human-readable presentation labels
+ */
+export function prettifyLabel(label, fallbackTable) {
+  if (!label || label === "count" || label === "result") {
+    if (fallbackTable) {
+      return prettifyLabel(fallbackTable);
+    }
+    return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Result";
+  }
+
+  const raw = String(label).trim();
+  const lower = raw.toLowerCase().replace(/[^a-z0-9_]/g, "");
+
+  const KNOWN_LABELS = {
+    customers: "Customers",
+    customer: "Customer",
+    customer_name: "Customer Name",
+    tabcustomer: "Customers",
+    tabsalesinvoice: "Sales Invoices",
+    sales_invoices: "Sales Invoices",
+    sales_invoice: "Sales Invoice",
+    base_total: "Total Sales",
+    grand_total: "Grand Total",
+    net_total: "Net Total",
+    total_amount: "Total Sales",
+    posting_date: "Posting Date",
+    posting_year: "Posting Year",
+    postingdate: "Posting Date",
+    postingyear: "Posting Year",
+    docstatus: "Status",
+    status: "Status",
+    item_code: "Item Code",
+    item_name: "Product Name",
+    item_group: "Item Group",
+    description: "Description",
+    stock_uom: "UOM",
+    students: "Students",
+    attendance_percentage: "Attendance %",
+    student_id: "Student ID",
+    y: "Posting Year"
+  };
+
+  if (KNOWN_LABELS[lower]) return KNOWN_LABELS[lower];
+
+  const aggMatch = raw.match(/^(?:sum|avg|count|min|max)\((.*?)\)$/i);
+  if (aggMatch) {
+    const inner = aggMatch[1].trim();
+    const innerLower = inner.toLowerCase().replace(/[^a-z0-9_]/g, "");
+    if (KNOWN_LABELS[innerLower]) {
+      return KNOWN_LABELS[innerLower];
+    }
+    const cleanInner = inner.replace(/^tab/i, "").replace(/_/g, " ").trim();
+    const prefix = raw.slice(0, 3).toUpperCase();
+    if (prefix === "SUM" && /total|amount|sum/i.test(cleanInner)) {
+      return cleanInner.replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+    const prefixWord = prefix === "SUM" ? "Total " : prefix === "AVG" ? "Average " : "";
+    return (prefixWord + cleanInner).replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  let s = raw
+    .replace(/^tab/i, "")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
  * Vega-Lite Chart Renderer using vega and vega-lite
  */
 export function VegaLiteChart({ spec, title }) {
@@ -17,11 +87,49 @@ export function VegaLiteChart({ spec, title }) {
     try {
       // Compile Vega-Lite v5 spec into Vega runtime spec
       const compileTarget = {
-        width: 460,
+        width: 480,
         height: 220,
         autosize: { type: "fit", contains: "padding" },
         ...spec
       };
+
+      // Enhance axis labels and formatting (Feature 2b)
+      if (compileTarget.encoding) {
+        if (compileTarget.encoding.x) {
+          const rawX = compileTarget.encoding.x.title || compileTarget.encoding.x.field || "Dimension";
+          compileTarget.encoding.x = {
+            ...compileTarget.encoding.x,
+            title: prettifyLabel(rawX),
+            axis: {
+              title: prettifyLabel(rawX),
+              labelAngle: -25,
+              labelFontSize: 11,
+              titleFontSize: 12,
+              ...(compileTarget.encoding.x.axis || {})
+            }
+          };
+        }
+        if (compileTarget.encoding.y) {
+          const rawY = compileTarget.encoding.y.title || compileTarget.encoding.y.field || "Value";
+          compileTarget.encoding.y = {
+            ...compileTarget.encoding.y,
+            title: prettifyLabel(rawY),
+            axis: {
+              title: prettifyLabel(rawY),
+              format: compileTarget.encoding.y.axis?.format || ",.2~f",
+              titleFontSize: 12,
+              ...(compileTarget.encoding.y.axis || {})
+            }
+          };
+        }
+        if (compileTarget.encoding.tooltip && Array.isArray(compileTarget.encoding.tooltip)) {
+          compileTarget.encoding.tooltip = compileTarget.encoding.tooltip.map((t) => ({
+            ...t,
+            title: prettifyLabel(t.title || t.field),
+            format: t.type === "quantitative" ? ",.2f" : undefined
+          }));
+        }
+      }
 
       const compiled = vegaLite.compile(compileTarget);
       const vegaSpec = compiled.spec;
@@ -66,12 +174,14 @@ export function VegaLiteChart({ spec, title }) {
 }
 
 /**
- * KPI Metric Card
+ * KPI Metric Card (Feature 2a)
  */
-export function KpiCard({ kpi, fallbackLabel }) {
+export function KpiCard({ kpi, fallbackLabel, table }) {
   if (!kpi && fallbackLabel === undefined) return null;
-  const label = kpi?.label || fallbackLabel;
-  const display = kpi?.display !== undefined ? kpi.display : String(kpi?.value ?? "");
+  const rawLabel = kpi?.label || fallbackLabel;
+  const label = prettifyLabel(rawLabel, table || kpi?.table);
+  const rawValue = kpi?.value;
+  const display = kpi?.display !== undefined ? kpi.display : String(rawValue ?? "");
 
   return (
     <div
@@ -80,20 +190,36 @@ export function KpiCard({ kpi, fallbackLabel }) {
         background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)",
         color: "white",
         borderRadius: "12px",
-        padding: "16px 20px",
+        padding: "18px 24px",
         display: "inline-flex",
         flexDirection: "column",
-        minWidth: "160px",
-        boxShadow: "0 4px 12px rgba(79, 70, 229, 0.15)",
+        minWidth: "180px",
+        boxShadow: "0 4px 14px rgba(79, 70, 229, 0.2)",
         marginTop: "10px"
       }}
     >
       {label && (
-        <span style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", opacity: 0.85, marginBottom: "4px" }}>
+        <span
+          style={{
+            fontSize: "12px",
+            textTransform: "uppercase",
+            letterSpacing: "0.8px",
+            opacity: 0.9,
+            marginBottom: "6px",
+            fontWeight: 600
+          }}
+        >
           {label}
         </span>
       )}
-      <span style={{ fontSize: "28px", fontWeight: "bold", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <span
+        style={{
+          fontSize: "32px",
+          fontWeight: "800",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          letterSpacing: "-0.5px"
+        }}
+      >
         {display}
       </span>
     </div>
@@ -101,9 +227,9 @@ export function KpiCard({ kpi, fallbackLabel }) {
 }
 
 /**
- * Data Table Renderer (with optional grouping-guard note banner)
+ * Data Table Renderer (Feature 2c & 2d)
  */
-export function DataTable({ columns, rows, records, note }) {
+export function DataTable({ columns, rows, records, note, table }) {
   let cols = [];
   let tableRows = [];
 
@@ -115,15 +241,55 @@ export function DataTable({ columns, rows, records, note }) {
     tableRows = records.map((r) => cols.map((c) => r[c]));
   }
 
+  function isNumericCol(colIdx) {
+    let checked = 0;
+    for (const r of tableRows) {
+      if (r[colIdx] !== null && r[colIdx] !== undefined && r[colIdx] !== "") {
+        checked++;
+        const val = r[colIdx];
+        if (typeof val === "number") continue;
+        if (typeof val === "string" && /^-?\d+(\.\d+)?$/.test(val.trim())) continue;
+        return false;
+      }
+    }
+    return checked > 0;
+  }
+
+  function formatCellValue(val) {
+    if (val === null || val === undefined) return "—";
+    if (typeof val === "number") {
+      return Number.isInteger(val) ? String(val) : val.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    }
+    if (typeof val === "string") {
+      if (/^\d{4}-\d{2}-\d{2}/.test(val.trim())) {
+        try {
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+          }
+        } catch {}
+      }
+      if (/^-?\d+\.\d+$/.test(val.trim())) {
+        const num = parseFloat(val);
+        if (!isNaN(num)) {
+          return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
+        }
+      }
+    }
+    return String(val);
+  }
+
+  const numericColFlags = cols.map((_, i) => isNumericCol(i));
+
   return (
     <div className="table-visualizer" style={{ marginTop: "12px" }}>
       {note && (
         <div
           className="format-note-banner"
           style={{
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            color: "#1d4ed8",
+            background: "#fffbeb",
+            border: "1px solid #fef08a",
+            color: "#854d0e",
             padding: "8px 12px",
             borderRadius: "8px",
             fontSize: "12px",
@@ -133,34 +299,63 @@ export function DataTable({ columns, rows, records, note }) {
             gap: "6px"
           }}
         >
-          <span>ℹ️</span>
+          <span>⚠️</span>
           <span>{note}</span>
         </div>
       )}
 
       {cols.length > 0 ? (
         <details open className="table-wrapper">
-          <summary style={{ fontSize: "12px", color: "#64748b", cursor: "pointer", marginBottom: "6px" }}>
+          <summary style={{ fontSize: "12px", color: "#64748b", cursor: "pointer", marginBottom: "6px", fontWeight: 500 }}>
             Data Table ({tableRows.length} {tableRows.length === 1 ? "row" : "rows"})
           </summary>
-          <table className="data-table">
-            <thead>
-              <tr>
-                {cols.map((col) => (
-                  <th key={col}>{col}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((row, rIdx) => (
-                <tr key={rIdx}>
-                  {cols.map((col, cIdx) => (
-                    <td key={cIdx}>{String(row[cIdx] ?? "")}</td>
+          <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+            <table className="data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                <tr>
+                  {cols.map((col, idx) => (
+                    <th
+                      key={col}
+                      style={{
+                        padding: "10px 14px",
+                        textAlign: numericColFlags[idx] ? "right" : "left",
+                        color: "#475569",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {prettifyLabel(col, table)}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tableRows.map((row, rIdx) => (
+                  <tr
+                    key={rIdx}
+                    style={{
+                      borderBottom: rIdx < tableRows.length - 1 ? "1px solid #f1f5f9" : "none",
+                      background: rIdx % 2 === 0 ? "white" : "#fafafa"
+                    }}
+                  >
+                    {cols.map((col, cIdx) => (
+                      <td
+                        key={cIdx}
+                        style={{
+                          padding: "8px 14px",
+                          textAlign: numericColFlags[cIdx] ? "right" : "left",
+                          color: "#1e293b",
+                          fontVariantNumeric: numericColFlags[cIdx] ? "tabular-nums" : "normal"
+                        }}
+                      >
+                        {formatCellValue(row[cIdx])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </details>
       ) : (
         <p style={{ fontSize: "12px", color: "#94a3b8" }}>No rows to display.</p>

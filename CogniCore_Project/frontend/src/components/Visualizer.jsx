@@ -10,13 +10,14 @@ import {
 export default function Visualizer({ result, onInspectSql }) {
   if (!result || typeof result !== "object") return null;
 
-  const { format, data } = result;
+  const { format, data, meta } = result;
+  const table = data?.table || meta?.table || null;
 
   return (
     <div className="cognicore-visualizer">
       {/* 1. POLYMORPHIC FORMAT DISPATCH */}
       {format?.kind === "kpi" && (
-        <KpiCard kpi={format} />
+        <KpiCard kpi={format} table={table} />
       )}
 
       {format?.kind === "table" && (
@@ -24,6 +25,7 @@ export default function Visualizer({ result, onInspectSql }) {
           columns={format.columns}
           rows={format.rows}
           note={format.note}
+          table={table}
         />
       )}
 
@@ -44,7 +46,7 @@ export default function Visualizer({ result, onInspectSql }) {
 
       {/* 2. UNFORMATTED / FALLBACK DATA RENDERING (NO FORMAT FIELD OR LEGACY SHAPE) */}
       {!format && data?.records && data.records.length > 0 && (
-        <DataTable records={data.records} />
+        <DataTable records={data.records} table={table} />
       )}
 
       {!format && data?.value !== undefined && !data?.records && (
@@ -54,6 +56,7 @@ export default function Visualizer({ result, onInspectSql }) {
             value: data.value,
             display: String(data.value)
           }}
+          table={table}
         />
       )}
     </div>
