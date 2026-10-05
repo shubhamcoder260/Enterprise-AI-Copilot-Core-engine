@@ -10,7 +10,7 @@ import { isHandlerResult } from "../kernel/handler-result.js";
 import { capabilities } from "../kernel/capabilities.js";
 
 export async function runCoreEngine(
-  { query, organization = "college", role = "admin", sessionId, model },
+  { query, organization = "general", role = "admin", sessionId, model },
   { pipeline, capabilities: customCapabilities } = {}
 ) {
   const activeCaps = customCapabilities || capabilities;

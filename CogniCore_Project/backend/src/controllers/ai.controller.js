@@ -16,7 +16,7 @@ export async function handleQuery(req, res) {
     (req.headers["x-session-id"] && String(req.headers["x-session-id"]).trim()) ||
     crypto.randomUUID();
 
-  const organization = req.body?.organization || "college";
+  const organization = req.body?.organization || "general";
   const role = req.body?.role || "admin";
   const model = req.body?.model;
 
