@@ -344,6 +344,9 @@ export function selectFormat(contract, hint, query = "") {
         if (tableShape && Array.isArray(tableShape.columns) && Array.isArray(tableShape.rows)) {
           formatObj = formatFor("csv", { columns: tableShape.columns, rows: tableShape.rows });
         }
+      } else if (typeof data.value !== "undefined") {
+        const col = data.column || data.type || "result";
+        formatObj = formatFor("csv", { columns: [col], rows: [[data.value]] });
       }
     }
 
