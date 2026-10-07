@@ -141,24 +141,34 @@ export async function runDynamicQuery(query, options = {}) {
       }
     }
 
-    console.log("ℹ️ [FAST INTENT] No match, falling through to heuristic pipeline");
-
     if (dialect !== "sqlite") {
       return {
         success: false,
-        code: "dynamic_unmatched",
+        code: "needs_llm",
         answer: `Fast intent did not match for ${dialect} source, cascading to LLM.`
       };
     }
 
     // 2. Understand (Resolve table + column)
     const resolved = resolveTableAndColumn(query, schema);
-    if (resolved.tableName) {
-      console.log("🎯 USING TABLE:", resolved.tableName);
+    if (!resolved.tableName) {
+      return {
+        success: false,
+        code: "needs_llm",
+        answer: "Query not resolved by single-table heuristics, cascading to LLM."
+      };
     }
+    console.log("🎯 USING TABLE:", resolved.tableName);
 
     // 3. Plan (Build SQL query plan)
     const plan = buildQueryPlan({ query, schema, resolved, getDistinct });
+    if (plan.errorType === "table_missing" || plan.errorType === "table_not_found") {
+      return {
+        success: false,
+        code: "needs_llm",
+        answer: "Query not resolved by single-table builder, cascading to LLM."
+      };
+    }
 
     // H2 Universal builder shield: all builder operations decline if query contains unbound categorical distinct values
     if (plan.tableName && typeof getDistinct === "function" && !plan.errorType) {

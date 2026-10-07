@@ -129,7 +129,7 @@ export async function handleQuery(req, res) {
 
 export async function getAvailableModels(req, res) {
   const baseUrl = process.env.LOCAL_LLM_URL || "http://localhost:11434";
-  const defaultModel = process.env.LOCAL_LLM_MODEL || "gemma3:4b";
+  const defaultModel = process.env.LOCAL_LLM_MODEL || "qwen2.5:14b-instruct-q4_K_M";
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);

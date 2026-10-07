@@ -162,7 +162,7 @@ export default function ChatWindow({
                               ? "Fallback"
                               : message.result.source === "llm"
                               ? `Local LLM (${
-                                  message.result.meta?.model || "gemma3:4b"
+                                  message.result.meta?.model || "qwen2.5:14b-instruct-q4_K_M"
                                 })`
                               : message.result.source || "N/A"}
                           </span>

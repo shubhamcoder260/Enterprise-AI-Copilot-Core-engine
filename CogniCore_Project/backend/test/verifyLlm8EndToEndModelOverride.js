@@ -18,7 +18,7 @@ async function runTest() {
   await switchDatabase(cognicorePath);
 
   const query = "Show all students enrolled in the year 2026";
-  const requestedModel = "gemma3:4b";
+  const requestedModel = process.env.LOCAL_LLM_MODEL || "qwen2.5:14b-instruct-q4_K_M";
   console.log(`[Test] Running query with explicit model override: "${requestedModel}"`);
 
   const startTime = Date.now();

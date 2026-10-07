@@ -15,7 +15,7 @@ export default function DatabaseSidebar({
   organization,
   onSelectOrganization,
   selectedModel,
-  availableModels = ["gemma3:4b"],
+  availableModels = ["qwen2.5:14b-instruct-q4_K_M"],
   llmOnline = true,
   onSelectModel,
   onDatabaseActivated

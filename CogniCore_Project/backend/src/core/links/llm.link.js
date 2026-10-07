@@ -115,6 +115,10 @@ export async function executeLlmLink(ctx) {
     }
 
     let totalLlmDurationMs = clientResult.durationMs || 0;
+    let candidateSql = String(clientResult.sql || "")
+      .replace(/^\s*(?:SQL(?:\s*Query)?|Query):\s*/i, "")
+      .trim();
+    console.log("📝 [LLM Link] Generated SQL candidate:", candidateSql);
     let didRetry = false;
     let retryReason = null;
     let attemptsCount = 1;
@@ -130,12 +134,13 @@ export async function executeLlmLink(ctx) {
 
     for (const gate of activeChain) {
       if (gate.type === "validate") {
-        const validation = await gate.run(finalSql || clientResult.sql, {
+        const validation = await gate.run(finalSql || candidateSql, {
           schema,
           identity: ctx.identity,
           queryIntent: ir
         });
         if (!validation.valid) {
+          console.log("⚠️ [LLM Link] Validation failed:", validation.reason, "for SQL:", candidateSql);
           if (validation.reason?.startsWith("ast_rls_") || validation.reason?.startsWith("rls_")) {
             console.log(`🛡️ [LLM Link RLS Block] Refusing execution: ${validation.reason}`);
             return ANSWERED({
@@ -177,7 +182,8 @@ export async function executeLlmLink(ctx) {
       console.log(`ℹ️ [LLM Cascade] Initial validation failed: ${initialValidationReason}`);
       const isRetryable =
         (initialValidationReason.startsWith("ast_") ||
-         initialValidationReason.startsWith("group_by_required")) &&
+         initialValidationReason.startsWith("group_by_required") ||
+         initialValidationReason === "llm_invalid_sql") &&
         attemptsCount < 2;
 
       if (!isRetryable) {
@@ -189,7 +195,7 @@ export async function executeLlmLink(ctx) {
       retryReason = initialValidationReason;
       console.log(`🔄 [LLM Corrective Retry] Prompting retry (attempt 2/2) for: ${retryReason}`);
 
-      const correctivePrompt = buildCorrectivePrompt(retryReason, finalSql || clientResult.sql, prompt);
+      const correctivePrompt = buildCorrectivePrompt(retryReason, finalSql || candidateSql, prompt);
       const retryResult = await llm.generateSql({ prompt: correctivePrompt, model });
 
       if (!retryResult.success) {
@@ -204,10 +210,13 @@ export async function executeLlmLink(ctx) {
       let retrySawValidator = false;
       let retryValidationFailed = false;
       let retryValidationReason = "";
+      let retryCandidateSql = String(retryResult.sql || "")
+        .replace(/^\s*(?:SQL(?:\s*Query)?|Query):\s*/i, "")
+        .trim();
 
       for (const gate of activeChain) {
         if (gate.type === "validate") {
-          const v = await gate.run(retryFinalSql || retryResult.sql, { schema });
+          const v = await gate.run(retryFinalSql || retryCandidateSql, { schema });
           if (!v.valid) {
             retryValidationFailed = true;
             retryValidationReason = v.reason;

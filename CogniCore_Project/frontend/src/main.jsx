@@ -14,7 +14,7 @@ function App() {
   const [organization, setOrganization] = useState("college");
   const [query, setQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState(getInitialModel);
-  const [availableModels, setAvailableModels] = useState(["gemma3:4b"]);
+  const [availableModels, setAvailableModels] = useState(["qwen2.5:14b-instruct-q4_K_M"]);
   const [llmOnline, setLlmOnline] = useState(true);
   const [loading, setLoading] = useState(false);
   const [inspectorTarget, setInspectorTarget] = useState(null);

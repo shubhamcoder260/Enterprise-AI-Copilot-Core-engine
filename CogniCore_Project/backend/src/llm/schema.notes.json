@@ -1,5 +1,7 @@
 {
   "artists": "Contains artists. Column Name is artist name. Links to albums via ArtistId.",
   "albums": "Contains albums. Links to artists via ArtistId, and to tracks via AlbumId.",
-  "tracks": "Contains individual tracks (TrackId). Links to albums via AlbumId."
+  "tracks": "Contains individual tracks (TrackId). Links to albums via AlbumId.",
+  "students": "Contains student records. Column attendance_percentage is overall attendance. Absent percentage is (100.0 - attendance_percentage).",
+  "attendance": "Contains daily attendance events with student_id, date, and status ('Present' or 'Absent')."
 }

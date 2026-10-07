@@ -8,13 +8,15 @@ async function main() {
 
   const originalUrl = process.env.LOCAL_LLM_URL || "http://localhost:11434";
 
+  const activeModel = process.env.LOCAL_LLM_MODEL || "qwen2.5:14b-instruct-q4_K_M";
+
   // Part 1: Dead-port call (Ollama offline simulation)
   console.log("▶️ [PART 1] Calling dead port http://localhost:59999 (Ollama offline simulation)...");
   process.env.LOCAL_LLM_URL = "http://localhost:59999";
 
   const offlineRes = await generateSql({
     prompt: "SELECT 1;",
-    model: "gemma3:4b"
+    model: activeModel
   });
 
   process.env.LOCAL_LLM_URL = originalUrl;
@@ -36,7 +38,7 @@ async function main() {
   console.log(`▶️ [PART 2] Calling live Ollama at ${originalUrl}...`);
   const liveRes = await generateSql({
     prompt: "Output ONLY one SQLite query: SELECT id, name FROM students LIMIT 5;",
-    model: "gemma3:4b"
+    model: activeModel
   });
 
   console.log("Live result:", liveRes);

@@ -10,5 +10,7 @@ CogniCore_Project/backend/uploads/
 database_test/
 .agents/
 .archify/
+CogniCore_Project/backend/*.db
+CogniCore_Project/backend/fixtures/library_generalization.db
 skills-lock.json
 PROJECT_REFERENCE_REPORT_DRAFT.md

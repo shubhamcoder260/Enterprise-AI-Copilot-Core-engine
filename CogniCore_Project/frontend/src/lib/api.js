@@ -36,7 +36,7 @@ export function getInitialModel() {
       return saved.trim();
     }
   } catch {}
-  return "gemma3:4b";
+  return "qwen2.5:14b-instruct-q4_K_M";
 }
 
 /**

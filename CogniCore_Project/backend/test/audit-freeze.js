@@ -38,7 +38,8 @@ function runAuditFreeze() {
       continue;
     }
 
-    const content = fs.readFileSync(fullPath);
+    const raw = fs.readFileSync(fullPath, 'utf8');
+    const content = raw.replace(/\r\n/g, '\n');
     const hash = crypto.createHash('sha256').update(content).digest('hex');
 
     if (hash === expectedHash) {
