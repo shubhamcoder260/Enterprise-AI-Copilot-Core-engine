@@ -96,12 +96,32 @@ export function VegaLiteChart({ spec, title }) {
       // Enhance axis labels and formatting (Feature 2b)
       if (compileTarget.encoding) {
         if (compileTarget.encoding.x) {
-          const rawX = compileTarget.encoding.x.title || compileTarget.encoding.x.field || "Dimension";
+          let xTitle = compileTarget.encoding.x.title;
+          if (!xTitle) {
+            const rawX = compileTarget.encoding.x.field || "Dimension";
+            if (rawX === "label" || rawX === "Dimension") {
+              const sample = compileTarget.data?.values?.[0]?.label;
+              if (sample && /^\d{4}$/.test(String(sample).trim())) {
+                xTitle = "Year";
+              } else if (title && /\byears?\b/i.test(title)) {
+                xTitle = "Year";
+              } else if (title && /\bstatus\b/i.test(title)) {
+                xTitle = "Status";
+              } else {
+                xTitle = "Category";
+              }
+            } else {
+              xTitle = prettifyLabel(rawX);
+            }
+          } else {
+            xTitle = prettifyLabel(xTitle);
+          }
+
           compileTarget.encoding.x = {
             ...compileTarget.encoding.x,
-            title: prettifyLabel(rawX),
+            title: xTitle,
             axis: {
-              title: prettifyLabel(rawX),
+              title: xTitle,
               labelAngle: -25,
               labelFontSize: 11,
               titleFontSize: 12,
@@ -110,12 +130,33 @@ export function VegaLiteChart({ spec, title }) {
           };
         }
         if (compileTarget.encoding.y) {
-          const rawY = compileTarget.encoding.y.title || compileTarget.encoding.y.field || "Value";
+          let yTitle = compileTarget.encoding.y.title;
+          if (!yTitle) {
+            const rawY = compileTarget.encoding.y.field || "Value";
+            if (rawY === "value" || rawY === "Value") {
+              if (title && /\bsales\b/i.test(title)) {
+                yTitle = "Total Sales";
+              } else if (title && /\borders?\b/i.test(title)) {
+                yTitle = "Order Count";
+              } else if (title && /\bamount|total|sum\b/i.test(title)) {
+                yTitle = "Total";
+              } else if (title && /\bcount\b/i.test(title)) {
+                yTitle = "Count";
+              } else {
+                yTitle = "Total";
+              }
+            } else {
+              yTitle = prettifyLabel(rawY);
+            }
+          } else {
+            yTitle = prettifyLabel(yTitle);
+          }
+
           compileTarget.encoding.y = {
             ...compileTarget.encoding.y,
-            title: prettifyLabel(rawY),
+            title: yTitle,
             axis: {
-              title: prettifyLabel(rawY),
+              title: yTitle,
               format: compileTarget.encoding.y.axis?.format || ",.2~f",
               titleFontSize: 12,
               ...(compileTarget.encoding.y.axis || {})
@@ -181,7 +222,17 @@ export function KpiCard({ kpi, fallbackLabel, table }) {
   const rawLabel = kpi?.label || fallbackLabel;
   const label = prettifyLabel(rawLabel, table || kpi?.table);
   const rawValue = kpi?.value;
-  const display = kpi?.display !== undefined ? kpi.display : String(rawValue ?? "");
+  let display = kpi?.display !== undefined ? kpi.display : String(rawValue ?? "");
+
+  // Format percentage metrics with % symbol if not already present
+  if (
+    /percent|pct|rate|\b%/i.test(String(rawLabel || "")) ||
+    /percent|pct|rate|\b%/i.test(String(label || ""))
+  ) {
+    if (!display.includes("%") && !isNaN(parseFloat(display))) {
+      display = `${display}%`;
+    }
+  }
 
   return (
     <div
@@ -309,9 +360,26 @@ export function DataTable({ columns, rows, records, note, table }) {
           <summary style={{ fontSize: "12px", color: "#64748b", cursor: "pointer", marginBottom: "6px", fontWeight: 500 }}>
             Data Table ({tableRows.length} {tableRows.length === 1 ? "row" : "rows"})
           </summary>
-          <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+          <div
+            style={{
+              overflowX: "auto",
+              overflowY: "auto",
+              maxHeight: "360px",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+              position: "relative"
+            }}
+          >
             <table className="data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-              <thead style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <thead
+                style={{
+                  background: "#f8fafc",
+                  borderBottom: "1px solid #e2e8f0",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 2
+                }}
+              >
                 <tr>
                   {cols.map((col, idx) => (
                     <th
@@ -321,7 +389,8 @@ export function DataTable({ columns, rows, records, note, table }) {
                         textAlign: numericColFlags[idx] ? "right" : "left",
                         color: "#475569",
                         fontWeight: 600,
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap",
+                        background: "#f8fafc"
                       }}
                     >
                       {prettifyLabel(col, table)}
